@@ -85,3 +85,18 @@ ALTER TABLE courses ADD COLUMN template_id UUID REFERENCES templates(id) ON DELE
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Templates are viewable by everyone" ON templates FOR SELECT USING (true);
 CREATE POLICY "Admins can manage templates" ON templates FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 7. Table testimonials (Témoignages)
+CREATE TABLE testimonials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS pour la table testimonials
+ALTER TABLE testimonials ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Testimonials are viewable by everyone" ON testimonials FOR SELECT USING (true);
+CREATE POLICY "Anyone can add a testimonial" ON testimonials FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admins can manage testimonials" ON testimonials FOR ALL TO authenticated USING (true) WITH CHECK (true);

@@ -49,6 +49,15 @@ export default function PublicCoursePage() {
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Review State
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewName, setReviewName] = useState('');
+  const [reviewStatus, setReviewStatus] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [dbTestimonials, setDbTestimonials] = useState<any[]>([]);
+
   // Accordion State
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
 
@@ -101,8 +110,22 @@ END:VCALENDAR`;
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
   };
 
+  const fetchTestimonials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('testimonials')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setDbTestimonials(data || []);
+    } catch (err: any) {
+      console.error('Error fetching testimonials:', err.message);
+    }
+  };
+
   useEffect(() => {
     if (id) fetchCourse();
+    fetchTestimonials();
   }, [id]);
 
   useEffect(() => {
@@ -200,6 +223,34 @@ END:VCALENDAR`;
     }
   };
 
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReviewSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('testimonials')
+        .insert([{
+          name: reviewName,
+          status: reviewStatus,
+          comment: reviewComment
+        }]);
+      if (error) throw error;
+      setReviewSuccess(true);
+      fetchTestimonials();
+      setTimeout(() => {
+        setShowReviewModal(false);
+        setReviewSuccess(false);
+        setReviewName('');
+        setReviewStatus('');
+        setReviewComment('');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Error adding review:', err.message);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3">
@@ -237,6 +288,17 @@ END:VCALENDAR`;
   const primaryColorLight = primaryColor + '40';
   const bgClass = template?.bg_pattern || 'bg-green-50/30';
 
+  const allTestimonials = [
+    ...dbTestimonials.map(t => ({
+      id: t.id,
+      name: t.name,
+      role: t.status,
+      text: t.comment,
+      initials: t.name.substring(0, 2).toUpperCase()
+    })),
+    ...testimonials
+  ];
+
   return (
     <div className={`min-h-screen ${bgClass} font-sans pb-20 theme-page`}>
       <style dangerouslySetInnerHTML={{__html: `
@@ -270,9 +332,29 @@ END:VCALENDAR`;
         >
           <div className="absolute top-0 left-0 w-full h-2 theme-gradient"></div>
           
-          <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-medium theme-text mb-6 border theme-border-light">
-            <Calendar className="w-4 h-4" />
-            <span className="capitalize">{formattedDate}</span>
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-medium theme-text border theme-border-light">
+              <Calendar className="w-4 h-4" />
+              <span className="capitalize">{formattedDate}</span>
+            </div>
+            
+            {course.max_seats ? (
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${course.remainingSeats && course.remainingSeats > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                <User className="w-4 h-4" />
+                {course.remainingSeats && course.remainingSeats > 0 ? (
+                  <span>{course.remainingSeats} {course.remainingSeats > 1 ? 'places restantes' : 'place restante'} sur {course.max_seats}</span>
+                ) : (
+                  <span>Complet ({course.max_seats} inscrits)</span>
+                )}
+              </div>
+            ) : (
+              course.registeredCount > 0 && (
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-full text-sm font-medium border border-gray-200">
+                  <User className="w-4 h-4" />
+                  <span>{course.registeredCount} {course.registeredCount > 1 ? 'inscrits' : 'inscrit'}</span>
+                </div>
+              )
+            )}
           </div>
           
           <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-6">
@@ -419,17 +501,25 @@ END:VCALENDAR`;
           transition={{ duration: 0.5, delay: 0.25 }}
           className="space-y-6"
         >
-          <h2 className="text-2xl font-bold text-gray-900 px-2 flex items-center gap-2">
-            <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-            Ce qu'ils en disent
-          </h2>
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+              Ce qu'ils en disent
+            </h2>
+            <button
+              onClick={() => setShowReviewModal(true)}
+              className="text-sm font-medium theme-text hover:underline transition-colors px-3 py-1.5 rounded-lg theme-bg-light"
+            >
+              Laissez un avis
+            </button>
+          </div>
           <div className="flex overflow-x-auto gap-4 pb-6 snap-x hide-scrollbar px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             <style dangerouslySetInnerHTML={{__html: `
               .hide-scrollbar::-webkit-scrollbar {
                 display: none;
               }
             `}} />
-            {testimonials.map((testimonial) => (
+            {allTestimonials.map((testimonial) => (
               <div 
                 key={testimonial.id} 
                 className="min-w-[280px] sm:min-w-[320px] bg-white rounded-3xl p-6 shadow-sm border theme-border snap-center flex flex-col justify-between"
@@ -725,6 +815,78 @@ END:VCALENDAR`;
           Contacter sur WhatsApp
         </a>
       </div>
+
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
+          >
+            {reviewSuccess ? (
+              <div className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 theme-bg-light theme-text rounded-full flex items-center justify-center mx-auto mb-2">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Merci pour votre avis !</h3>
+                <p className="text-gray-500">Votre témoignage a été ajouté avec succès.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-900">Laissez un avis</h3>
+                  <button onClick={() => setShowReviewModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <form onSubmit={handleReviewSubmit} className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom et prénom</label>
+                    <input 
+                      required 
+                      type="text" 
+                      value={reviewName}
+                      onChange={e => setReviewName(e.target.value)}
+                      className="block w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Ex: Kouamé Jean"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Statut (Niveau d'étude, Poste)</label>
+                    <input 
+                      required 
+                      type="text" 
+                      value={reviewStatus}
+                      onChange={e => setReviewStatus(e.target.value)}
+                      className="block w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Ex: Étudiant en Master, Analyste"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Commentaire</label>
+                    <textarea 
+                      required 
+                      value={reviewComment}
+                      onChange={e => setReviewComment(e.target.value)}
+                      rows={4}
+                      className="block w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Votre avis sur la formation..."
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={reviewSubmitting}
+                    className="w-full py-3 theme-bg rounded-xl text-white font-bold disabled:opacity-50"
+                  >
+                    {reviewSubmitting ? 'Envoi...' : 'Envoyer mon avis'}
+                  </button>
+                </form>
+              </>
+            )}
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
