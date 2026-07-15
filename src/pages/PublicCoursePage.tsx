@@ -1,8 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube } from 'lucide-react';
+import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send } from 'lucide-react';
 import { motion } from 'motion/react';
+
+const testimonials = [
+  {
+    id: 1,
+    name: "Jean-Claude Tchakounté",
+    role: "Étudiant en Master",
+    text: "La formation en analyses statistiques est excellente. Les explications sont claires et le suivi est vraiment primordial. J'ai pu soutenir mon mémoire sans aucun problème !",
+    initials: "JC"
+  },
+  {
+    id: 2,
+    name: "Marie-Claire Ndom",
+    role: "Professionnelle RH",
+    text: "Ma maîtrise d'Excel s'est nettement améliorée. J'arrive maintenant à automatiser mes tâches. Le formateur prend le temps de bien expliquer chaque étape.",
+    initials: "MC"
+  },
+  {
+    id: 3,
+    name: "Amadou Bouba",
+    role: "Doctorant",
+    text: "Une approche pédagogique incroyable. Les concepts statistiques complexes deviennent simples. C'est grâce à cet accompagnement que j'ai validé ma thèse.",
+    initials: "AB"
+  },
+  {
+    id: 4,
+    name: "Estelle Mvogo",
+    role: "Analyste de Données",
+    text: "J'ai suivi plusieurs formations, mais celle-ci est de loin la meilleure. Le formateur est à l'écoute et le suivi post-formation est un vrai plus pour s'améliorer.",
+    initials: "EM"
+  }
+];
 
 export default function PublicCoursePage() {
   const { id } = useParams();
@@ -204,12 +235,9 @@ END:VCALENDAR`;
     <div className="min-h-screen bg-green-50/30 font-sans pb-20">
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-green-100">
-        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-center">
-          <img 
-            src="https://drive.google.com/uc?export=view&id=1AunbjscLdHMhMy8cZViVBJ-zUzE1zYrg" 
-            alt="Exceller chez Pierre" 
-            className="h-10 object-contain hover:scale-105 transition-transform" 
-          />
+        <div className="max-w-3xl mx-auto px-4 py-4 text-center">
+          <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">Exceller chez Pierre</h1>
+          {course && <p className="text-lg sm:text-xl font-bold text-green-600 mt-1">{course.title}</p>}
         </div>
       </header>
 
@@ -240,9 +268,15 @@ END:VCALENDAR`;
 
           <div className="flex flex-col items-center justify-center gap-2 mb-10">
             <span className="text-sm text-green-600 uppercase tracking-widest font-bold">Tarif d'inscription</span>
-            <span className="text-4xl sm:text-5xl font-black text-gray-900">
-              {course.price_fcfa.toLocaleString('fr-FR')} <span className="text-xl text-gray-500 font-medium">FCFA</span>
-            </span>
+            {course.price_fcfa === 0 ? (
+              <span className="text-4xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-400 animate-pulse drop-shadow-[0_0_10px_rgba(34,197,94,0.4)]">
+                Gratuit !
+              </span>
+            ) : (
+              <span className="text-4xl sm:text-5xl font-black text-gray-900">
+                {course.price_fcfa.toLocaleString('fr-FR')} <span className="text-xl text-gray-500 font-medium">FCFA</span>
+              </span>
+            )}
           </div>
 
           {course.remainingSeats === 0 ? (
@@ -357,6 +391,53 @@ END:VCALENDAR`;
             </div>
           </motion.section>
         )}
+
+        {/* Testimonials Section */}
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+          className="space-y-6"
+        >
+          <h2 className="text-2xl font-bold text-gray-900 px-2 flex items-center gap-2">
+            <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+            Ce qu'ils en disent
+          </h2>
+          <div className="flex overflow-x-auto gap-4 pb-6 snap-x hide-scrollbar px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <style dangerouslySetInnerHTML={{__html: `
+              .hide-scrollbar::-webkit-scrollbar {
+                display: none;
+              }
+            `}} />
+            {testimonials.map((testimonial) => (
+              <div 
+                key={testimonial.id} 
+                className="min-w-[280px] sm:min-w-[320px] bg-white rounded-3xl p-6 shadow-sm border border-green-100 snap-center flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-1 mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-gray-700 italic mb-6 leading-relaxed text-sm sm:text-base">
+                    "{testimonial.text}"
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center flex-shrink-0">
+                    {testimonial.initials}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">{testimonial.name}</h4>
+                    <p className="text-xs text-gray-500">{testimonial.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.section>
 
         {/* Registration Form / Success Section */}
         <motion.section 
@@ -586,6 +667,45 @@ END:VCALENDAR`;
           </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="mt-12 border-t border-green-200 bg-white/50 pt-10 pb-8 px-4 text-center">
+        <div className="max-w-3xl mx-auto flex flex-col items-center gap-6">
+          <div className="flex items-center gap-6">
+            <a href="https://www.linkedin.com/in/pierre-valdeze-mbom-mbom-75a660217" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title="LinkedIn">
+              <Linkedin className="w-6 h-6" />
+            </a>
+            <a href="https://facebook.com/pierrembom" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500 transition-colors" title="Facebook">
+              <Facebook className="w-6 h-6" />
+            </a>
+            <a href="https://t.me/pierrembom" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400 transition-colors" title="Telegram">
+              <Send className="w-6 h-6" />
+            </a>
+            <a href="https://wa.me/237698389030" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-green-500 transition-colors" title="WhatsApp">
+              <MessageCircle className="w-6 h-6" />
+            </a>
+          </div>
+          <div className="space-y-2 text-sm text-gray-500 font-medium">
+            <p>© 2026 Exceller chez Pierre. Tous droits réservés.</p>
+            <div className="flex items-center justify-center gap-4">
+              <button className="hover:text-green-600 transition-colors">Mentions légales</button>
+              <button className="hover:text-green-600 transition-colors">Politique de confidentialité</button>
+            </div>
+          </div>
+        </div>
+      </footer>
+      {/* Floating Action Button (Mobile) */}
+      <div className="fixed bottom-4 left-0 right-0 px-4 z-50 sm:hidden">
+        <a 
+          href="https://wa.me/237698389030"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white font-bold py-3.5 px-6 rounded-full shadow-[0_4px_14px_0_rgba(37,211,102,0.39)] hover:bg-[#128C7E] hover:shadow-[0_6px_20px_rgba(37,211,102,0.23)] transition-all active:scale-95"
+        >
+          <MessageCircle className="w-5 h-5" />
+          Contacter sur WhatsApp
+        </a>
+      </div>
     </div>
   );
 }
