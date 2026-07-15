@@ -13,6 +13,11 @@ import ManageTrainers from './pages/ManageTrainers';
 import PublicCoursePage from './pages/PublicCoursePage';
 import AdminCourseDetails from './pages/AdminCourseDetails';
 import EditCourse from './pages/EditCourse';
+import ClientRegister from './pages/ClientRegister';
+import ClientLogin from './pages/ClientLogin';
+import ClientHub from './pages/ClientHub';
+import Marketplace from './pages/Marketplace';
+import AdminHub from './pages/AdminHub';
 import AdminLayout from './components/AdminLayout';
 import { Loader2 } from 'lucide-react';
 
@@ -50,6 +55,14 @@ export default function App() {
       <Routes>
         <Route path="/course/:id" element={<PublicCoursePage />} />
         
+        <Route path="/client/register" element={<ClientRegister />} />
+        <Route 
+          path="/client/login" 
+          element={!session ? <ClientLogin /> : <Navigate to="/client/hub" replace />} 
+        />
+        <Route path="/client/hub" element={<ClientHub />} />
+        <Route path="/client/marketplace" element={<Marketplace />} />
+        
         <Route 
           path="/login" 
           element={!session ? <Login /> : <Navigate to="/dashboard" replace />} 
@@ -62,6 +75,7 @@ export default function App() {
             <Route path="/edit-course/:id" element={<EditCourse />} />
             <Route path="/courses/:id" element={<AdminCourseDetails />} />
             <Route path="/trainers" element={<ManageTrainers />} />
+            <Route path="/admin/hub" element={<AdminHub />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         ) : (

@@ -54,6 +54,7 @@ export default function PublicCoursePage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [clientId, setClientId] = useState<string | null>(null);
 
   // Review State
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -133,6 +134,39 @@ END:VCALENDAR`;
   useEffect(() => {
     if (id) fetchCourse();
     fetchTestimonials();
+    
+    const checkUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setClientId(session.user.id);
+          setEmail(session.user.email || '');
+          
+          const { data: profile } = await supabase
+            .from('client_profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profile) {
+            setName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
+            if (profile.phone) {
+              setPhone(profile.phone);
+              setCountryCode(''); // reset since full number might be in phone
+            }
+          } else if (session.user.user_metadata) {
+            setName(`${session.user.user_metadata.first_name || ''} ${session.user.user_metadata.last_name || ''}`.trim());
+            if (session.user.user_metadata.phone) {
+               setPhone(session.user.user_metadata.phone);
+               setCountryCode('');
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error checking user:", err);
+      }
+    };
+    checkUser();
   }, [id]);
 
   useEffect(() => {
@@ -221,6 +255,7 @@ END:VCALENDAR`;
         .from('registrations')
         .insert([{
           course_id: id,
+          client_id: clientId,
           participant_name: name,
           participant_email: email,
           participant_phone: countryCode + phone.replace(/\s+/g, '')

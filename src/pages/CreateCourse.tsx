@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette } from 'lucide-react';
+import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette, Image as ImageIcon } from 'lucide-react';
 import ShareCourseButton from '../components/ShareCourseButton';
 
 interface Trainer {
@@ -41,6 +41,10 @@ export default function CreateCourse() {
   const [maxSeats, setMaxSeats] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [templateId, setTemplateId] = useState('');
+  
+  // Image Upload
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
 
   // Optional Links
   const [whatsappLink, setWhatsappLink] = useState('');
@@ -137,6 +141,24 @@ export default function CreateCourse() {
     }
 
     try {
+      let uploadedImageUrl = null;
+      if (coverImage) {
+        const fileExt = coverImage.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('course-image')
+          .upload(fileName, coverImage);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('course-image')
+          .getPublicUrl(fileName);
+
+        uploadedImageUrl = publicUrl;
+      }
+
       // 1. Insert Course
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
@@ -154,6 +176,7 @@ export default function CreateCourse() {
           guide_url: guideUrl || null,
           guide_text: guideText || null,
           youtube_video_url: youtubeVideoUrl || null,
+          cover_image_url: uploadedImageUrl,
           template_id: templateId || null,
         }])
         .select()
@@ -258,6 +281,39 @@ export default function CreateCourse() {
           <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Informations Principales</h2>
             
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" /> Image de couverture (Optionnel)
+              </label>
+              <div className="mt-1 flex items-center gap-4">
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        setCoverImage(file);
+                        setCoverImagePreview(URL.createObjectURL(file));
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-gray-50 file:text-gray-700
+                      hover:file:bg-gray-100
+                    "
+                  />
+                </div>
+                {coverImagePreview && (
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 shadow-sm flex-shrink-0">
+                    <img src={coverImagePreview} alt="Aperçu" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Titre de la formation *</label>
               <input

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette } from 'lucide-react';
+import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette, Image as ImageIcon } from 'lucide-react';
 
 interface Trainer {
   id: string;
@@ -42,6 +42,11 @@ export default function EditCourse() {
   const [isActive, setIsActive] = useState(true);
   const [templateId, setTemplateId] = useState('');
   
+  // Image Upload
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null);
+  const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(null);
+
   // Optional Links
   const [whatsappLink, setWhatsappLink] = useState('');
   const [googleMeetLink, setGoogleMeetLink] = useState('');
@@ -101,6 +106,7 @@ export default function EditCourse() {
         setMaxSeats(courseData.max_seats ? courseData.max_seats.toString() : '');
         setIsActive(courseData.is_active !== false);
         setTemplateId(courseData.template_id || (templatesRes.data && templatesRes.data.length > 0 ? templatesRes.data[0].id : ''));
+        setExistingCoverUrl(courseData.cover_image_url || null);
         setWhatsappLink(courseData.whatsapp_link || '');
         setGoogleMeetLink(courseData.google_meet_link || '');
         setGuideUrl(courseData.guide_url || '');
@@ -151,6 +157,25 @@ export default function EditCourse() {
     }
 
     try {
+      let uploadedImageUrl = existingCoverUrl;
+      
+      if (coverImage) {
+        const fileExt = coverImage.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('course-image')
+          .upload(fileName, coverImage);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('course-image')
+          .getPublicUrl(fileName);
+
+        uploadedImageUrl = publicUrl;
+      }
+
       // 1. Update Course
       const { error: courseError } = await supabase
         .from('courses')
@@ -169,6 +194,7 @@ export default function EditCourse() {
           guide_url: guideUrl || null,
           guide_text: guideText || null,
           youtube_video_url: youtubeVideoUrl || null,
+          cover_image_url: uploadedImageUrl,
         })
         .eq('id', id);
 
@@ -254,6 +280,39 @@ export default function EditCourse() {
           <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Informations Principales</h2>
             
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" /> Image de couverture (Optionnel)
+              </label>
+              <div className="mt-1 flex items-center gap-4">
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        setCoverImage(file);
+                        setCoverImagePreview(URL.createObjectURL(file));
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-gray-50 file:text-gray-700
+                      hover:file:bg-gray-100
+                    "
+                  />
+                </div>
+                {(coverImagePreview || existingCoverUrl) && (
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 shadow-sm flex-shrink-0">
+                    <img src={coverImagePreview || existingCoverUrl || ''} alt="Aperçu" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Titre de la formation *</label>
               <input

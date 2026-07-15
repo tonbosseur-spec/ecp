@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { LayoutDashboard, PlusCircle, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, LogOut, Users, Store } from 'lucide-react';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -15,6 +15,7 @@ export default function AdminLayout() {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Accueil' },
     { path: '/courses/new', icon: PlusCircle, label: 'Nouveau' },
+    { path: '/admin/hub', icon: Store, label: 'Hub' },
     { path: '/trainers', icon: Users, label: 'Formateurs' },
   ];
 
