@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft } from 'lucide-react';
+import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette } from 'lucide-react';
 import ShareCourseButton from '../components/ShareCourseButton';
 
 interface Trainer {
   id: string;
   name: string;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  primary_color: string;
+  bg_pattern: string;
+  layout_style: string;
 }
 
 interface ModuleInput {
@@ -20,7 +28,8 @@ export default function CreateCourse() {
   
   // Data States
   const [trainers, setTrainers] = useState<Trainer[]>([]);
-  const [loadingTrainers, setLoadingTrainers] = useState(true);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
   
   // Form States
   const [title, setTitle] = useState('');
@@ -29,6 +38,7 @@ export default function CreateCourse() {
   const [dateTime, setDateTime] = useState('');
   const [trainerId, setTrainerId] = useState('');
   const [maxSeats, setMaxSeats] = useState('');
+  const [templateId, setTemplateId] = useState('');
 
   // Optional Links
   const [whatsappLink, setWhatsappLink] = useState('');
@@ -47,32 +57,39 @@ export default function CreateCourse() {
   const [createdCourseId, setCreatedCourseId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTrainers();
+    fetchData();
   }, []);
 
-  const fetchTrainers = async () => {
+  const fetchData = async () => {
     try {
-      setLoadingTrainers(true);
-      const { data, error } = await supabase
-        .from('trainers')
-        .select('id, name')
-        .order('name');
+      setLoadingData(true);
+      const [trainersRes, templatesRes] = await Promise.all([
+        supabase.from('trainers').select('id, name').order('name'),
+        supabase.from('templates').select('*').order('name')
+      ]);
 
-      if (error) throw error;
-      setTrainers(data || []);
-      if (data && data.length > 0) {
-        setTrainerId(data[0].id);
+      if (trainersRes.error) throw trainersRes.error;
+      if (templatesRes.error) throw templatesRes.error;
+
+      setTrainers(trainersRes.data || []);
+      setTemplates(templatesRes.data || []);
+      
+      if (trainersRes.data && trainersRes.data.length > 0) {
+        setTrainerId(trainersRes.data[0].id);
+      }
+      if (templatesRes.data && templatesRes.data.length > 0) {
+        setTemplateId(templatesRes.data[0].id);
       }
     } catch (err: any) {
-      console.error('Error fetching trainers:', err.message);
+      console.error('Error fetching data:', err.message);
     } finally {
-      setLoadingTrainers(false);
+      setLoadingData(false);
     }
   };
 
   const createDefaultTrainer = async () => {
     try {
-      setLoadingTrainers(true);
+      setLoadingData(true);
       const { data, error } = await supabase
         .from('trainers')
         .insert([{ name: 'Formateur Principal', description: 'Formateur créé automatiquement pour les tests.' }])
@@ -87,7 +104,7 @@ export default function CreateCourse() {
     } catch (err: any) {
       setError('Impossible de créer le formateur par défaut: ' + err.message);
     } finally {
-      setLoadingTrainers(false);
+      setLoadingData(false);
     }
   };
 
@@ -133,6 +150,7 @@ export default function CreateCourse() {
           guide_url: guideUrl || null,
           guide_text: guideText || null,
           youtube_video_url: youtubeVideoUrl || null,
+          template_id: templateId || null,
         }])
         .select()
         .single();
@@ -165,7 +183,7 @@ export default function CreateCourse() {
     }
   };
 
-  if (loadingTrainers) {
+  if (loadingData) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
         <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
@@ -318,6 +336,48 @@ export default function CreateCourse() {
               </div>
             </div>
           </div>
+
+          {/* Section: Design de la page publique */}
+          {templates.length > 0 && (
+            <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2 flex items-center gap-2">
+                <Palette className="w-5 h-5 text-purple-500" />
+                Design de la page publique
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {templates.map(template => (
+                  <label 
+                    key={template.id} 
+                    className={`relative flex items-center p-4 cursor-pointer rounded-xl border-2 transition-all ${
+                      templateId === template.id 
+                        ? 'border-purple-500 bg-purple-50/50' 
+                        : 'border-gray-200 hover:border-purple-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input 
+                      type="radio" 
+                      name="template" 
+                      value={template.id} 
+                      checked={templateId === template.id} 
+                      onChange={() => setTemplateId(template.id)}
+                      className="sr-only"
+                    />
+                    <div 
+                      className="w-10 h-10 rounded-full border border-black/10 flex-shrink-0 shadow-sm mr-4" 
+                      style={{ backgroundColor: template.primary_color }}
+                    ></div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 text-sm">{template.name}</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">{template.layout_style}</p>
+                    </div>
+                    {templateId === template.id && (
+                      <CheckCircle2 className="w-5 h-5 text-purple-600 ml-2" />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Section: Liens & Médias */}
           <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">

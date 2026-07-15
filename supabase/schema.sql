@@ -61,3 +61,27 @@ CREATE POLICY "Admins can manage trainers" ON trainers FOR ALL TO authenticated 
 CREATE POLICY "Admins can manage courses" ON courses FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Admins can manage course modules" ON course_modules FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Admins can manage registrations" ON registrations FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 6. Table templates (Modèles visuels)
+CREATE TABLE templates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    primary_color TEXT NOT NULL,
+    bg_pattern TEXT NOT NULL,
+    layout_style TEXT NOT NULL
+);
+
+-- Insertion des 4 Templates Pastel
+INSERT INTO templates (name, primary_color, bg_pattern, layout_style) VALUES
+('Bleu Sérénité', '#93C5FD', 'bg-slate-50', 'centered-classic'),
+('Vert Menthe', '#86EFAC', 'pattern-dots', 'sidebar-left'),
+('Pêche Dynamique', '#FDBA74', 'pattern-waves', 'bold-asymmetric'),
+('Lavande Premium', '#D8B4FE', 'bg-purple-50', 'split-screen');
+
+-- Ajout de la colonne template_id à la table courses
+ALTER TABLE courses ADD COLUMN template_id UUID REFERENCES templates(id) ON DELETE SET NULL;
+
+-- RLS pour la table templates
+ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Templates are viewable by everyone" ON templates FOR SELECT USING (true);
+CREATE POLICY "Admins can manage templates" ON templates FOR ALL TO authenticated USING (true) WITH CHECK (true);
