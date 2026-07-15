@@ -125,7 +125,16 @@ export default function Marketplace() {
                       </div>
                     )}
                     
-                    {course.max_seats && (
+                    {/* Badge de Type de Produit */}
+                    <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/95 backdrop-blur-sm shadow-sm">
+                      {course.product_type === 'ebook' ? (
+                        <span className="text-purple-700">📖 E-book</span>
+                      ) : (
+                        <span className="text-blue-700">🎓 Formation</span>
+                      )}
+                    </div>
+
+                    {course.product_type !== 'ebook' && course.max_seats && (
                       <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm">
                         <Users className="w-3.5 h-3.5" />
                         <span>Max {course.max_seats} pl.</span>
@@ -147,19 +156,26 @@ export default function Marketplace() {
                     </h3>
                     
                     <div className="space-y-3 mb-6">
-                      <div className="flex items-center gap-3 text-gray-600 text-sm">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>
-                          {courseDate.toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })} à {courseDate.toLocaleTimeString('fr-FR', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
+                      {course.product_type !== 'ebook' ? (
+                        <div className="flex items-center gap-3 text-gray-600 text-sm">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span>
+                            {courseDate.toLocaleDateString('fr-FR', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric'
+                            })} à {courseDate.toLocaleTimeString('fr-FR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 text-gray-600 text-sm">
+                          <BookOpen className="w-4 h-4 text-purple-400" />
+                          <span className="text-purple-700 font-medium bg-purple-50 px-2 py-0.5 rounded text-xs">Accès immédiat après validation</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 text-gray-600 text-sm">
                         <Banknote className="w-4 h-4 text-gray-400" />
                         <span className="font-semibold text-gray-900">{formattedPrice}</span>

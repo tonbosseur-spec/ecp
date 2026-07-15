@@ -55,6 +55,8 @@ export default function PublicCoursePage() {
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
+  const [transactionId, setTransactionId] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Review State
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -230,6 +232,17 @@ END:VCALENDAR`;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    // If it's a paid product, open the payment modal. Otherwise, submit immediately.
+    if (course && course.price_fcfa > 0) {
+      setShowPaymentModal(true);
+    } else {
+      await submitRegistration(true);
+    }
+  };
+
+  const submitRegistration = async (isFree: boolean = false) => {
     setSubmitting(true);
     setFormError(null);
 
@@ -258,12 +271,15 @@ END:VCALENDAR`;
           client_id: clientId,
           participant_name: name,
           participant_email: email,
-          participant_phone: countryCode + phone.replace(/\s+/g, '')
+          participant_phone: countryCode + phone.replace(/\s+/g, ''),
+          transaction_id: isFree ? 'GRATUIT' : transactionId,
+          payment_status: isFree ? 'approved' : 'pending'
         }]);
 
       if (error) throw error;
       
       setSuccess(true);
+      setShowPaymentModal(false);
     } catch (err: any) {
       setFormError("Une erreur est survenue lors de l'inscription.");
     } finally {
@@ -816,6 +832,14 @@ END:VCALENDAR`;
                         />
                       </div>
                     </div>
+
+                    {course.price_fcfa > 0 && (
+                      <div className="pt-2">
+                        <p className="text-xs text-gray-400">
+                          ℹ️ Le règlement de <strong>{course.price_fcfa.toLocaleString('fr-FR')} FCFA</strong> s'effectue de manière sécurisée par Mobile Money à l'étape suivante.
+                        </p>
+                      </div>
+                    )}
                     
                     <button
                       type="submit"
@@ -825,10 +849,12 @@ END:VCALENDAR`;
                       {submitting ? (
                         <>
                           <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5 text-gray-900" />
-                          Confirmation en cours...
+                          Traitement en cours...
                         </>
+                      ) : course.price_fcfa > 0 ? (
+                        'Continuer vers le paiement'
                       ) : (
-                        'Confirmer mon inscription'
+                        'Confirmer mon inscription gratuite'
                       )}
                     </button>
                   </form>
@@ -986,6 +1012,92 @@ END:VCALENDAR`;
                 </form>
               </>
             )}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">Finaliser votre règlement</h3>
+              <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => { e.preventDefault(); submitRegistration(false); }} className="p-6 space-y-5">
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  Pour débloquer votre accès à <strong>{course?.title}</strong>, veuillez effectuer un transfert manuel de <strong>{course?.price_fcfa?.toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3 text-sm border border-gray-100">
+                <p className="font-semibold text-gray-700">Instructions de paiement Cameroun :</p>
+                <div className="space-y-2 font-medium">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                    <span className="text-gray-600">Orange Money :</span>
+                    <span className="text-gray-950 font-bold font-mono">+237 698 389 030</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+                    <span className="text-gray-600">MTN Mobile Money :</span>
+                    <span className="text-gray-950 font-bold font-mono">+237 670 000 000</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 italic">
+                    Titulaire : Pierre Valdeze Mbom Mbom
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-semibold text-gray-950">
+                  Numéro de transaction (ID du SMS) *
+                </label>
+                <input 
+                  required 
+                  type="text" 
+                  value={transactionId}
+                  onChange={e => setTransactionId(e.target.value)}
+                  className="block w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm placeholder-gray-400"
+                  placeholder="Ex: AP2607.1340.C359"
+                />
+                <p className="text-xs text-gray-400">
+                  Saisissez le code de référence unique indiqué sur le SMS de confirmation de transfert.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="flex-1 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium rounded-xl transition-colors text-sm"
+                >
+                  Annuler
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={submitting || !transactionId}
+                  className="flex-1 py-3 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      Validation...
+                    </>
+                  ) : (
+                    'Valider mon paiement'
+                  )}
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}

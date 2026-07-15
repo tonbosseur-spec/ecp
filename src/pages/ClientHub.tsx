@@ -150,9 +150,19 @@ export default function ClientHub() {
                 <div key={reg.id} className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
                   <div className="p-6 flex-grow">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
-                        Accès actif
-                      </div>
+                      {reg.payment_status === 'approved' ? (
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100">
+                          <span>✅ Accès débloqué</span>
+                        </div>
+                      ) : reg.payment_status === 'rejected' ? (
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-100">
+                          <span>❌ Paiement rejeté</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100 animate-pulse">
+                          <span>⏳ Paiement en cours de vérification</span>
+                        </div>
+                      )}
                       {course.initials && (
                         <span className="text-sm font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
                           {course.initials}
@@ -167,14 +177,18 @@ export default function ClientHub() {
                     <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
                       <Calendar className="w-4 h-4" />
                       <span>
-                        {courseDate.toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })} à {courseDate.toLocaleTimeString('fr-FR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {course.product_type === 'ebook' ? (
+                          `Acheté le ${courseDate.toLocaleDateString('fr-FR')}`
+                        ) : (
+                          `${courseDate.toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })} à ${courseDate.toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}`
+                        )}
                       </span>
                     </div>
                   </div>
@@ -182,45 +196,65 @@ export default function ClientHub() {
                   <div className="p-6 pt-0 mt-auto space-y-3 border-t border-gray-50 bg-gray-50/50">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 pt-4">Ressources & Accès</p>
                     
-                    {course.whatsapp_link && (
-                      <a 
-                        href={course.whatsapp_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-medium transition-colors text-sm shadow-sm"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        Groupe WhatsApp
-                      </a>
-                    )}
-                    
-                    {course.google_meet_link && (
-                      <a 
-                        href={course.google_meet_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors text-sm shadow-sm"
-                      >
-                        <Video className="w-4 h-4" />
-                        Rejoindre le Meet
-                      </a>
-                    )}
-                    
-                    {course.guide_url && (
-                      <a 
-                        href={course.guide_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-medium transition-colors text-sm shadow-sm"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Télécharger le guide
-                      </a>
-                    )}
-                    
-                    {!course.whatsapp_link && !course.google_meet_link && !course.guide_url && (
-                      <div className="text-center py-2 text-sm text-gray-400 italic">
-                        Aucune ressource disponible
+                    {reg.payment_status === 'approved' ? (
+                      <>
+                        {course.product_type === 'ebook' && course.download_file_url && (
+                          <a 
+                            href={course.download_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors text-sm shadow-sm"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Télécharger l'E-book
+                          </a>
+                        )}
+
+                        {course.product_type !== 'ebook' && course.whatsapp_link && (
+                          <a 
+                            href={course.whatsapp_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-medium transition-colors text-sm shadow-sm"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Groupe WhatsApp
+                          </a>
+                        )}
+                        
+                        {course.product_type !== 'ebook' && course.google_meet_link && (
+                          <a 
+                            href={course.google_meet_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors text-sm shadow-sm"
+                          >
+                            <Video className="w-4 h-4" />
+                            Rejoindre le Meet
+                          </a>
+                        )}
+                        
+                        {course.product_type !== 'ebook' && course.guide_url && (
+                          <a 
+                            href={course.guide_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-medium transition-colors text-sm shadow-sm"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Télécharger le guide
+                          </a>
+                        )}
+
+                        {(!course.whatsapp_link && !course.google_meet_link && !course.guide_url && !course.download_file_url) && (
+                          <div className="text-center py-2 text-sm text-gray-400 italic">
+                            Aucune ressource disponible
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-3 px-4 bg-amber-50 text-amber-800 text-xs rounded-xl font-medium border border-amber-100">
+                        🔒 Les ressources seront débloquées immédiatement après validation de votre reçu de paiement.
                       </div>
                     )}
                   </div>
