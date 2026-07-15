@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+@layer utilities {
+  .pattern-dots {
+    background-color: #f8fafc;
+    background-image: radial-gradient(var(--theme-primary-light, #e2e8f0) 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+  .pattern-waves {
+    background: linear-gradient(120deg, #f8fafc 0%, var(--theme-primary-light, #f1f5f9) 100%);
+  }
+}
