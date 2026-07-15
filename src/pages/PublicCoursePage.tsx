@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send } from 'lucide-react';
+import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const testimonials = [
@@ -44,6 +44,7 @@ export default function PublicCoursePage() {
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInactive, setIsInactive] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -159,6 +160,12 @@ END:VCALENDAR`;
         .single();
 
       if (courseError) throw courseError;
+      
+      if (courseData.is_active === false) {
+        setIsInactive(true);
+        setLoading(false);
+        return;
+      }
 
       // Sort modules by order_index
       if (courseData && courseData.course_modules) {
@@ -264,6 +271,29 @@ END:VCALENDAR`;
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3">
         <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
         <p className="text-sm text-gray-500">Chargement des détails de la formation...</p>
+      </div>
+    );
+  }
+
+  if (isInactive) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white p-10 rounded-3xl shadow-lg border border-gray-100 max-w-lg w-full text-center">
+          <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CalendarOff className="w-10 h-10 text-gray-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">Formation Indisponible</h2>
+          <p className="text-gray-500 text-lg mb-8 leading-relaxed">
+            Cette formation n'est actuellement plus disponible ou a déjà eu lieu. Merci de votre intérêt !
+          </p>
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Retour à l'accueil
+          </a>
+        </div>
       </div>
     );
   }

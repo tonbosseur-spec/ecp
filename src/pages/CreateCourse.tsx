@@ -39,6 +39,7 @@ export default function CreateCourse() {
   const [dateTime, setDateTime] = useState('');
   const [trainerId, setTrainerId] = useState('');
   const [maxSeats, setMaxSeats] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [templateId, setTemplateId] = useState('');
 
   // Optional Links
@@ -147,6 +148,7 @@ export default function CreateCourse() {
           date_time: new Date(dateTime).toISOString(),
           trainer_id: trainerId,
           max_seats: maxSeats ? parseInt(maxSeats, 10) : null,
+          is_active: isActive,
           whatsapp_link: whatsappLink || null,
           google_meet_link: googleMeetLink || null,
           guide_url: guideUrl || null,
@@ -347,6 +349,18 @@ export default function CreateCourse() {
                   placeholder="Ex: 20"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={e => setIsActive(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span className="text-sm font-medium text-gray-700">Formation active</span>
+              </label>
             </div>
           </div>
 

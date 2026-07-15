@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power } from 'lucide-react';
 import ShareCourseButton from '../components/ShareCourseButton';
 
 interface Course {
@@ -10,6 +10,7 @@ interface Course {
   initials: string;
   price_fcfa: number;
   date_time: string;
+  is_active: boolean;
 }
 
 interface Registration {
@@ -37,7 +38,7 @@ export default function AdminCourseDetails() {
       setLoading(true);
       
       const [courseResponse, registrationsResponse] = await Promise.all([
-        supabase.from('courses').select('id, title, initials, price_fcfa, date_time').eq('id', id).single(),
+        supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active').eq('id', id).single(),
         supabase.from('registrations').select('*').eq('course_id', id).order('registered_at', { ascending: false })
       ]);
 
@@ -88,6 +89,25 @@ export default function AdminCourseDetails() {
     // Remove all non-numeric characters for the wa.me link
     const numericPhone = phone.replace(/\D/g, '');
     return `https://wa.me/${numericPhone}`;
+  };
+
+  const toggleActive = async () => {
+    if (!course) return;
+    
+    try {
+      const newStatus = !course.is_active;
+      
+      const { error: updateError } = await supabase
+        .from('courses')
+        .update({ is_active: newStatus })
+        .eq('id', course.id);
+
+      if (updateError) throw updateError;
+      
+      setCourse({ ...course, is_active: newStatus });
+    } catch (err: any) {
+      alert("Erreur lors de la modification de l'état : " + err.message);
+    }
   };
 
   const exportToGoogleContacts = () => {
@@ -162,6 +182,17 @@ export default function AdminCourseDetails() {
         </div>
         
         <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+          <button
+            onClick={toggleActive}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-lg transition-colors shadow-sm ${
+              course.is_active 
+                ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100' 
+                : 'text-gray-700 bg-gray-50 border-gray-200 hover:bg-gray-100'
+            }`}
+          >
+            <Power className="w-4 h-4" />
+            {course.is_active ? 'Active' : 'Inactive'}
+          </button>
           <ShareCourseButton courseId={course.id} courseTitle={course.title} className="py-2" />
           <button
             onClick={() => navigate(`/edit-course/${course.id}`)}

@@ -21,6 +21,7 @@ CREATE TABLE courses (
     guide_text TEXT,
     youtube_video_url TEXT,
     max_seats INTEGER,
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

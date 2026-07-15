@@ -39,6 +39,7 @@ export default function EditCourse() {
   const [dateTime, setDateTime] = useState('');
   const [trainerId, setTrainerId] = useState('');
   const [maxSeats, setMaxSeats] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [templateId, setTemplateId] = useState('');
   
   // Optional Links
@@ -98,6 +99,7 @@ export default function EditCourse() {
         
         setTrainerId(courseData.trainer_id);
         setMaxSeats(courseData.max_seats ? courseData.max_seats.toString() : '');
+        setIsActive(courseData.is_active !== false);
         setTemplateId(courseData.template_id || (templatesRes.data && templatesRes.data.length > 0 ? templatesRes.data[0].id : ''));
         setWhatsappLink(courseData.whatsapp_link || '');
         setGoogleMeetLink(courseData.google_meet_link || '');
@@ -160,6 +162,7 @@ export default function EditCourse() {
           date_time: new Date(dateTime).toISOString(),
           trainer_id: trainerId,
           max_seats: maxSeats ? parseInt(maxSeats, 10) : null,
+          is_active: isActive,
           template_id: templateId || null,
           whatsapp_link: whatsappLink || null,
           google_meet_link: googleMeetLink || null,
@@ -342,6 +345,18 @@ export default function EditCourse() {
                   placeholder="Ex: 20"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={e => setIsActive(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                />
+                <span className="text-sm font-medium text-gray-700">Formation active</span>
+              </label>
             </div>
           </div>
 
