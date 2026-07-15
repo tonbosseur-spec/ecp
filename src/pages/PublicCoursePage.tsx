@@ -49,6 +49,7 @@ export default function PublicCoursePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+237');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -215,7 +216,7 @@ END:VCALENDAR`;
           course_id: id,
           participant_name: name,
           participant_email: email,
-          participant_phone: phone
+          participant_phone: countryCode + phone.replace(/\s+/g, '')
         }]);
 
       if (error) throw error;
@@ -728,14 +729,34 @@ END:VCALENDAR`;
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1.5">Numéro de téléphone</label>
-                      <input
-                        required
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent transition-shadow text-sm"
-                        placeholder="+225 01 23 45 67 89"
-                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={countryCode}
+                          onChange={(e) => setCountryCode(e.target.value)}
+                          className="block w-1/3 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent transition-shadow text-sm"
+                          required
+                        >
+                          <option value="+237">🇨🇲 +237 (Cameroun)</option>
+                          <option value="+225">🇨🇮 +225 (Côte d'Ivoire)</option>
+                          <option value="+221">🇸🇳 +221 (Sénégal)</option>
+                          <option value="+228">🇹🇬 +228 (Togo)</option>
+                          <option value="+229">🇧🇯 +229 (Bénin)</option>
+                          <option value="+226">🇧🇫 +226 (Burkina Faso)</option>
+                          <option value="+241">🇬🇦 +241 (Gabon)</option>
+                          <option value="+242">🇨🇬 +242 (Congo)</option>
+                          <option value="+243">🇨🇩 +243 (RDC)</option>
+                          <option value="+33">🇫🇷 +33 (France)</option>
+                          <option value="+1">🇺🇸/🇨🇦 +1 (USA/Canada)</option>
+                        </select>
+                        <input
+                          required
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="block w-2/3 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent transition-shadow text-sm"
+                          placeholder="Numéro sans l'indicatif"
+                        />
+                      </div>
                     </div>
                     
                     <button

@@ -33,6 +33,7 @@ export default function CreateCourse() {
   
   // Form States
   const [title, setTitle] = useState('');
+  const [initials, setInitials] = useState('');
   const [description, setDescription] = useState('');
   const [priceFcfa, setPriceFcfa] = useState('');
   const [dateTime, setDateTime] = useState('');
@@ -140,6 +141,7 @@ export default function CreateCourse() {
         .from('courses')
         .insert([{
           title,
+          initials: initials || null,
           description,
           price_fcfa: parseInt(priceFcfa, 10),
           date_time: new Date(dateTime).toISOString(),
@@ -263,6 +265,17 @@ export default function CreateCourse() {
                 onChange={e => setTitle(e.target.value)}
                 className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
                 placeholder="Ex: Maîtriser React en 2024"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Initiales de la formation (pour l'export de contacts)</label>
+              <input
+                type="text"
+                value={initials}
+                onChange={e => setInitials(e.target.value)}
+                className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
+                placeholder="Ex: EMS"
               />
             </div>
 

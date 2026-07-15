@@ -7,6 +7,7 @@ import ShareCourseButton from '../components/ShareCourseButton';
 interface Course {
   id: string;
   title: string;
+  initials: string;
   price_fcfa: number;
   date_time: string;
 }
@@ -36,7 +37,7 @@ export default function AdminCourseDetails() {
       setLoading(true);
       
       const [courseResponse, registrationsResponse] = await Promise.all([
-        supabase.from('courses').select('id, title, price_fcfa, date_time').eq('id', id).single(),
+        supabase.from('courses').select('id, title, initials, price_fcfa, date_time').eq('id', id).single(),
         supabase.from('registrations').select('*').eq('course_id', id).order('registered_at', { ascending: false })
       ]);
 
@@ -87,6 +88,33 @@ export default function AdminCourseDetails() {
     // Remove all non-numeric characters for the wa.me link
     const numericPhone = phone.replace(/\D/g, '');
     return `https://wa.me/${numericPhone}`;
+  };
+
+  const exportToGoogleContacts = () => {
+    if (!course || registrations.length === 0) return;
+    
+    // Header compatible with Google Contacts
+    const header = "Name,Given Name,Additional Name,Family Name,Yomi Name,Given Name Yomi,Additional Name Yomi,Family Name Yomi,Name Prefix,Name Suffix,Initials,Nickname,Short Name,Maiden Name,Birthday,Gender,Location,Billing Information,Directory Server,Mileage,Occupation,Hobby,Sensitivity,Priority,Subject,Notes,Language,Photo,Group Membership,Phone 1 - Type,Phone 1 - Value\n";
+    
+    const initials = course.initials ? course.initials.trim() : "FORMATION";
+    
+    const rows = registrations.map(reg => {
+      const contactName = `${initials}-${reg.participant_name}`;
+      const phone = reg.participant_phone.replace(/\s+/g, '');
+      // Name in first column, Phone in last column. The commas separate empty fields.
+      // There are 31 columns. Name is 1st. Phone 1 - Type is 30th. Phone 1 - Value is 31st.
+      return `${contactName},,,,,,,,,,,,,,,,,,,,,,,,,,,,,Mobile,${phone}`;
+    });
+    
+    const csvContent = header + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `contacts_${initials}_${course.id.substring(0,6)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -177,7 +205,18 @@ export default function AdminCourseDetails() {
 
       {/* Participants List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Participants ({totalRegistrations})</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Participants ({totalRegistrations})</h2>
+          {registrations.length > 0 && (
+            <button
+              onClick={exportToGoogleContacts}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+            >
+              <Users className="w-4 h-4" />
+              Exporter Contacts
+            </button>
+          )}
+        </div>
         
         {registrations.length === 0 ? (
           <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-100 border-dashed">

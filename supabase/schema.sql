@@ -11,6 +11,7 @@ CREATE TABLE courses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     trainer_id UUID NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
+    initials TEXT,
     description TEXT,
     price_fcfa INTEGER NOT NULL,
     date_time TIMESTAMP WITH TIME ZONE NOT NULL,
