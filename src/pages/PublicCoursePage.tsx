@@ -434,15 +434,26 @@ END:VCALENDAR`;
           
           <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
             {course.product_type === 'ebook' ? (
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-full text-sm font-bold text-purple-700 border border-purple-200">
-                <FileText className="w-4 h-4" />
-                <span>📖 Livre Numérique (E-book)</span>
-              </div>
+              <>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 rounded-full text-sm font-bold text-purple-800 border border-purple-200 shadow-xs">
+                  <FileText className="w-4 h-4 text-purple-700" />
+                  <span>📖 Livre Numérique (E-book)</span>
+                </div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full text-sm font-bold text-green-700 border border-green-200">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span>
+                  <span>⚡ Accès immédiat</span>
+                </div>
+              </>
             ) : (
-              <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-medium theme-text border theme-border-light">
-                <Calendar className="w-4 h-4" />
-                <span className="capitalize">{formattedDate}</span>
-              </div>
+              <>
+                <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-semibold theme-text border theme-border-light shadow-xs">
+                  <span>🎓 Formation</span>
+                </div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full text-sm font-semibold text-blue-700 border border-blue-200">
+                  <Calendar className="w-4 h-4 text-blue-500" />
+                  <span className="capitalize">{formattedDate}</span>
+                </div>
+              </>
             )}
             
             {course.product_type !== 'ebook' && (
@@ -471,9 +482,29 @@ END:VCALENDAR`;
           </h1>
           
           {course.description && (
-            <p className="text-gray-600 text-base sm:text-lg leading-relaxed mb-8 max-w-2xl mx-auto">
+            <p className="text-gray-600 text-base sm:text-lg leading-relaxed mb-6 max-w-2xl mx-auto">
               {course.description}
             </p>
+          )}
+
+          {course.product_type === 'ebook' ? (
+            <div className="mb-8 p-5 bg-purple-50/50 border border-purple-200/60 rounded-2xl max-w-md mx-auto text-center shadow-xs">
+              <span className="text-purple-800 font-bold text-sm flex items-center justify-center gap-1.5">
+                📖 Livre Numérique (Téléchargement)
+              </span>
+              <span className="text-xs text-purple-600 block mt-1.5 leading-relaxed">
+                Ce produit est un livre électronique au format PDF. Vous en obtiendrez l'<strong>accès immédiat</strong> pour consultation et téléchargement dans votre <strong>Espace Personnel</strong> dès validation de votre commande.
+              </span>
+            </div>
+          ) : (
+            <div className="mb-8 p-5 bg-emerald-50/50 border border-emerald-200/60 rounded-2xl max-w-md mx-auto text-center shadow-xs">
+              <span className="text-emerald-800 font-bold text-sm flex items-center justify-center gap-1.5">
+                🎓 Formation en ligne interactive
+              </span>
+              <span className="text-xs text-emerald-600 block mt-1.5 leading-relaxed">
+                Ce produit est une session de formation en direct. Vous aurez accès aux modules, au groupe WhatsApp d'entraide, à la visioconférence et au guide de préparation.
+              </span>
+            </div>
           )}
 
           <div className="flex flex-col items-center justify-center gap-2 mb-10">
@@ -917,7 +948,7 @@ END:VCALENDAR`;
                     {course.price_fcfa > 0 && (
                       <div className="pt-2">
                         <p className="text-xs text-gray-400">
-                          ℹ️ Le règlement de <strong>{course.price_fcfa.toLocaleString('fr-FR')} FCFA</strong> s'effectue de manière sécurisée par Mobile Money à l'étape suivante.
+                          ℹ️ Le règlement de <strong>{course.price_fcfa.toLocaleString('fr-FR')} FCFA</strong> s'effectue par transfert Mobile Money au <strong>+237 650989019</strong>.
                         </p>
                       </div>
                     )}
@@ -933,7 +964,7 @@ END:VCALENDAR`;
                           Traitement en cours...
                         </>
                       ) : course.price_fcfa > 0 ? (
-                        course.product_type === 'ebook' ? 'Continuer vers le paiement' : 'Continuer vers le paiement'
+                        `Continuer vers le paiement (Transfert au +237 650989019)`
                       ) : (
                         course.product_type === 'ebook' ? 'Télécharger l\'e-book gratuitement' : 'Confirmer mon inscription gratuite'
                       )}
@@ -1123,14 +1154,9 @@ END:VCALENDAR`;
                 <p className="font-semibold text-gray-700">Instructions de paiement Cameroun :</p>
                 <div className="space-y-2 font-medium">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-                    <span className="text-gray-600">Orange Money :</span>
-                    <span className="text-gray-950 font-bold font-mono">+237 698 389 030</span>
-                  </div>
-                  <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
                     <span className="text-gray-600">MTN Mobile Money :</span>
-                    <span className="text-gray-950 font-bold font-mono">+237 670 000 000</span>
+                    <span className="text-gray-950 font-bold font-mono">+237 650 989 019</span>
                   </div>
                   <div className="text-xs text-gray-500 mt-1 italic">
                     Titulaire : Pierre Valdeze Mbom Mbom
@@ -1155,18 +1181,11 @@ END:VCALENDAR`;
                 </p>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  className="flex-1 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium rounded-xl transition-colors text-sm"
-                >
-                  Annuler
-                </button>
+              <div className="flex flex-col gap-2 pt-2">
                 <button 
                   type="submit" 
                   disabled={submitting || !transactionId}
-                  className="flex-1 py-3 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2 shadow-md"
                 >
                   {submitting ? (
                     <>
@@ -1174,8 +1193,15 @@ END:VCALENDAR`;
                       Validation...
                     </>
                   ) : (
-                    'Valider mon paiement'
+                    'Confirmer le transfert au +237 650989019'
                   )}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-500 font-medium rounded-xl transition-colors text-xs"
+                >
+                  Annuler
                 </button>
               </div>
             </form>
