@@ -118,7 +118,7 @@ export default function ClientHub() {
             Bonjour, {firstName} 👋
           </h1>
           <p className="text-gray-500 text-lg">
-            Bienvenue dans votre espace personnel. Voici vos formations en cours.
+            Bienvenue dans votre espace personnel. Retrouvez vos formations et vos livres numériques.
           </p>
         </div>
 
@@ -145,6 +145,7 @@ export default function ClientHub() {
             {registrations.map((reg) => {
               const course = reg.courses;
               const courseDate = new Date(course.date_time);
+              const purchaseDate = reg.registered_at ? new Date(reg.registered_at) : new Date();
               
               return (
                 <div key={reg.id} className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
@@ -178,9 +179,9 @@ export default function ClientHub() {
                       <Calendar className="w-4 h-4" />
                       <span>
                         {course.product_type === 'ebook' ? (
-                          `Acheté le ${courseDate.toLocaleDateString('fr-FR')}`
+                          `Acheté le ${purchaseDate.toLocaleDateString('fr-FR')}`
                         ) : (
-                          `${courseDate.toLocaleDateString('fr-FR', {
+                          `Session le ${courseDate.toLocaleDateString('fr-FR', {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric'

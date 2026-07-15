@@ -399,9 +399,26 @@ END:VCALENDAR`;
 
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40 border-b theme-border-light">
-        <div className="max-w-3xl mx-auto px-4 py-4 text-center">
-          <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">Exceller chez Pierre</h1>
-          {course && <p className="text-lg sm:text-xl font-bold theme-text mt-1">{course.title}</p>}
+        <div className="max-w-3xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <a href="/client/marketplace" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Boutique</span>
+            </a>
+            <div>
+              <h1 className="text-lg font-black text-gray-900 tracking-tight leading-none">Exceller chez Pierre</h1>
+              {course && <p className="text-xs font-bold theme-text mt-0.5 max-w-xs truncate">{course.title}</p>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a 
+              href="/client/hub" 
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-950 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
+            >
+              <User className="w-4 h-4 text-gray-500" />
+              <span>Mon Espace Personnel</span>
+            </a>
+          </div>
         </div>
       </header>
 
@@ -416,26 +433,35 @@ END:VCALENDAR`;
           <div className="absolute top-0 left-0 w-full h-2 theme-gradient"></div>
           
           <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-medium theme-text border theme-border-light">
-              <Calendar className="w-4 h-4" />
-              <span className="capitalize">{formattedDate}</span>
-            </div>
-            
-            {course.max_seats ? (
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${course.remainingSeats && course.remainingSeats > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                <User className="w-4 h-4" />
-                {course.remainingSeats && course.remainingSeats > 0 ? (
-                  <span>{course.remainingSeats} {course.remainingSeats > 1 ? 'places restantes' : 'place restante'} sur {course.max_seats}</span>
-                ) : (
-                  <span>Complet ({course.max_seats} inscrits)</span>
-                )}
+            {course.product_type === 'ebook' ? (
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-full text-sm font-bold text-purple-700 border border-purple-200">
+                <FileText className="w-4 h-4" />
+                <span>📖 Livre Numérique (E-book)</span>
               </div>
             ) : (
-              course.registeredCount > 0 && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-full text-sm font-medium border border-gray-200">
+              <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-medium theme-text border theme-border-light">
+                <Calendar className="w-4 h-4" />
+                <span className="capitalize">{formattedDate}</span>
+              </div>
+            )}
+            
+            {course.product_type !== 'ebook' && (
+              course.max_seats ? (
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${course.remainingSeats && course.remainingSeats > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                   <User className="w-4 h-4" />
-                  <span>{course.registeredCount} {course.registeredCount > 1 ? 'inscrits' : 'inscrit'}</span>
+                  {course.remainingSeats && course.remainingSeats > 0 ? (
+                    <span>{course.remainingSeats} {course.remainingSeats > 1 ? 'places restantes' : 'place restante'} sur {course.max_seats}</span>
+                  ) : (
+                    <span>Complet ({course.max_seats} inscrits)</span>
+                  )}
                 </div>
+              ) : (
+                course.registeredCount > 0 && (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-full text-sm font-medium border border-gray-200">
+                    <User className="w-4 h-4" />
+                    <span>{course.registeredCount} {course.registeredCount > 1 ? 'inscrits' : 'inscrit'}</span>
+                  </div>
+                )
               )
             )}
           </div>
@@ -451,7 +477,9 @@ END:VCALENDAR`;
           )}
 
           <div className="flex flex-col items-center justify-center gap-2 mb-10">
-            <span className="text-sm theme-text uppercase tracking-widest font-bold">Tarif d'inscription</span>
+            <span className="text-sm theme-text uppercase tracking-widest font-bold">
+              {course.product_type === 'ebook' ? "Prix de l'e-book" : "Tarif d'inscription"}
+            </span>
             {course.price_fcfa === 0 ? (
               <span className="text-4xl sm:text-5xl font-black theme-text animate-pulse">
                 Gratuit !
@@ -463,7 +491,7 @@ END:VCALENDAR`;
             )}
           </div>
 
-          {course.remainingSeats === 0 ? (
+          {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
             <button 
               disabled
               className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-4 bg-gray-100 text-gray-500 rounded-2xl font-semibold text-lg cursor-not-allowed border border-gray-200"
@@ -475,7 +503,10 @@ END:VCALENDAR`;
               onClick={scrollToForm}
               className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-4 theme-bg rounded-2xl font-bold text-lg hover:opacity-90 transition-all active:scale-[0.98] animate-pulse hover:animate-none"
             >
-              Je m'inscris maintenant
+              {course.product_type === 'ebook' 
+                ? (course.price_fcfa === 0 ? "Télécharger cet E-book" : "Acheter cet E-book") 
+                : "Je m'inscris maintenant"
+              }
             </button>
           )}
 
@@ -504,7 +535,7 @@ END:VCALENDAR`;
             className="space-y-4"
           >
             <h2 className="text-2xl font-bold text-gray-900 px-2 mb-2 flex items-center gap-2">
-              <span className="text-2xl">📚</span> Programme de la formation
+              <span className="text-2xl">📚</span> {course.product_type === 'ebook' ? "Sommaire / Chapitres de l'E-book" : "Programme de la formation"}
             </h2>
             <div className="space-y-3">
               {course.course_modules.map((module: any, idx: number) => (
@@ -550,7 +581,7 @@ END:VCALENDAR`;
           >
             <div className="absolute top-0 right-0 w-32 h-32 theme-bg-light rounded-bl-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
             <h2 className="text-xl font-bold text-gray-900 mb-6 border-b theme-border-light pb-4 flex items-center gap-2">
-              <span className="text-2xl">🎓</span> Animé par
+              <span className="text-2xl">{course.product_type === 'ebook' ? "✍️" : "🎓"}</span> {course.product_type === 'ebook' ? "Auteur" : "Animé par"}
             </h2>
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left relative z-10">
               {course.trainers.photo_url ? (
@@ -654,102 +685,143 @@ END:VCALENDAR`;
                 <div className="absolute inset-0 theme-bg rounded-full animate-ping opacity-20"></div>
                 <CheckCircle2 className="w-8 h-8 relative z-10" />
               </div>
-              <h2 className="text-2xl font-bold">Inscription confirmée !</h2>
-              <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
-                Merci <strong className="text-white">{name}</strong>. Votre inscription à la formation a été enregistrée avec succès. Voici les informations pour y accéder :
-              </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 text-left">
-                {course.whatsapp_link && (
-                  <a href={course.whatsapp_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-800/80 rounded-xl hover:bg-gray-700 transition-colors border border-gray-700 shadow-sm">
-                    <div className="p-2 theme-bg-light theme-text rounded-lg">
-                      <MessageCircle className="w-5 h-5" />
+              {course.product_type === 'ebook' ? (
+                <>
+                  <h2 className="text-2xl font-bold">Commande validée !</h2>
+                  <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
+                    Merci <strong className="text-white">{name}</strong>. Votre demande pour l'e-book <strong>{course.title}</strong> a bien été enregistrée.
+                  </p>
+
+                  {course.price_fcfa === 0 && course.download_file_url ? (
+                    <div className="p-6 bg-purple-600/20 border border-purple-500/30 rounded-2xl text-center space-y-4 max-w-md mx-auto">
+                      <p className="text-sm text-purple-200">Votre e-book gratuit est prêt à être téléchargé !</p>
+                      <a
+                        href={course.download_file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-md"
+                      >
+                        <Download className="w-5 h-5 text-white" />
+                        <span>Télécharger l'E-book (PDF)</span>
+                      </a>
                     </div>
-                    <div>
-                      <div className="font-semibold text-white">Groupe WhatsApp</div>
-                      <div className="text-xs text-gray-400">Rejoindre les autres participants</div>
-                    </div>
-                  </a>
-                )}
-                
-                {course.google_meet_link && (
-                  <a href={course.google_meet_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-800/80 rounded-xl hover:bg-gray-700 transition-colors border border-gray-700 shadow-sm">
-                    <div className="p-2 theme-bg-light theme-text rounded-lg">
-                      <Video className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-white">Google Meet</div>
-                      <div className="text-xs text-gray-400">Lien de la visioconférence</div>
-                    </div>
-                  </a>
-                )}
-                
-                {course.guide_url && (
-                  <div className="col-span-1 sm:col-span-2 mt-4 p-5 bg-gray-800/80 rounded-2xl border border-gray-700 shadow-sm">
-                    <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                      <FileText className="w-5 h-5 theme-text" />
-                      Guide de préparation
-                    </h3>
-                    <p className="text-sm text-gray-300 mb-4">
-                      {course.guide_text || 'Nous avons préparé un guide pour vous aider à bien démarrer. Téléchargez-le et lisez-le avant la session.'}
+                  ) : (
+                    <p className="text-amber-300 text-sm p-4 bg-gray-800/80 rounded-xl border border-gray-700 text-center mt-4">
+                      ⏳ Dès que l'administrateur aura validé votre paiement Mobile Money, votre e-book sera débloqué et téléchargeable dans votre <strong>Espace Personnel</strong>.
                     </p>
+                  )}
+
+                  <div className="pt-4">
                     <a 
-                      href={course.guide_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-900 font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-md"
+                      href="/client/hub" 
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-gray-950 hover:bg-gray-100 rounded-xl font-bold transition-all"
                     >
-                      <Download className="w-4 h-4" />
-                      Télécharger le guide
+                      <User className="w-4 h-4 text-gray-600" />
+                      Accéder à mon Espace Personnel
                     </a>
                   </div>
-                )}
-              </div>
-              
-              <div className="mt-8 pt-8 border-t border-gray-800">
-                <h3 className="text-lg font-bold text-white mb-2">Ajoutez cet événement à votre agenda</h3>
-                <div className="relative inline-block text-left mt-2">
-                  <button 
-                    onClick={() => setShowCalendarMenu(!showCalendarMenu)}
-                    className="flex items-center gap-2 px-4 py-3 bg-gray-800/80 text-white border border-gray-700 rounded-xl hover:bg-gray-700 transition-colors shadow-sm font-medium"
-                  >
-                    <Calendar className="w-5 h-5 theme-text" />
-                    Ajouter au calendrier
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  </button>
-                  
-                  {showCalendarMenu && (
-                    <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50 overflow-hidden">
-                      <div className="py-1">
-                        <a
-                          href={generateGoogleCalendarLink()}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium"
-                        >
-                          Ajouter à Google Agenda
-                        </a>
-                        <button
-                          onClick={generateIcs}
-                          className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium text-left border-t border-gray-100"
-                        >
-                          Télécharger pour Outlook/Apple
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold">Inscription confirmée !</h2>
+                  <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
+                    Merci <strong className="text-white">{name}</strong>. Votre inscription à la formation a été enregistrée avec succès. Voici les informations pour y accéder :
+                  </p>
 
-              {!(course.whatsapp_link || course.google_meet_link || course.guide_url) && (
-                <p className="text-gray-300 text-sm p-4 bg-gray-800/80 rounded-xl border border-gray-700 text-center mt-4 shadow-inner">
-                  L'administrateur vous contactera bientôt avec les informations d'accès à la formation.
-                </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 text-left">
+                    {course.whatsapp_link && (
+                      <a href={course.whatsapp_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-800/80 rounded-xl hover:bg-gray-700 transition-colors border border-gray-700 shadow-sm">
+                        <div className="p-2 theme-bg-light theme-text rounded-lg">
+                          <MessageCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white">Groupe WhatsApp</div>
+                          <div className="text-xs text-gray-400">Rejoindre les autres participants</div>
+                        </div>
+                      </a>
+                    )}
+                    
+                    {course.google_meet_link && (
+                      <a href={course.google_meet_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-800/80 rounded-xl hover:bg-gray-700 transition-colors border border-gray-700 shadow-sm">
+                        <div className="p-2 theme-bg-light theme-text rounded-lg">
+                          <Video className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white">Google Meet</div>
+                          <div className="text-xs text-gray-400">Lien de la visioconférence</div>
+                        </div>
+                      </a>
+                    )}
+                    
+                    {course.guide_url && (
+                      <div className="col-span-1 sm:col-span-2 mt-4 p-5 bg-gray-800/80 rounded-2xl border border-gray-700 shadow-sm">
+                        <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                          <FileText className="w-5 h-5 theme-text" />
+                          Guide de préparation
+                        </h3>
+                        <p className="text-sm text-gray-300 mb-4">
+                          {course.guide_text || 'Nous avons préparé un guide pour vous aider à bien démarrer. Téléchargez-le et lisez-le avant la session.'}
+                        </p>
+                        <a 
+                          href={course.guide_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-900 font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-md"
+                        >
+                          <Download className="w-4 h-4" />
+                          Télécharger le guide
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-8 pt-8 border-t border-gray-800">
+                    <h3 className="text-lg font-bold text-white mb-2">Ajoutez cet événement à votre agenda</h3>
+                    <div className="relative inline-block text-left mt-2">
+                      <button 
+                        onClick={() => setShowCalendarMenu(!showCalendarMenu)}
+                        className="flex items-center gap-2 px-4 py-3 bg-gray-800/80 text-white border border-gray-700 rounded-xl hover:bg-gray-700 transition-colors shadow-sm font-medium"
+                      >
+                        <Calendar className="w-5 h-5 theme-text" />
+                        Ajouter au calendrier
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                      </button>
+                      
+                      {showCalendarMenu && (
+                        <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50 overflow-hidden">
+                          <div className="py-1">
+                            <a
+                              href={generateGoogleCalendarLink()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium"
+                            >
+                              Ajouter à Google Agenda
+                            </a>
+                            <button
+                              onClick={generateIcs}
+                              className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium text-left border-t border-gray-100"
+                            >
+                              Télécharger pour Outlook/Apple
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {!(course.whatsapp_link || course.google_meet_link || course.guide_url) && (
+                    <p className="text-gray-300 text-sm p-4 bg-gray-800/80 rounded-xl border border-gray-700 text-center mt-4 shadow-inner">
+                      L'administrateur vous contactera bientôt avec les informations d'accès à la formation.
+                    </p>
+                  )}
+                </>
               )}
             </motion.div>
           ) : (
             <div className="relative z-10">
-              {course.remainingSeats === 0 ? (
+              {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <AlertCircle className="w-8 h-8" />
@@ -760,10 +832,19 @@ END:VCALENDAR`;
               ) : (
                 <>
                   <div className="text-center mb-8">
-                    <h2 className="text-2xl font-bold mb-2">Réservez votre place 🎉</h2>
-                    <p className="text-gray-400 text-sm">Complétez ce formulaire pour vous inscrire à la formation.</p>
+                    {course.product_type === 'ebook' ? (
+                      <>
+                        <h2 className="text-2xl font-bold mb-2">Commandez votre E-book 📖</h2>
+                        <p className="text-gray-400 text-sm">Complétez ce formulaire pour obtenir votre livre numérique.</p>
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="text-2xl font-bold mb-2">Réservez votre place 🎉</h2>
+                        <p className="text-gray-400 text-sm">Complétez ce formulaire pour vous inscrire à la formation.</p>
+                      </>
+                    )}
                     
-                    {course.remainingSeats !== null && course.remainingSeats > 0 && (
+                    {course.product_type !== 'ebook' && course.remainingSeats !== null && course.remainingSeats > 0 && (
                       <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 rounded-full text-sm font-bold shadow-sm">
                         <AlertCircle className="w-4 h-4" />
                         Plus que {course.remainingSeats} {course.remainingSeats > 1 ? 'places disponibles' : 'place disponible'} !
@@ -852,9 +933,9 @@ END:VCALENDAR`;
                           Traitement en cours...
                         </>
                       ) : course.price_fcfa > 0 ? (
-                        'Continuer vers le paiement'
+                        course.product_type === 'ebook' ? 'Continuer vers le paiement' : 'Continuer vers le paiement'
                       ) : (
-                        'Confirmer mon inscription gratuite'
+                        course.product_type === 'ebook' ? 'Télécharger l\'e-book gratuitement' : 'Confirmer mon inscription gratuite'
                       )}
                     </button>
                   </form>
