@@ -10,28 +10,32 @@ const testimonials = [
     name: "Jean-Claude Tchakounté",
     role: "Étudiant en Master",
     text: "La formation en analyses statistiques est excellente. Les explications sont claires et le suivi est vraiment primordial. J'ai pu soutenir mon mémoire sans aucun problème !",
-    initials: "JC"
+    initials: "JC",
+    rating: 5
   },
   {
     id: 2,
     name: "Marie-Claire Ndom",
     role: "Professionnelle RH",
     text: "Ma maîtrise d'Excel s'est nettement améliorée. J'arrive maintenant à automatiser mes tâches. Le formateur prend le temps de bien expliquer chaque étape.",
-    initials: "MC"
+    initials: "MC",
+    rating: 4
   },
   {
     id: 3,
     name: "Amadou Bouba",
     role: "Doctorant",
     text: "Une approche pédagogique incroyable. Les concepts statistiques complexes deviennent simples. C'est grâce à cet accompagnement que j'ai validé ma thèse.",
-    initials: "AB"
+    initials: "AB",
+    rating: 5
   },
   {
     id: 4,
     name: "Estelle Mvogo",
     role: "Analyste de Données",
     text: "J'ai suivi plusieurs formations, mais celle-ci est de loin la meilleure. Le formateur est à l'écoute et le suivi post-formation est un vrai plus pour s'améliorer.",
-    initials: "EM"
+    initials: "EM",
+    rating: 5
   }
 ];
 
@@ -54,6 +58,7 @@ export default function PublicCoursePage() {
   const [reviewName, setReviewName] = useState('');
   const [reviewStatus, setReviewStatus] = useState('');
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
   const [dbTestimonials, setDbTestimonials] = useState<any[]>([]);
@@ -232,7 +237,8 @@ END:VCALENDAR`;
         .insert([{
           name: reviewName,
           status: reviewStatus,
-          comment: reviewComment
+          comment: reviewComment,
+          rating: reviewRating
         }]);
       if (error) throw error;
       setReviewSuccess(true);
@@ -243,6 +249,7 @@ END:VCALENDAR`;
         setReviewName('');
         setReviewStatus('');
         setReviewComment('');
+        setReviewRating(5);
       }, 2000);
     } catch (err: any) {
       console.error('Error adding review:', err.message);
@@ -294,6 +301,7 @@ END:VCALENDAR`;
       name: t.name,
       role: t.status,
       text: t.comment,
+      rating: t.rating,
       initials: t.name.substring(0, 2).toUpperCase()
     })),
     ...testimonials
@@ -527,7 +535,7 @@ END:VCALENDAR`;
                 <div>
                   <div className="flex items-center gap-1 mb-4">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <Star key={i} className={`w-4 h-4 ${(testimonial.rating || 5) > i ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
                     ))}
                   </div>
                   <p className="text-gray-700 italic mb-6 leading-relaxed text-sm sm:text-base">
@@ -862,6 +870,21 @@ END:VCALENDAR`;
                       className="block w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="Ex: Étudiant en Master, Analyste"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Note</label>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className="focus:outline-none hover:scale-110 transition-transform"
+                        >
+                          <Star className={`w-8 h-8 ${reviewRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`} />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Commentaire</label>

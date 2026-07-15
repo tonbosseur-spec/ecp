@@ -92,6 +92,7 @@ CREATE TABLE testimonials (
     name TEXT NOT NULL,
     status TEXT NOT NULL,
     comment TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating >= 0 AND rating <= 5) DEFAULT 5,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
