@@ -277,22 +277,15 @@ END:VCALENDAR`;
 
   if (isInactive) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white p-10 rounded-3xl shadow-lg border border-gray-100 max-w-lg w-full text-center">
-          <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CalendarOff className="w-10 h-10 text-gray-400" />
+      <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
+        <div className="bg-white p-10 rounded-3xl shadow-lg border border-red-100 max-w-lg w-full text-center">
+          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CalendarOff className="w-10 h-10 text-red-500" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">Formation Indisponible</h2>
-          <p className="text-gray-500 text-lg mb-8 leading-relaxed">
+          <p className="text-gray-500 text-lg leading-relaxed">
             Cette formation n'est actuellement plus disponible ou a déjà eu lieu. Merci de votre intérêt !
           </p>
-          <a
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à l'accueil
-          </a>
         </div>
       </div>
     );
