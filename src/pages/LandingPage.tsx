@@ -23,7 +23,8 @@ import {
   Send,
   Loader2,
   PenTool,
-  Check
+  Check,
+  Gift
 } from 'lucide-react';
 
 // Subcomponent for counting animation
@@ -133,6 +134,7 @@ export default function LandingPage() {
   const [dbTestimonials, setDbTestimonials] = useState<any[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
   const [currentSession, setCurrentSession] = useState<any>(null);
+  const [latestCourse, setLatestCourse] = useState<any>(null);
 
   // Form states for new testimonial
   const [newName, setNewName] = useState("");
@@ -148,7 +150,25 @@ export default function LandingPage() {
       setCurrentSession(session);
     });
     fetchTestimonials();
+    fetchLatestCourse();
   }, []);
+
+  const fetchLatestCourse = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id, title')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setLatestCourse(data[0]);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement de la dernière formation:", err);
+    }
+  };
 
   const fetchTestimonials = async () => {
     try {
@@ -243,6 +263,21 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
+      {/* Top Notification Bar */}
+      {latestCourse && (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white text-xs sm:text-sm font-semibold py-2.5 px-4 shadow-sm relative overflow-hidden transition-all text-center">
+          <Link to={`/course/${latestCourse.id}`} className="hover:underline flex items-center justify-center gap-2 flex-wrap">
+            <span className="bg-white/20 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+              Du nouveau
+            </span>
+            <span className="font-semibold text-center leading-normal max-w-xl line-clamp-2">
+              {latestCourse.title}
+            </span>
+            <ArrowRight className="w-3.5 h-3.5 shrink-0 transition-transform hover:translate-x-1" />
+          </Link>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -316,9 +351,19 @@ export default function LandingPage() {
               Atteignez l'excellence avec un <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">accompagnement sur mesure</span>.
             </h1>
             
-            <p className="text-gray-600 text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
+             <p className="text-gray-600 text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
               Que vous soyez étudiant, chercheur ou professionnel, bénéficiez de formations de pointe, d'un suivi de mémoire rigoureux et d'analyses statistiques de haut niveau pour concrétiser vos projets.
             </p>
+
+            {/* Elegant Image Integration */}
+            <div className="my-8 max-w-md sm:max-w-lg mx-auto overflow-hidden rounded-3xl border border-gray-150/80 shadow-2xl shadow-blue-100/40 bg-white p-2">
+              <img
+                src="https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/sign/Images/file_00000000abf47243aecd6804fdb1b975.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hODRjMTA3My1lMDY4LTQxYzQtYjJkYi1hNGUyMDk0MGE2NzciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJJbWFnZXMvZmlsZV8wMDAwMDAwMGFiZjQ3MjQzYWVjZDY4MDRmZGIxYjk3NS5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0MTk3MzY4LCJleHAiOjE4MTU3MzMzNjh9.RCQdEKTh7C0Y-Ye8jFU5y_1SUBy9DHxT3Ran7ueT2ts"
+                alt="Exceller chez Pierre"
+                referrerPolicy="no-referrer"
+                className="w-full h-auto rounded-2xl object-cover"
+              />
+            </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
               {currentSession ? (
@@ -347,6 +392,94 @@ export default function LandingPage() {
               </Link>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Section Cadeau de Bienvenue */}
+      <section className="py-20 bg-gradient-to-br from-blue-50/40 via-white to-indigo-50/30 border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-[2.5rem] border border-gray-150/70 shadow-2xl shadow-blue-100/40 p-8 sm:p-12 md:p-16 max-w-5xl mx-auto overflow-hidden relative">
+            {/* Background decorative element */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-100/30 rounded-full blur-3xl -ml-20 -mb-20"></div>
+
+            <div className="relative grid gap-12 lg:grid-cols-2 items-center">
+              {/* Image side */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="order-2 lg:order-1 flex justify-center"
+              >
+                <div className="relative group max-w-sm sm:max-w-md">
+                  {/* Decorative frame shadow */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition-opacity duration-300"></div>
+                  
+                  <div className="relative rounded-3xl border border-gray-100 bg-white p-2.5 shadow-lg">
+                    <img
+                      src="https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/sign/Images/file_00000000a6e871f49516e7166eb65c0f.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hODRjMTA3My1lMDY4LTQxYzQtYjJkYi1hNGUyMDk0MGE2NzciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJJbWFnZXMvZmlsZV8wMDAwMDAwMGE2ZTg3MWY0OTUxNmU3MTY2ZWI2NWMwZi5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0MTk3ODQyLCJleHAiOjE4MTU3MzM4NDJ9.Eir17hsCyqArRAxa3wrQI0TU0Od2xcsw1wgj-fL4BB8"
+                      alt="Votre Cadeau de Bienvenue"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-auto rounded-2xl object-cover transition-transform duration-500 group-hover:scale-[1.01]"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Text side */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="order-1 lg:order-2 space-y-6 text-left"
+              >
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 font-extrabold text-xs uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+                  <span>Cadeau Exceptionnel</span>
+                </div>
+
+                <div className="space-y-3">
+                  <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight leading-tight">
+                    Votre Cadeau de Bienvenue 🎁
+                  </h2>
+                  <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
+                    Pour vous remercier de votre intérêt pour <strong>Exceller chez Pierre</strong>, nous sommes ravis de vous offrir un cadeau exclusif préparé spécialement pour vous.
+                  </p>
+                </div>
+
+                <div className="space-y-3.5 bg-gray-50/60 p-5 rounded-2xl border border-gray-100/70">
+                  <p className="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Ce que vous allez recevoir :</p>
+                  <ul className="space-y-2.5">
+                    {[
+                      "Un guide pratique offert immédiatement",
+                      "Des astuces exclusives pour maximiser vos compétences",
+                      "Des conseils concrets d'outils d'analyse et statistiques",
+                      "Un accès privilégié à nos nouveautés et ateliers"
+                    ].map((benefit, bIdx) => (
+                      <li key={bIdx} className="flex items-start gap-2.5 text-sm text-gray-700">
+                        <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{benefit}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="pt-2">
+                  <a
+                    href="https://excellerchezpierre.mychariow.co/prd_23xt77jo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-100 hover:shadow-xl hover:shadow-emerald-200 transition-all hover:scale-[1.02] active:scale-98 text-base text-center cursor-pointer font-sans"
+                  >
+                    <Gift className="w-5 h-5 mr-2" />
+                    <span>Obtenir mon cadeau 🎁</span>
+                  </a>
+                </div>
+              </motion.div>
+            </div>
+          </div>
         </div>
       </section>
 

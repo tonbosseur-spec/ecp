@@ -403,6 +403,7 @@ END:VCALENDAR`;
   return (
     <div className={`min-h-screen ${bgClass} font-sans pb-20 theme-page`}>
       <style dangerouslySetInnerHTML={{__html: `
+        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@600;700&display=swap');
         .theme-page {
           --theme-primary: ${primaryColor};
           --theme-primary-light: ${primaryColorLight};
@@ -413,27 +414,28 @@ END:VCALENDAR`;
         .theme-border-light { border-color: var(--theme-primary-light) !important; }
         .theme-gradient { background: linear-gradient(to right, var(--theme-primary), var(--theme-primary-light)) !important; }
         .theme-bg-light { background-color: var(--theme-primary-light) !important; color: #111827 !important; }
+        .font-handwritten {
+          font-family: 'Dancing Script', 'Caveat', cursive, sans-serif !important;
+        }
       `}} />
 
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40 border-b theme-border-light">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 py-1">
-            <div>
-              <h1 className="text-lg font-black text-gray-900 tracking-tight leading-none">Exceller chez Pierre</h1>
-              {course && (
-                <p className="text-xs font-bold theme-text mt-1 max-w-2xl leading-normal break-words">
-                  {course.title}
-                </p>
-              )}
-            </div>
-          </div>
+      <header className="bg-white shadow-sm sticky top-0 z-40 border-b theme-border-light py-4 sm:py-5">
+        <div className="max-w-3xl mx-auto px-4 flex flex-col items-center justify-center text-center">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight leading-tight">
+            Exceller chez Pierre
+          </h1>
+          {course && (
+            <p className="text-2xl sm:text-4xl font-bold theme-text mt-2 max-w-2xl leading-normal break-words font-handwritten tracking-wide">
+              {course.title}
+            </p>
+          )}
         </div>
       </header>
 
       {/* Sub-header buttons side-by-side */}
-      <div className="bg-gray-50/80 border-b border-gray-100 py-3.5 px-4 sticky top-[61px] sm:top-[69px] z-30 backdrop-blur-xs">
-        <div className="max-w-3xl mx-auto flex items-center gap-2.5">
+      <div className="bg-gray-50/80 border-b border-gray-100 py-3.5 px-4 sticky top-[100px] sm:top-[120px] z-30 backdrop-blur-xs">
+        <div className="max-w-3xl mx-auto flex items-center justify-center gap-2.5">
           <a 
             href="/client/marketplace" 
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-gray-700 hover:text-gray-950 bg-white hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"

@@ -16,7 +16,9 @@ import {
   CheckCircle, 
   AlertCircle, 
   X,
-  Search
+  Search,
+  UserPlus,
+  LogIn
 } from 'lucide-react';
 
 const PROPOSAL_TEMPLATES = [
@@ -365,11 +367,9 @@ export default function Marketplace() {
             {filteredCourses.map((course) => {
               const courseDate = new Date(course.date_time);
               const isInactive = course.is_active === false;
-              const formattedPrice = new Intl.NumberFormat('fr-FR', {
-                style: 'currency',
-                currency: 'XOF',
-                maximumFractionDigits: 0
-              }).format(course.price_fcfa);
+              const formattedPrice = course.price_fcfa === 0
+                ? "Gratuit"
+                : `${course.price_fcfa.toLocaleString('fr-FR')} FCFA`;
               
               return (
                 <motion.div 
@@ -563,42 +563,67 @@ export default function Marketplace() {
 
       {/* Auth Prompt Modal */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 relative shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/70 backdrop-blur-md">
+          <div className="bg-white rounded-[2rem] max-w-md w-full p-6 sm:p-8 relative shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
             <button 
               onClick={() => setShowAuthModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all"
+              className="absolute top-5 right-5 p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-              <User className="w-6 h-6" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 font-extrabold text-xs uppercase tracking-wider mb-5">
+              <Sparkles className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
+              <span>Espace Privé</span>
             </div>
 
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Création de compte requise</h3>
-            <p className="text-gray-500 text-sm leading-relaxed mb-6">
-              Pour pouvoir <strong className="text-gray-900">{authModalReason}</strong>, vous devez obligatoirement <strong>créer un compte client</strong>. Cela vous permettra d'accéder à votre espace privé sécurisé et de suivre l'évolution de vos demandes.
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-tight mb-3">
+              Rejoignez Exceller chez Pierre 🚀
+            </h3>
+            
+            <p className="text-gray-600 text-sm leading-relaxed mb-5">
+              Pour pouvoir <strong className="text-gray-950 font-bold">{authModalReason}</strong>, vous devez simplement disposer d'un <strong>compte client</strong> (gratuit).
             </p>
 
-            <div className="flex flex-col gap-2.5">
+            {/* Account advantages */}
+            <div className="space-y-3 bg-gray-50/70 p-4 sm:p-5 rounded-2xl border border-gray-100/70 mb-6 text-left">
+              <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Vos avantages membre :</p>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-xs text-gray-700 leading-tight">
+                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Accès gratuit & instantané à votre Hub d'apprentissage privé</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-xs text-gray-700 leading-tight">
+                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Suivi de l'état de vos inscriptions et validation de vos paiements</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-xs text-gray-700 leading-tight">
+                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Accès direct aux liens Google Meet, groupes WhatsApp et guides</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col gap-3">
               <Link
                 to="/client/register"
-                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-center font-extrabold rounded-xl transition-all shadow-md text-sm active:scale-98"
+                className="w-full py-3.5 px-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-center font-extrabold rounded-2xl transition-all shadow-lg shadow-blue-100 hover:shadow-xl hover:shadow-blue-200 text-sm active:scale-98 flex items-center justify-center gap-2 cursor-pointer font-sans"
               >
-                Créer un compte client (Gratuit)
+                <UserPlus className="w-4 h-4" />
+                <span>Créer mon compte gratuitement</span>
               </Link>
               <Link
                 to="/client/login"
-                className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 text-center font-bold rounded-xl transition-all text-sm"
+                className="w-full py-3.5 px-5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-center font-bold rounded-2xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
               >
-                Déjà inscrit ? Se connecter
+                <LogIn className="w-4 h-4 text-gray-600" />
+                <span>Déjà membre ? Se connecter</span>
               </Link>
               <button
                 onClick={() => setShowAuthModal(false)}
-                className="w-full py-2.5 text-gray-400 hover:text-gray-600 text-center text-xs font-semibold transition-all"
+                className="w-full py-2 text-gray-400 hover:text-gray-600 text-center text-xs font-bold transition-all hover:underline cursor-pointer"
               >
-                Annuler
+                Continuer la navigation sur la boutique
               </button>
             </div>
           </div>
@@ -653,7 +678,7 @@ export default function Marketplace() {
                       </span>
                     </div>
                     <span className="text-[10px] text-gray-400 font-medium font-mono">
-                      Suggéré : {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(parseFloat(tpl.price))}
+                      Suggéré : {parseFloat(tpl.price) === 0 ? "Gratuit" : `${parseFloat(tpl.price).toLocaleString('fr-FR')} FCFA`}
                     </span>
                   </button>
                 ))}
