@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 
@@ -9,6 +9,8 @@ export default function ClientLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectPath = searchParams.get('redirect');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,8 +27,12 @@ export default function ClientLogin() {
         throw error;
       }
       
-      // On success, go to hub
-      navigate('/client/hub');
+      // On success, go to redirect path or hub
+      if (redirectPath === 'marketplace') {
+        navigate('/client/marketplace');
+      } else {
+        navigate('/client/hub');
+      }
       
     } catch (err: any) {
       setError(err.message || 'Identifiants incorrects.');

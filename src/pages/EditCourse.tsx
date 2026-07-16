@@ -37,6 +37,7 @@ export default function EditCourse() {
   const [description, setDescription] = useState('');
   const [priceFcfa, setPriceFcfa] = useState('');
   const [dateTime, setDateTime] = useState('');
+  const [isDateTbd, setIsDateTbd] = useState(false);
   const [trainerId, setTrainerId] = useState('');
   const [maxSeats, setMaxSeats] = useState('');
   const [isActive, setIsActive] = useState(true);
@@ -98,9 +99,15 @@ export default function EditCourse() {
         setPriceFcfa(courseData.price_fcfa.toString());
         
         // Format date for datetime-local input (YYYY-MM-DDThh:mm)
-        const date = new Date(courseData.date_time);
-        const formattedDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-        setDateTime(formattedDate);
+        if (courseData.is_date_tbd || !courseData.date_time) {
+          setIsDateTbd(true);
+          setDateTime('');
+        } else {
+          setIsDateTbd(false);
+          const date = new Date(courseData.date_time);
+          const formattedDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+          setDateTime(formattedDate);
+        }
         
         setTrainerId(courseData.trainer_id);
         setMaxSeats(courseData.max_seats ? courseData.max_seats.toString() : '');
@@ -184,7 +191,8 @@ export default function EditCourse() {
           initials: initials || null,
           description,
           price_fcfa: parseInt(priceFcfa, 10),
-          date_time: new Date(dateTime).toISOString(),
+          date_time: isDateTbd ? null : new Date(dateTime).toISOString(),
+          is_date_tbd: isDateTbd,
           trainer_id: trainerId,
           max_seats: maxSeats ? parseInt(maxSeats, 10) : null,
           is_active: isActive,
@@ -347,7 +355,7 @@ export default function EditCourse() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Prix (FCFA) *</label>
                 <input
@@ -360,14 +368,33 @@ export default function EditCourse() {
                   placeholder="0"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Date et Heure *</label>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Date et Heure {!isDateTbd && '*'}
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isDateTbd}
+                      onChange={e => {
+                        setIsDateTbd(e.target.checked);
+                        if (e.target.checked) {
+                          setDateTime('');
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                    />
+                    <span className="text-xs font-semibold text-gray-500">Date à déterminer</span>
+                  </label>
+                </div>
                 <input
-                  required
+                  required={!isDateTbd}
+                  disabled={isDateTbd}
                   type="datetime-local"
                   value={dateTime}
                   onChange={e => setDateTime(e.target.value)}
-                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
+                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-100"
                 />
               </div>
             </div>

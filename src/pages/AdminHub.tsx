@@ -82,13 +82,17 @@ export default function AdminHub() {
                   <h4 className="font-bold text-gray-900 text-lg mb-1">{course.title}</h4>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Calendar className="w-4 h-4" />
-                    {new Date(course.date_time).toLocaleDateString('fr-FR', {
-                      day: 'numeric', month: 'long', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit'
-                    })}
+                    {course.is_date_tbd || !course.date_time ? (
+                      "Date à déterminer"
+                    ) : (
+                      new Date(course.date_time).toLocaleDateString('fr-FR', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                      })
+                    )}
                   </div>
                 </div>
-                <div className="bg-gray-50 px-3 py-1 rounded-full text-xs font-semibold text-gray-600 border border-gray-200">
+                <div className="bg-gray-50 px-3 py-1 rounded-full text-xs font-semibold text-gray-600 border border-gray-200 shrink-0 whitespace-nowrap">
                   {course.registrations?.length || 0} client{(course.registrations?.length || 0) > 1 ? 's' : ''}
                 </div>
               </div>

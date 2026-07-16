@@ -176,10 +176,12 @@ export default function ClientHub() {
                     </h3>
                     
                     <div className="flex items-center gap-2 text-gray-500 text-sm mb-6">
-                      <Calendar className="w-4 h-4" />
-                      <span>
+                      <Calendar className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span className={course.is_date_tbd || !course.date_time ? "text-amber-800 font-medium bg-amber-50/80 px-2.5 py-1 rounded-lg text-xs border border-amber-200" : ""}>
                         {course.product_type === 'ebook' ? (
                           `Acheté le ${purchaseDate.toLocaleDateString('fr-FR')}`
+                        ) : course.is_date_tbd || !course.date_time ? (
+                          "La date vous sera communiquée prochainement"
                         ) : (
                           `Session le ${courseDate.toLocaleDateString('fr-FR', {
                             day: 'numeric',
@@ -224,15 +226,26 @@ export default function ClientHub() {
                         )}
                         
                         {course.product_type !== 'ebook' && course.google_meet_link && (
-                          <a 
-                            href={course.google_meet_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors text-sm shadow-sm"
-                          >
-                            <Video className="w-4 h-4" />
-                            Rejoindre le Meet
-                          </a>
+                          course.is_date_tbd || !course.date_time ? (
+                            <button 
+                              disabled
+                              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-gray-100 text-gray-400 rounded-xl font-medium text-sm cursor-not-allowed border border-gray-200"
+                              title="Le lien Google Meet sera actif une fois la date de la formation fixée."
+                            >
+                              <Video className="w-4 h-4 text-gray-300" />
+                              Rejoindre le Meet (Date non définie)
+                            </button>
+                          ) : (
+                            <a 
+                              href={course.google_meet_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors text-sm shadow-sm"
+                            >
+                              <Video className="w-4 h-4" />
+                              Rejoindre le Meet
+                            </a>
+                          )
                         )}
                         
                         {course.product_type !== 'ebook' && course.guide_url && (

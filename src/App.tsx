@@ -17,6 +17,7 @@ import ClientRegister from './pages/ClientRegister';
 import ClientLogin from './pages/ClientLogin';
 import ClientHub from './pages/ClientHub';
 import Marketplace from './pages/Marketplace';
+import LandingPage from './pages/LandingPage';
 import AdminHub from './pages/AdminHub';
 import AdminLayout from './components/AdminLayout';
 import { Loader2 } from 'lucide-react';
@@ -53,6 +54,7 @@ export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/course/:id" element={<PublicCoursePage />} />
         
         <Route path="/client/register" element={<ClientRegister />} />
@@ -79,7 +81,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         ) : (
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         )}
       </Routes>
     </Router>

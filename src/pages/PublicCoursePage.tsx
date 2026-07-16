@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft } from 'lucide-react';
+import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const testimonials = [
@@ -57,6 +57,11 @@ export default function PublicCoursePage() {
   const [clientId, setClientId] = useState<string | null>(null);
   const [transactionId, setTransactionId] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
 
   // Review State
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -278,6 +283,17 @@ END:VCALENDAR`;
 
       if (error) throw error;
       
+      const isPreRegistration = course.is_date_tbd || !course.date_time;
+      const successMessage = isPreRegistration
+        ? "Pré-inscription validée ! Nous vous informerons dès que la date sera fixée."
+        : "Votre inscription a été enregistrée avec succès !";
+
+      setToast({
+        show: true,
+        message: successMessage,
+        type: 'success'
+      });
+
       setSuccess(true);
       setShowPaymentModal(false);
     } catch (err: any) {
@@ -356,14 +372,16 @@ END:VCALENDAR`;
     );
   }
 
-  const formattedDate = new Intl.DateTimeFormat('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(new Date(course.date_time));
+  const formattedDate = (course.is_date_tbd || !course.date_time)
+    ? "Date à déterminer"
+    : new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(new Date(course.date_time));
 
   const template = course?.templates;
   const primaryColor = template?.primary_color || '#16a34a';
@@ -449,10 +467,16 @@ END:VCALENDAR`;
                 <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-semibold theme-text border theme-border-light shadow-xs">
                   <span>🎓 Formation</span>
                 </div>
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full text-sm font-semibold text-blue-700 border border-blue-200">
-                  <Calendar className="w-4 h-4 text-blue-500" />
-                  <span className="capitalize">{formattedDate}</span>
-                </div>
+                {course.is_date_tbd || !course.date_time ? (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full text-sm font-bold text-amber-800 border border-amber-200 shadow-xs">
+                    <span>🗓️ Date à déterminer</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full text-sm font-semibold text-blue-700 border border-blue-200">
+                    <Calendar className="w-4 h-4 text-blue-500" />
+                    <span className="capitalize">{formattedDate}</span>
+                  </div>
+                )}
               </>
             )}
             
@@ -536,7 +560,7 @@ END:VCALENDAR`;
             >
               {course.product_type === 'ebook' 
                 ? (course.price_fcfa === 0 ? "Télécharger cet E-book" : "Acheter cet E-book") 
-                : "Je m'inscris maintenant"
+                : ((course.is_date_tbd || !course.date_time) ? "Se pré-inscrire" : "S'inscrire")
               }
             </button>
           )}
@@ -755,10 +779,21 @@ END:VCALENDAR`;
                 </>
               ) : (
                 <>
-                  <h2 className="text-2xl font-bold">Inscription confirmée !</h2>
-                  <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
-                    Merci <strong className="text-white">{name}</strong>. Votre inscription à la formation a été enregistrée avec succès. Voici les informations pour y accéder :
-                  </p>
+                  {(course.is_date_tbd || !course.date_time) ? (
+                    <>
+                      <h2 className="text-2xl font-bold">Pré-inscription validée !</h2>
+                      <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
+                        Merci <strong className="text-white">{name}</strong>. Votre pré-inscription a été prise en compte. Nous vous informerons dès que la date sera fixée.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-2xl font-bold">Inscription confirmée !</h2>
+                      <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
+                        Merci <strong className="text-white">{name}</strong>. Votre inscription à la formation a été enregistrée avec succès. Voici les informations pour y accéder :
+                      </p>
+                    </>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 text-left">
                     {course.whatsapp_link && (
@@ -807,40 +842,42 @@ END:VCALENDAR`;
                     )}
                   </div>
                   
-                  <div className="mt-8 pt-8 border-t border-gray-800">
-                    <h3 className="text-lg font-bold text-white mb-2">Ajoutez cet événement à votre agenda</h3>
-                    <div className="relative inline-block text-left mt-2">
-                      <button 
-                        onClick={() => setShowCalendarMenu(!showCalendarMenu)}
-                        className="flex items-center gap-2 px-4 py-3 bg-gray-800/80 text-white border border-gray-700 rounded-xl hover:bg-gray-700 transition-colors shadow-sm font-medium"
-                      >
-                        <Calendar className="w-5 h-5 theme-text" />
-                        Ajouter au calendrier
-                        <ChevronDown className="w-4 h-4 text-gray-400" />
-                      </button>
-                      
-                      {showCalendarMenu && (
-                        <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50 overflow-hidden">
-                          <div className="py-1">
-                            <a
-                              href={generateGoogleCalendarLink()}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium"
-                            >
-                              Ajouter à Google Agenda
-                            </a>
-                            <button
-                              onClick={generateIcs}
-                              className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium text-left border-t border-gray-100"
-                            >
-                              Télécharger pour Outlook/Apple
-                            </button>
+                  {!course.is_date_tbd && course.date_time && (
+                    <div className="mt-8 pt-8 border-t border-gray-800">
+                      <h3 className="text-lg font-bold text-white mb-2">Ajoutez cet événement à votre agenda</h3>
+                      <div className="relative inline-block text-left mt-2">
+                        <button 
+                          onClick={() => setShowCalendarMenu(!showCalendarMenu)}
+                          className="flex items-center gap-2 px-4 py-3 bg-gray-800/80 text-white border border-gray-700 rounded-xl hover:bg-gray-700 transition-colors shadow-sm font-medium"
+                        >
+                          <Calendar className="w-5 h-5 theme-text" />
+                          Ajouter au calendrier
+                          <ChevronDown className="w-4 h-4 text-gray-400" />
+                        </button>
+                        
+                        {showCalendarMenu && (
+                          <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50 overflow-hidden">
+                            <div className="py-1">
+                              <a
+                                href={generateGoogleCalendarLink()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium"
+                              >
+                                Ajouter à Google Agenda
+                              </a>
+                              <button
+                                onClick={generateIcs}
+                                className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium text-left border-t border-gray-100"
+                              >
+                                Télécharger pour Outlook/Apple
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {!(course.whatsapp_link || course.google_meet_link || course.guide_url) && (
                     <p className="text-gray-300 text-sm p-4 bg-gray-800/80 rounded-xl border border-gray-700 text-center mt-4 shadow-inner">
@@ -966,7 +1003,7 @@ END:VCALENDAR`;
                       ) : course.price_fcfa > 0 ? (
                         `Continuer vers le paiement (Transfert au +237 650989019)`
                       ) : (
-                        course.product_type === 'ebook' ? 'Télécharger l\'e-book gratuitement' : 'Confirmer mon inscription gratuite'
+                        course.product_type === 'ebook' ? 'Télécharger l\'e-book gratuitement' : ((course.is_date_tbd || !course.date_time) ? 'Se pré-inscrire' : 'S\'inscrire')
                       )}
                     </button>
                   </form>
@@ -1206,6 +1243,26 @@ END:VCALENDAR`;
               </div>
             </form>
           </motion.div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-gray-900 border border-gray-800 text-white p-4 rounded-2xl shadow-xl flex items-start gap-3">
+            <div className="shrink-0 mt-0.5">
+              <CheckCircle className="w-5 h-5 text-green-400" />
+            </div>
+            <div className="flex-grow">
+              <p className="text-sm font-semibold">{toast.message}</p>
+            </div>
+            <button 
+              onClick={() => setToast({ ...toast, show: false })}
+              className="shrink-0 text-gray-400 hover:text-gray-300 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>

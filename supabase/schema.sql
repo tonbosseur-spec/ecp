@@ -14,7 +14,8 @@ CREATE TABLE courses (
     initials TEXT,
     description TEXT,
     price_fcfa INTEGER NOT NULL,
-    date_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    date_time TIMESTAMP WITH TIME ZONE,
+    is_date_tbd BOOLEAN DEFAULT false,
     whatsapp_link TEXT,
     google_meet_link TEXT,
     guide_url TEXT,
@@ -151,3 +152,38 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 10. Table course_proposals (Propositions de formations)
+CREATE TABLE course_proposals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_id UUID NOT NULL REFERENCES client_profiles(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES courses(id) ON DELETE SET NULL,
+    custom_title TEXT,
+    custom_description TEXT,
+    proposed_price NUMERIC,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS pour la table course_proposals
+ALTER TABLE course_proposals ENABLE ROW LEVEL SECURITY;
+
+-- Un client connecté peut faire un INSERT de sa propre proposition
+CREATE POLICY "Clients can insert their own proposals" ON course_proposals
+    FOR INSERT 
+    TO authenticated 
+    WITH CHECK (client_id = auth.uid());
+
+-- Un client connecté peut lire ses propres propositions
+CREATE POLICY "Clients can view their own proposals" ON course_proposals
+    FOR SELECT 
+    TO authenticated 
+    USING (client_id = auth.uid());
+
+-- L'administrateur peut tout lire et modifier
+CREATE POLICY "Admins can manage proposals" ON course_proposals
+    FOR ALL 
+    TO authenticated 
+    USING (true) 
+    WITH CHECK (true);
+
