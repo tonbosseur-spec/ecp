@@ -1,0 +1,72 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-size: 'large'
+          node-version: 18
+          cache: 'npm'
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Create .env File
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Install Android Platform tools & SDK Licenses
+        run: |
+          yes | sdkmanager --licenses || true
+
+      - name: Configure and Sync Capacitor Android
+        run: |
+          # If the android folder doesn't exist, initialize it
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          
+          # Inject Custom AndroidManifest.xml if it exists in android_config
+          if [ -f "android_config/AndroidManifest.xml" ] && [ -d "android/app/src/main" ]; then
+            cp android_config/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          fi
+          
+          # Synchronize Web assets with Android Native directory
+          npx cap sync android
+
+      - name: Build Android APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Exceller-Chez-Pierre-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
