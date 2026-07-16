@@ -417,28 +417,39 @@ END:VCALENDAR`;
 
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40 border-b theme-border-light">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <a href="/client/marketplace" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors">
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Boutique</span>
-            </a>
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 py-1">
             <div>
               <h1 className="text-lg font-black text-gray-900 tracking-tight leading-none">Exceller chez Pierre</h1>
-              {course && <p className="text-xs font-bold theme-text mt-0.5 max-w-xs truncate">{course.title}</p>}
+              {course && (
+                <p className="text-xs font-bold theme-text mt-1 max-w-2xl leading-normal break-words">
+                  {course.title}
+                </p>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <a 
-              href="/client/hub" 
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-950 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
-            >
-              <User className="w-4 h-4 text-gray-500" />
-              <span>Mon Espace Personnel</span>
-            </a>
           </div>
         </div>
       </header>
+
+      {/* Sub-header buttons side-by-side */}
+      <div className="bg-gray-50/80 border-b border-gray-100 py-3.5 px-4 sticky top-[61px] sm:top-[69px] z-30 backdrop-blur-xs">
+        <div className="max-w-3xl mx-auto flex items-center gap-2.5">
+          <a 
+            href="/client/marketplace" 
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-gray-700 hover:text-gray-950 bg-white hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Boutique</span>
+          </a>
+          <a 
+            href="/client/login" 
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-gray-700 hover:text-gray-950 bg-white hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
+          >
+            <User className="w-3.5 h-3.5 text-gray-500" />
+            <span>Mon Espace Personnel</span>
+          </a>
+        </div>
+      </div>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 mt-8 space-y-8 sm:space-y-12">
         {/* Hero Section */}
