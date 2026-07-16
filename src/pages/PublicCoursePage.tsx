@@ -45,6 +45,19 @@ export default function PublicCoursePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isInactive, setIsInactive] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 20) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Form State
   const [name, setName] = useState('');
@@ -420,8 +433,8 @@ END:VCALENDAR`;
       `}} />
 
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-40 border-b theme-border-light py-3 sm:py-4">
-        <div className="max-w-3xl mx-auto px-4 flex flex-col items-center justify-center text-center gap-3">
+      <header className={`bg-white shadow-md sticky top-0 z-40 border-b theme-border-light transition-all duration-500 ease-in-out ${isScrolled ? 'py-2 shadow-sm' : 'py-3 sm:py-4 shadow-md'}`}>
+        <div className={`max-w-3xl mx-auto px-4 flex flex-col items-center justify-center text-center transition-all duration-500 ease-in-out ${isScrolled ? 'gap-1.5' : 'gap-3'}`}>
           {/* Top Row: Back button, Title, Espace button */}
           <div className="w-full flex items-center justify-between gap-4">
             <a 
@@ -447,7 +460,11 @@ END:VCALENDAR`;
 
           {/* Cover image or pattern render inside the header */}
           {course && (
-            <div className="w-full max-w-md aspect-[1200/764] rounded-2xl overflow-hidden shadow-inner relative border border-gray-150/80 bg-white" style={{ aspectRatio: '1200/764' }}>
+            <div 
+              className={`w-full transition-all duration-500 ease-in-out rounded-2xl overflow-hidden shadow-inner relative border border-gray-150/80 bg-white ${
+                isScrolled ? 'max-w-xs h-10 sm:h-12' : 'max-w-md h-48 sm:h-[280px]'
+              }`}
+            >
               {course.cover_image_url ? (
                 <img 
                   src={course.cover_image_url} 
@@ -462,11 +479,13 @@ END:VCALENDAR`;
                   <div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,#fff_25%,transparent_25%,transparent_75%,#fff_75%,#fff),linear-gradient(45deg,#fff_25%,transparent_25%,transparent_75%,#fff_75%,#fff)] [background-size:20px_20px] [background-position:0_0,10px_10px]"></div>
                   <div className="absolute -top-10 -left-10 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
                   <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
-                  <div className="relative text-center px-4">
-                    <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider uppercase bg-white/20 px-2.5 py-0.5 rounded-full">
-                      {course.product_type === 'ebook' ? "📖 E-book" : "🎓 Formation"}
-                    </span>
-                    <p className="text-white font-bold text-xs sm:text-sm mt-1 max-w-sm line-clamp-1">
+                  <div className={`relative text-center px-4 transition-all duration-500 ${isScrolled ? 'py-0.5' : 'py-3'}`}>
+                    {!isScrolled && (
+                      <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider uppercase bg-white/20 px-2.5 py-0.5 rounded-full">
+                        {course.product_type === 'ebook' ? "📖 E-book" : "🎓 Formation"}
+                      </span>
+                    )}
+                    <p className={`text-white font-bold max-w-sm line-clamp-1 transition-all duration-500 ${isScrolled ? 'text-[10px] sm:text-xs mt-0' : 'text-xs sm:text-sm mt-1'}`}>
                       {course.title}
                     </p>
                   </div>
