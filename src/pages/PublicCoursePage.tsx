@@ -447,7 +447,7 @@ END:VCALENDAR`;
 
           {/* Cover image or pattern render inside the header */}
           {course && (
-            <div className="w-full max-w-md h-24 sm:h-28 rounded-2xl overflow-hidden shadow-inner relative border border-gray-150/80 bg-white">
+            <div className="w-full max-w-md aspect-[1200/764] rounded-2xl overflow-hidden shadow-inner relative border border-gray-150/80 bg-white" style={{ aspectRatio: '1200/764' }}>
               {course.cover_image_url ? (
                 <img 
                   src={course.cover_image_url} 
