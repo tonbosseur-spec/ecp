@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Loader2, Calendar, Video, FileText, MessageCircle, ArrowRight, LogOut, BookOpen, Heart, Lightbulb, MessageSquare, ChevronLeft, ChevronRight, Clock, Info } from 'lucide-react';
+import { ClientChat } from '../components/ClientChat';
 
 export default function ClientHub() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'inscriptions' | 'interests' | 'proposals' | 'calendar'>('inscriptions');
+  const [activeSection, setActiveSection] = useState<'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages'>('inscriptions');
+  const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const navigate = useNavigate();
@@ -276,6 +278,21 @@ export default function ClientHub() {
             <Calendar className="w-4 h-4" />
             <span>Mon Calendrier ({calendarEvents.length})</span>
           </button>
+
+          <button
+            onClick={() => {
+              setActiveSection('messages');
+              if (activeSection !== 'messages') setChatContext(null);
+            }}
+            className={`pb-4 px-4 font-semibold text-sm border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
+              activeSection === 'messages'
+                ? 'border-green-600 text-green-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Messagerie</span>
+          </button>
         </div>
 
         {/* Section Content */}
@@ -422,10 +439,35 @@ export default function ClientHub() {
                               Aucune ressource disponible
                             </div>
                           )}
+
+                          <button
+                            onClick={() => {
+                              setChatContext({ courseId: course.id, registrationId: reg.id });
+                              setActiveSection('messages');
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-medium transition-colors text-sm shadow-sm mt-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Question sur cette formation ?
+                          </button>
                         </>
                       ) : (
-                        <div className="text-center py-3 px-4 bg-amber-50 text-amber-800 text-xs rounded-xl font-medium border border-amber-100">
-                          🔒 Les ressources seront débloquées immédiatement après validation de votre reçu de paiement.
+                        <div className="flex flex-col gap-2">
+                          <div className="text-center py-3 px-4 bg-amber-50 text-amber-800 text-xs rounded-xl font-medium border border-amber-100">
+                            🔒 Les ressources seront débloquées immédiatement après validation de votre reçu de paiement.
+                          </div>
+                          <button
+                            onClick={() => {
+                              setChatContext({ courseId: course.id, registrationId: reg.id });
+                              setActiveSection('messages');
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-medium transition-colors text-sm shadow-sm"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Contacter l'administrateur
+                          </button>
                         </div>
                       )}
                     </div>
@@ -434,6 +476,16 @@ export default function ClientHub() {
               })}
             </div>
           )
+        )}
+
+        {/* Messagerie Section */}
+        {activeSection === 'messages' && (
+          <div className="max-w-3xl mx-auto h-[600px]">
+            <ClientChat 
+              courseId={chatContext?.courseId} 
+              registrationId={chatContext?.registrationId} 
+            />
+          </div>
         )}
 
         {/* Formations d'intérêt Section */}

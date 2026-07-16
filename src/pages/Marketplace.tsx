@@ -89,23 +89,20 @@ export default function Marketplace() {
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
-        if (!currentSession) {
-          navigate('/client/login?redirect=marketplace');
-          return;
-        }
-        
         setSession(currentSession);
         
         let userCourseIds: string[] = [];
         
-        const userId = currentSession.user.id;
-        const { data: regData } = await supabase
-          .from('registrations')
-          .select('course_id')
-          .eq('client_id', userId);
-          
-        if (regData) {
-          userCourseIds = regData.map(r => r.course_id);
+        if (currentSession) {
+          const userId = currentSession.user.id;
+          const { data: regData } = await supabase
+            .from('registrations')
+            .select('course_id')
+            .eq('client_id', userId);
+            
+          if (regData) {
+            userCourseIds = regData.map(r => r.course_id);
+          }
         }
 
         // Fetch ALL courses (active and inactive)
@@ -140,6 +137,25 @@ export default function Marketplace() {
 
     try {
       setSubmittingProposal(true);
+
+      // Check if already proposed
+      const { data: existing } = await supabase
+        .from('course_proposals')
+        .select('id')
+        .eq('client_id', session.user.id)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+      if (existing) {
+        setToast({
+          show: true,
+          message: "Vous avez déjà manifesté votre intérêt pour cette formation.",
+          type: 'info'
+        });
+        setSubmittingProposal(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('course_proposals')
         .insert({
@@ -160,11 +176,15 @@ export default function Marketplace() {
         setToast(prev => prev.message.includes("Demande envoyée") ? { ...prev, show: false } : prev);
       }, 4000);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erreur d'envoi de la proposition:", err);
+      let errorMessage = err?.message || "Une erreur est survenue lors de l'envoi de votre demande. Veuillez réessayer.";
+      if (errorMessage.includes('foreign key constraint') || errorMessage.includes('client_profiles')) {
+        errorMessage = "Impossible de soumettre : en tant qu'administrateur, vous n'avez pas de profil client pour effectuer cette action.";
+      }
       setToast({
         show: true,
-        message: "Une erreur est survenue lors de l'envoi de votre demande. Veuillez réessayer.",
+        message: errorMessage,
         type: 'error'
       });
     } finally {
@@ -225,11 +245,15 @@ export default function Marketplace() {
         setToast(prev => prev.message.includes("proposition a été soumise") ? { ...prev, show: false } : prev);
       }, 5000);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erreur d'envoi de la proposition personnalisée:", err);
+      let errorMessage = err?.message || "Une erreur est survenue lors de l'envoi de votre proposition. Veuillez réessayer.";
+      if (errorMessage.includes('foreign key constraint') || errorMessage.includes('client_profiles')) {
+        errorMessage = "Impossible de soumettre : en tant qu'administrateur, vous n'avez pas de profil client pour effectuer cette action.";
+      }
       setToast({
         show: true,
-        message: "Une erreur est survenue lors de l'envoi de votre proposition. Veuillez réessayer.",
+        message: errorMessage,
         type: 'error'
       });
     } finally {

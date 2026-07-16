@@ -187,3 +187,54 @@ CREATE POLICY "Admins can manage proposals" ON course_proposals
     USING (true) 
     WITH CHECK (true);
 
+
+-- 11. Table messages (Messagerie privée contextuelle)
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    client_id UUID NOT NULL REFERENCES client_profiles(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    course_id UUID REFERENCES courses(id) ON DELETE SET NULL,
+    registration_id UUID REFERENCES registrations(id) ON DELETE SET NULL,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Activation du Temps Réel (Realtime)
+-- Ajoute la table messages à la publication de réplication en temps réel de Supabase
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
+-- Activation du RLS (Row Level Security)
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+-- Politiques de sécurité (RLS) pour la table messages
+
+-- 1. Lecture (SELECT) pour le Client : Un utilisateur authentifié peut lire un message uniquement si son ID (auth.uid()) est égal au client_id
+CREATE POLICY "Clients can view their own messages" ON messages
+    FOR SELECT
+    TO authenticated
+    USING (auth.uid() = client_id);
+
+-- 2. Insertion (INSERT) pour le Client : Un utilisateur authentifié peut insérer un message uniquement si son ID (auth.uid()) est égal à la fois au client_id et au sender_id
+CREATE POLICY "Clients can insert their own messages" ON messages
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() = client_id AND auth.uid() = sender_id);
+
+-- 3. Mise à jour (UPDATE) pour le Client : Permet au client de marquer les messages reçus comme lus (is_read = true)
+CREATE POLICY "Clients can update their own messages" ON messages
+    FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = client_id)
+    WITH CHECK (auth.uid() = client_id);
+
+-- 4. Accès Administrateur : Accès complet (ALL) en lecture, écriture, mise à jour et suppression
+-- NOTE : L'adresse email ci-dessous correspond à celle fournie pour votre compte administrateur.
+-- Vous pouvez modifier 'association.astral@gmail.com' par une autre adresse si nécessaire.
+CREATE POLICY "Admins have full access to all messages" ON messages
+    FOR ALL
+    TO authenticated
+    USING (auth.jwt() ->> 'email' = 'association.astral@gmail.com')
+    WITH CHECK (auth.jwt() ->> 'email' = 'association.astral@gmail.com');
+
+

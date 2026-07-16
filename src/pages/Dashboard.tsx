@@ -19,6 +19,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { AdminChat } from '../components/AdminChat';
 
 interface Course {
   id: string;
@@ -42,7 +43,7 @@ interface PendingPayment {
 }
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'formations' | 'payments' | 'proposals'>('formations');
+  const [activeTab, setActiveTab] = useState<'formations' | 'payments' | 'proposals' | 'messages'>('formations');
   
   const [courses, setCourses] = useState<Course[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -333,7 +334,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-md mx-auto pb-24 relative">
+    <div className={`p-4 sm:p-6 mx-auto pb-24 relative ${activeTab === 'messages' ? 'max-w-5xl' : 'max-w-md'}`}>
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium animate-in slide-in-from-top-4 fade-in duration-300">
           <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -382,6 +383,16 @@ export default function Dashboard() {
           {proposals.length > 0 && (
             <span className="absolute top-2 right-1.5 flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
           )}
+        </button>
+        <button
+          onClick={() => setActiveTab('messages')}
+          className={`flex-1 py-3 text-center text-xs sm:text-sm font-medium border-b-2 transition-colors relative ${
+            activeTab === 'messages' 
+              ? 'border-gray-900 text-gray-900' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          Messages
         </button>
       </div>
 
@@ -808,6 +819,12 @@ export default function Dashboard() {
               );
             })
           )}
+        </div>
+      )}
+
+      {activeTab === 'messages' && (
+        <div className="w-full">
+          <AdminChat />
         </div>
       )}
     </div>

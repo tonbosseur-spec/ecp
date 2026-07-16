@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { User, Phone, Mail, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Phone, Mail, Lock, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Sparkles, BookOpen, GraduationCap } from 'lucide-react';
 
 export default function ClientRegister() {
   const [firstName, setFirstName] = useState('');
@@ -16,6 +16,8 @@ export default function ClientRegister() {
   const [success, setSuccess] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectPath = searchParams.get('redirect');
 
   // Validation
   const isValidEmail = email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
@@ -75,20 +77,22 @@ export default function ClientRegister() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans">
-        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 text-center p-10">
-          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="w-10 h-10 text-green-500" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans selection:bg-blue-100 selection:text-blue-900">
+        <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl shadow-gray-200/50 overflow-hidden border border-gray-100 text-center p-12 relative">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-400 to-teal-500"></div>
+          <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-8 relative">
+            <div className="absolute inset-0 bg-emerald-100 rounded-full animate-ping opacity-50"></div>
+            <CheckCircle2 className="w-12 h-12 text-emerald-500 relative z-10" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">Inscription réussie !</h2>
-          <p className="text-gray-500 text-lg mb-8 leading-relaxed">
+          <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Félicitations !</h2>
+          <p className="text-gray-600 text-base mb-10 leading-relaxed">
             Votre compte a été créé avec succès. Veuillez vérifier votre boîte mail pour confirmer votre inscription.
           </p>
           <Link
-            to="/client/login"
-            className="inline-flex items-center justify-center w-full py-3 px-4 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
+            to={`/client/login${redirectPath ? `?redirect=${redirectPath}` : ''}`}
+            className="inline-flex items-center justify-center w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl active:scale-[0.98]"
           >
-            Se connecter
+            Se connecter maintenant
           </Link>
         </div>
       </div>
@@ -96,30 +100,103 @@ export default function ClientRegister() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans py-12">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-        <div className="px-6 py-8 sm:px-10">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Espace Client</h1>
-            <p className="text-sm text-gray-500 mt-2">Créez votre compte pour gérer vos formations</p>
+    <div className="min-h-screen bg-gray-50 flex font-sans selection:bg-blue-100 selection:text-blue-900">
+      {/* Left panel - Benefits */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gray-900 relative flex-col justify-between overflow-hidden">
+        {/* Background elements */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-blue-950 to-gray-900 opacity-90"></div>
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/20 rounded-full blur-[100px] -mr-48 -mt-48"></div>
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[100px] -ml-48 -mb-48"></div>
+
+        <div className="relative z-10 p-12 xl:p-16 flex flex-col h-full justify-between max-w-2xl mx-auto w-full">
+          <div>
+            <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-16">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-semibold">Retour à l'accueil</span>
+            </Link>
+
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-extrabold text-xs uppercase tracking-wider mb-6">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Nouveau Membre</span>
+            </div>
+
+            <h2 className="text-3xl xl:text-4xl font-bold text-white mb-6 leading-tight">
+              Prenez votre avenir en main dès aujourd'hui.
+            </h2>
+            <p className="text-gray-300 text-lg mb-12 max-w-md leading-relaxed">
+              La création d'un compte est gratuite, rapide et vous donne un accès illimité à votre environnement d'apprentissage.
+            </p>
+
+            <div className="space-y-6">
+              {[
+                {
+                  icon: <BookOpen className="w-5 h-5 text-blue-400" />,
+                  title: "Bibliothèque de ressources",
+                  desc: "Consultez et téléchargez tous vos e-books et supports de cours au même endroit."
+                },
+                {
+                  icon: <GraduationCap className="w-5 h-5 text-purple-400" />,
+                  title: "Suivi de progression",
+                  desc: "Gardez un œil sur l'état de vos inscriptions et l'avancement de vos formations en direct."
+                },
+                {
+                  icon: <CheckCircle2 className="w-5 h-5 text-emerald-400" />,
+                  title: "Accès directs & simplicité",
+                  desc: "Retrouvez vos liens Google Meet et groupes WhatsApp sans chercher dans vos emails."
+                }
+              ].map((benefit, idx) => (
+                <div key={idx} className="flex gap-4">
+                  <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                    {benefit.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-base mb-1">{benefit.title}</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">{benefit.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="mt-12 flex items-center gap-3 border-t border-white/10 pt-6">
+            <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-lg flex items-center justify-center font-black text-sm">
+              E
+            </div>
+            <span className="text-gray-400 text-sm font-medium">Exceller chez Pierre © {new Date().getFullYear()}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right panel - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 lg:p-12 relative overflow-y-auto">
+        {/* Mobile back button */}
+        <Link to="/" className="lg:hidden absolute top-6 left-6 inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-sm font-semibold">Accueil</span>
+        </Link>
+
+        <div className="w-full max-w-md py-8">
+          <div className="text-center mb-10">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-2">Inscription</h1>
+            <p className="text-sm text-gray-500">Créez votre compte client gratuit en 2 minutes</p>
           </div>
           
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-50 flex items-start gap-3 border border-red-100">
+            <div className="mb-6 p-4 rounded-xl bg-red-50 flex items-start gap-3 border border-red-100 animate-in fade-in slide-in-from-top-2">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
           
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4 bg-white p-6 sm:p-8 rounded-[2rem] shadow-xl shadow-gray-200/40 border border-gray-100">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="firstName">
+                <label className="block text-[11px] font-bold text-gray-700 mb-2 uppercase tracking-wider" htmlFor="firstName">
                   Prénom
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <User className="h-4 w-4 text-gray-400" />
                   </div>
                   <input
                     id="firstName"
@@ -127,27 +204,24 @@ export default function ClientRegister() {
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50/50 focus:bg-white text-sm"
                     placeholder="Jean"
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="lastName">
+                <label className="block text-[11px] font-bold text-gray-700 mb-2 uppercase tracking-wider" htmlFor="lastName">
                   Nom
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
                   <input
                     id="lastName"
                     type="text"
                     required
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow"
+                    className="block w-full px-4 py-3 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50/50 focus:bg-white text-sm"
                     placeholder="Dupont"
                   />
                 </div>
@@ -155,12 +229,12 @@ export default function ClientRegister() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="phone">
+              <label className="block text-[11px] font-bold text-gray-700 mb-2 uppercase tracking-wider" htmlFor="phone">
                 Téléphone
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Phone className="h-4 w-4 text-gray-400" />
                 </div>
                 <input
                   id="phone"
@@ -168,22 +242,21 @@ export default function ClientRegister() {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow ${phone.length > 0 && !isValidPhone ? 'border-red-300' : 'border-gray-200'}`}
-                  placeholder="+225 0102030405"
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all bg-gray-50/50 focus:bg-white text-sm ${
+                    phone && !isValidPhone ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'
+                  }`}
+                  placeholder="+225 00 00 00 00"
                 />
               </div>
-              {phone.length > 0 && !isValidPhone && (
-                <p className="mt-1 text-xs text-red-500">Numéro de téléphone invalide</p>
-              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="email">
+              <label className="block text-[11px] font-bold text-gray-700 mb-2 uppercase tracking-wider" htmlFor="email">
                 Adresse email
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-4 w-4 text-gray-400" />
                 </div>
                 <input
                   id="email"
@@ -191,22 +264,21 @@ export default function ClientRegister() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow ${email.length > 0 && !isValidEmail ? 'border-red-300' : 'border-gray-200'}`}
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all bg-gray-50/50 focus:bg-white text-sm ${
+                    email && !isValidEmail ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'
+                  }`}
                   placeholder="jean.dupont@example.com"
                 />
               </div>
-              {email.length > 0 && !isValidEmail && (
-                <p className="mt-1 text-xs text-red-500">Adresse email invalide</p>
-              )}
             </div>
-
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="password">
+              <label className="block text-[11px] font-bold text-gray-700 mb-2 uppercase tracking-wider" htmlFor="password">
                 Mot de passe
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-4 w-4 text-gray-400" />
                 </div>
                 <input
                   id="password"
@@ -214,22 +286,21 @@ export default function ClientRegister() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow ${password.length > 0 && !isValidPassword ? 'border-red-300' : 'border-gray-200'}`}
-                  placeholder="Minimum 6 caractères"
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all bg-gray-50/50 focus:bg-white text-sm ${
+                    password && !isValidPassword ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'
+                  }`}
+                  placeholder="•••••••• (min. 6 caractères)"
                 />
               </div>
-              {password.length > 0 && !isValidPassword && (
-                <p className="mt-1 text-xs text-red-500">Le mot de passe doit contenir au moins 6 caractères</p>
-              )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="confirmPassword">
+              <label className="block text-[11px] font-bold text-gray-700 mb-2 uppercase tracking-wider" htmlFor="confirmPassword">
                 Confirmer le mot de passe
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-4 w-4 text-gray-400" />
                 </div>
                 <input
                   id="confirmPassword"
@@ -237,35 +308,36 @@ export default function ClientRegister() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow ${confirmPassword.length > 0 && !passwordsMatch ? 'border-red-300' : 'border-gray-200'}`}
-                  placeholder="Répétez votre mot de passe"
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all bg-gray-50/50 focus:bg-white text-sm ${
+                    confirmPassword && !passwordsMatch ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'
+                  }`}
+                  placeholder="••••••••"
                 />
               </div>
-              {confirmPassword.length > 0 && !passwordsMatch && (
-                <p className="mt-1 text-xs text-red-500">Les mots de passe ne correspondent pas</p>
-              )}
             </div>
-
-            <button
-              type="submit"
-              disabled={loading || !canSubmit}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-6"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                  Inscription...
-                </>
-              ) : (
-                'Créer mon compte'
-              )}
-            </button>
+            
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={loading || !canSubmit}
+                className="w-full flex justify-center items-center py-4 px-4 rounded-2xl shadow-lg shadow-blue-500/30 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                    Création en cours...
+                  </>
+                ) : (
+                  'Créer mon compte'
+                )}
+              </button>
+            </div>
           </form>
           
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center bg-gray-100/50 py-4 px-6 rounded-2xl border border-gray-200/50">
             <p className="text-sm text-gray-600">
               Vous avez déjà un compte ?{' '}
-              <Link to="/client/login" className="font-medium text-gray-900 hover:underline">
+              <Link to={`/client/login${redirectPath ? `?redirect=${redirectPath}` : ''}`} className="font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors">
                 Connectez-vous
               </Link>
             </p>
