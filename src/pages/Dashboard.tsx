@@ -14,6 +14,7 @@ import {
   Lightbulb,
   MessageSquare,
   Check,
+  X,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -57,12 +58,16 @@ export default function Dashboard() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [expandedProposalIds, setExpandedProposalIds] = useState<Record<string, boolean>>({});
+  const [proposalFilter, setProposalFilter] = useState<'pending' | 'all'>('pending');
 
   useEffect(() => {
     fetchCourses();
     fetchPendingPayments();
-    fetchProposals();
   }, []);
+
+  useEffect(() => {
+    fetchProposals();
+  }, [proposalFilter]);
 
   const fetchCourses = async () => {
     try {
@@ -141,7 +146,7 @@ export default function Dashboard() {
   const fetchProposals = async () => {
     try {
       setLoadingProposals(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('course_proposals')
         .select(`
           id,
@@ -151,6 +156,7 @@ export default function Dashboard() {
           custom_description,
           proposed_price,
           status,
+          admin_feedback,
           created_at,
           client_profiles (
             first_name,
@@ -160,9 +166,13 @@ export default function Dashboard() {
           courses (
             title
           )
-        `)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+        `);
+
+      if (proposalFilter === 'pending') {
+        query = query.eq('status', 'pending');
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setProposals(data || []);
@@ -173,16 +183,16 @@ export default function Dashboard() {
     }
   };
 
-  const handleMarkProposalReviewed = async (id: string) => {
+  const handleUpdateProposal = async (id: string, status: string, feedback: string) => {
     try {
       const { error } = await supabase
         .from('course_proposals')
-        .update({ status: 'reviewed' })
+        .update({ status, admin_feedback: feedback })
         .eq('id', id);
 
       if (error) throw error;
 
-      setToast("Demande marquée comme lue");
+      setToast("Proposition mise à jour avec succès");
       setTimeout(() => setToast(null), 3000);
 
       fetchProposals(); // Refresh list
@@ -577,6 +587,30 @@ export default function Dashboard() {
 
       {activeTab === 'proposals' && (
         <div className="space-y-4">
+          {/* Sub-tabs for Proposals filtering */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl max-w-sm">
+            <button
+              onClick={() => setProposalFilter('pending')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                proposalFilter === 'pending'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              En attente
+            </button>
+            <button
+              onClick={() => setProposalFilter('all')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                proposalFilter === 'all'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              Toutes / Historique
+            </button>
+          </div>
+
           {loadingProposals ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
@@ -588,7 +622,7 @@ export default function Dashboard() {
                 <Lightbulb className="w-6 h-6 text-gray-400" />
               </div>
               <h3 className="text-base font-semibold text-gray-900 mb-2">Boîte à idées vide</h3>
-              <p className="text-sm text-gray-500">Aucune nouvelle proposition ou demande d'intérêt en attente.</p>
+              <p className="text-sm text-gray-500">Aucune proposition ou demande d'intérêt dans cette catégorie.</p>
             </div>
           ) : (
             proposals.map(proposal => {
@@ -606,20 +640,24 @@ export default function Dashboard() {
                     maximumFractionDigits: 0
                   }).format(proposal.proposed_price)
                 : null;
-
+ 
               // Helper to generate a WhatsApp URL
               const getWhatsAppUrl = (phone: string | null) => {
                 if (!phone) return '#';
                 let cleanPhone = phone.replace(/\D/g, '');
                 if (cleanPhone.length === 9 && cleanPhone.startsWith('6')) {
-                  cleanPhone = '237' + cleanPhone;
+                   cleanPhone = '237' + cleanPhone;
                 }
                 return `https://wa.me/${cleanPhone}`;
               };
-
+ 
               return (
                 <div key={proposal.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
-                  <div className={`absolute top-0 left-0 w-1 h-full ${hasCourse ? 'bg-amber-500' : 'bg-blue-500'}`}></div>
+                  <div className={`absolute top-0 left-0 w-1 h-full ${
+                    proposal.status === 'accepted' ? 'bg-green-500' :
+                    proposal.status === 'rejected' ? 'bg-red-500' :
+                    hasCourse ? 'bg-amber-500' : 'bg-blue-500'
+                  }`}></div>
                   
                   <div className="flex justify-between items-start mb-3">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
@@ -634,13 +672,26 @@ export default function Dashboard() {
                       )}
                     </span>
                     
-                    <span className="text-[10px] text-gray-400 font-mono">
-                      {new Date(proposal.created_at).toLocaleDateString('fr-FR', {
-                        day: '2-digit', month: '2-digit'
-                      })}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                        proposal.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                        proposal.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        proposal.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
+                        'bg-amber-100 text-amber-800'
+                      }`}>
+                        {proposal.status === 'accepted' && "Validée"}
+                        {proposal.status === 'rejected' && "Refusée"}
+                        {proposal.status === 'reviewed' && "Traitée"}
+                        {proposal.status === 'pending' && "En attente"}
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-mono">
+                        {new Date(proposal.created_at).toLocaleDateString('fr-FR', {
+                          day: '2-digit', month: '2-digit'
+                        })}
+                      </span>
+                    </div>
                   </div>
-
+ 
                   <div className="mb-4">
                     {hasCourse ? (
                       <p className="text-sm text-gray-700 leading-relaxed">
@@ -679,7 +730,7 @@ export default function Dashboard() {
                       </div>
                     )}
                   </div>
-
+ 
                   {clientPhone && (
                     <div className="mb-4 text-xs text-gray-500 bg-gray-50/50 p-2.5 rounded-xl border border-gray-50 flex justify-between items-center">
                       <span>Tél: <strong className="text-gray-700 font-mono">{clientPhone}</strong></span>
@@ -694,15 +745,64 @@ export default function Dashboard() {
                       </a>
                     </div>
                   )}
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleMarkProposalReviewed(proposal.id)}
-                      className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Marquer comme lu</span>
-                    </button>
+ 
+                  {/* Administration Response Section */}
+                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                      Réponse / Commentaire de l'équipe (visible par le client) :
+                    </label>
+                    <textarea
+                      placeholder="Ex: Formation validée, planifiée pour septembre ! Ou : nous étudions la thématique..."
+                      defaultValue={proposal.admin_feedback || ''}
+                      id={`feedback-${proposal.id}`}
+                      className="w-full text-xs p-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-950 bg-gray-50/50 focus:bg-white transition-colors"
+                      rows={2}
+                    />
+                    
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          const fb = (document.getElementById(`feedback-${proposal.id}`) as HTMLTextAreaElement)?.value || '';
+                          handleUpdateProposal(proposal.id, 'accepted', fb);
+                        }}
+                        className="flex-1 min-w-[80px] py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-colors shadow-xs"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Valider</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const fb = (document.getElementById(`feedback-${proposal.id}`) as HTMLTextAreaElement)?.value || '';
+                          handleUpdateProposal(proposal.id, 'rejected', fb);
+                        }}
+                        className="flex-1 min-w-[80px] py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-colors shadow-xs"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Refuser</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const fb = (document.getElementById(`feedback-${proposal.id}`) as HTMLTextAreaElement)?.value || '';
+                          handleUpdateProposal(proposal.id, 'reviewed', fb);
+                        }}
+                        className="flex-1 min-w-[80px] py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold text-xs flex items-center justify-center transition-colors shadow-xs"
+                      >
+                        <span>Marquer traité</span>
+                      </button>
+                      
+                      {proposal.status !== 'pending' && (
+                        <button
+                          onClick={() => {
+                            const fb = (document.getElementById(`feedback-${proposal.id}`) as HTMLTextAreaElement)?.value || '';
+                            handleUpdateProposal(proposal.id, 'pending', fb);
+                          }}
+                          className="py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs flex items-center justify-center transition-colors border border-gray-200"
+                          title="Remettre en attente"
+                        >
+                          Réinitialiser
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

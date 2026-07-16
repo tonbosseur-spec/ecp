@@ -19,6 +19,37 @@ import {
   Search
 } from 'lucide-react';
 
+const PROPOSAL_TEMPLATES = [
+  {
+    icon: "📊",
+    shortTitle: "Analyse Excel",
+    title: "Analyse de données & Rapports Décisionnels avec Excel",
+    description: "Je souhaite apprendre à importer, nettoyer et modéliser des données avec Power Query, maîtriser les formules avancées (RECHERCHEX, SOMMEPROD), et réaliser des rapports statistiques complets pour faciliter les décisions.",
+    price: "35000"
+  },
+  {
+    icon: "📈",
+    shortTitle: "Tableaux de Bord",
+    title: "Tableaux de bord (Dashboards) interactifs sur Excel",
+    description: "Formation pratique pour concevoir des tableaux de bord dynamiques et visuels. Utilisation de tableaux croisés dynamiques avancés, segments interactifs, graphiques combinés et indicateurs clés de performance (KPI).",
+    price: "45000"
+  },
+  {
+    icon: "🔬",
+    shortTitle: "Analyse SPSS",
+    title: "Analyse statistique et traitement d'enquêtes avec SPSS",
+    description: "Apprendre à structurer une base de données d'enquête, réaliser des analyses descriptives, croiser des variables, réaliser des tests d'hypothèses (Khi-deux, t-test, ANOVA) et interpréter rigoureusement les résultats.",
+    price: "50000"
+  },
+  {
+    icon: "🤖",
+    shortTitle: "VBA & Macros",
+    title: "Automatisation de rapports et initiation au VBA Excel",
+    description: "Maîtriser l'enregistrement de macros et s'initier à la programmation VBA pour automatiser les tâches répétitives, sécuriser des fichiers de travail et générer des rapports automatisés en un seul clic.",
+    price: "40000"
+  }
+];
+
 export default function Marketplace() {
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<any[]>([]);
@@ -592,6 +623,40 @@ export default function Marketplace() {
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Proposer une formation</h3>
                 <p className="text-gray-500 text-xs">Exprimez vos besoins, nous créons la formation idéale !</p>
+              </div>
+            </div>
+
+            {/* Suggestions / Templates */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-left">
+              <p className="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider mb-2.5 flex items-center gap-1">
+                💡 Vous n'avez pas d'idée ?
+              </p>
+              <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                Cliquez sur l'un de nos modèles d'analyse de données et d'outils bureautiques pour pré-remplir le formulaire :
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {PROPOSAL_TEMPLATES.map((tpl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setProposalTitle(tpl.title);
+                      setProposalDescription(tpl.description);
+                      setProposalPrice(tpl.price);
+                    }}
+                    className="p-3 bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-xl text-left transition-all group flex flex-col justify-between shadow-xs cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-base select-none">{tpl.icon}</span>
+                      <span className="font-bold text-gray-800 text-[11px] sm:text-xs leading-tight group-hover:text-blue-700 transition-colors">
+                        {tpl.shortTitle}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 font-medium font-mono">
+                      Suggéré : {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(parseFloat(tpl.price))}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
 
