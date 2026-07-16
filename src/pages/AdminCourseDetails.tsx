@@ -254,7 +254,7 @@ export default function AdminCourseDetails() {
             <p className="text-sm text-gray-500">Aucun participant inscrit pour le moment.</p>
           </div>
         ) : (
-          registrations.map((participant) => {
+          registrations.map((participant, index) => {
             const date = new Intl.DateTimeFormat('fr-FR', {
               day: 'numeric',
               month: 'short',
@@ -263,7 +263,7 @@ export default function AdminCourseDetails() {
             }).format(new Date(participant.registered_at));
 
             return (
-              <div key={participant.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div key={`${participant.id}-${index}`} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-semibold text-gray-900">{participant.participant_name}</h3>
                   <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-md">{date}</span>

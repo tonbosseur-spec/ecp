@@ -454,7 +454,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredCourses.map((course) => {
+          {filteredCourses.map((course, index) => {
             const formattedDate = (course.is_date_tbd || !course.date_time)
               ? "Date à déterminer"
               : new Intl.DateTimeFormat('fr-FR', {
@@ -468,7 +468,7 @@ export default function Dashboard() {
             const registrationCount = course.registrations?.[0]?.count || 0;
 
             return (
-              <div key={course.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
+              <div key={`${course.id}-${index}`} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-gray-900"></div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">{course.title}</h3>
                 
@@ -539,8 +539,8 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">Aucun paiement en attente de validation.</p>
             </div>
           ) : (
-            pendingPayments.map(payment => (
-              <div key={payment.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            pendingPayments.map((payment, index) => (
+              <div key={`${payment.id}-${index}`} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h3 className="font-semibold text-gray-900">{payment.participant_name}</h3>
@@ -636,7 +636,7 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">Aucune proposition ou demande d'intérêt dans cette catégorie.</p>
             </div>
           ) : (
-            proposals.map(proposal => {
+            proposals.map((proposal, index) => {
               const clientName = proposal.client_profiles 
                 ? `${proposal.client_profiles.first_name || ''} ${proposal.client_profiles.last_name || ''}`.trim() || 'Client sans nom'
                 : 'Client inconnu';
@@ -663,7 +663,7 @@ export default function Dashboard() {
               };
  
               return (
-                <div key={proposal.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+                <div key={`${proposal.id}-${index}`} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
                   <div className={`absolute top-0 left-0 w-1 h-full ${
                     proposal.status === 'accepted' ? 'bg-green-500' :
                     proposal.status === 'rejected' ? 'bg-red-500' :

@@ -119,8 +119,10 @@ export default function ClientLogin() {
 
         <div className="w-full max-w-md">
           <div className="text-center mb-10">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-2">Bienvenue</h1>
-            <p className="text-sm text-gray-500">Connectez-vous pour accéder à votre espace</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-3">Bienvenue dans votre Hub</h1>
+            <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">
+              Connectez-vous pour accéder à tous vos <strong>cours, e-books et coachings</strong>, suivre votre progression et discuter avec vos mentors.
+            </p>
           </div>
           
           {error && (

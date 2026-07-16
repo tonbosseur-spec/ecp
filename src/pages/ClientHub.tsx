@@ -316,13 +316,13 @@ export default function ClientHub() {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {registrations.map((reg) => {
+              {registrations.map((reg, index) => {
                 const course = reg.courses;
                 const courseDate = new Date(course.date_time);
                 const purchaseDate = reg.registered_at ? new Date(reg.registered_at) : new Date();
                 
                 return (
-                  <div key={reg.id} className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
+                  <div key={`${reg.id}-${index}`} className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
                     <div className="p-6 flex-grow">
                       <div className="flex justify-between items-start mb-4">
                         {reg.payment_status === 'approved' ? (
@@ -509,11 +509,11 @@ export default function ClientHub() {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
-              {proposals.filter((p: any) => p.course_id !== null).map((prop) => {
+              {proposals.filter((p: any) => p.course_id !== null).map((prop, index) => {
                 const date = new Date(prop.created_at);
                 const course = prop.courses;
                 return (
-                  <div key={prop.id} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+                  <div key={`${prop.id}-${index}`} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
                     <div>
                       <div className="flex justify-between items-start mb-4">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
@@ -579,10 +579,10 @@ export default function ClientHub() {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
-              {proposals.filter((p: any) => p.course_id === null).map((prop) => {
+              {proposals.filter((p: any) => p.course_id === null).map((prop, index) => {
                 const date = new Date(prop.created_at);
                 return (
-                  <div key={prop.id} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+                  <div key={`${prop.id}-${index}`} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
                     <div>
                       <div className="flex justify-between items-start mb-4">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${

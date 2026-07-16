@@ -18,6 +18,7 @@ export default function ClientRegister() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectPath = searchParams.get('redirect');
+  const reason = searchParams.get('reason');
 
   // Validation
   const isValidEmail = email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
@@ -176,10 +177,27 @@ export default function ClientRegister() {
         </Link>
 
         <div className="w-full max-w-md py-8">
-          <div className="text-center mb-10">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-2">Inscription</h1>
-            <p className="text-sm text-gray-500">Créez votre compte client gratuit en 2 minutes</p>
+          <div className="text-center mb-10 mt-10">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-3">Rejoignez-nous</h1>
+            <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">
+              Créez votre compte <strong>gratuitement</strong> pour structurer vos compétences, suivre vos formations et accéder à votre bibliothèque de ressources privées.
+            </p>
           </div>
+          
+          {reason && (
+            <div className="mb-6 p-4 rounded-2xl bg-indigo-50 flex items-start gap-3 border border-indigo-100 animate-in fade-in slide-in-from-top-2">
+              <Sparkles className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-indigo-800 leading-relaxed">
+                {reason === 'interest' ? (
+                  <>Pour manifester votre intérêt pour cette formation, <strong>un compte est requis</strong>. L'inscription est rapide et gratuite !</>
+                ) : reason === 'propose' ? (
+                  <>Pour proposer une nouvelle idée de formation, <strong>un compte est requis</strong>. Rejoignez-nous gratuitement !</>
+                ) : (
+                  <>Pour accéder à cette fonctionnalité, <strong>un compte est requis</strong>. L'inscription est gratuite !</>
+                )}
+              </div>
+            </div>
+          )}
           
           {error && (
             <div className="mb-6 p-4 rounded-xl bg-red-50 flex items-start gap-3 border border-red-100 animate-in fade-in slide-in-from-top-2">

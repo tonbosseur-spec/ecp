@@ -659,7 +659,7 @@ END:VCALENDAR`;
             </h2>
             <div className="space-y-3">
               {course.course_modules.map((module: any, idx: number) => (
-                <div key={module.id} className="bg-white border theme-border rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md">
+                <div key={`${module.id}-${idx}`} className="bg-white border theme-border rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md">
                   <button 
                     onClick={() => toggleModule(module.id)}
                     className="w-full px-5 py-4 flex items-center justify-between bg-white text-left focus:outline-none"
@@ -753,9 +753,9 @@ END:VCALENDAR`;
                 display: none;
               }
             `}} />
-            {allTestimonials.map((testimonial) => (
+            {allTestimonials.map((testimonial, index) => (
               <div 
-                key={testimonial.id} 
+                key={`${testimonial.id}-${index}`} 
                 className="min-w-[280px] sm:min-w-[320px] bg-white rounded-3xl p-6 shadow-sm border theme-border snap-center flex flex-col justify-between"
               >
                 <div>

@@ -388,7 +388,7 @@ export default function Marketplace() {
               }
             }}
           >
-            {filteredCourses.map((course) => {
+            {filteredCourses.map((course, index) => {
               const courseDate = new Date(course.date_time);
               const isInactive = course.is_active === false;
               const formattedPrice = course.price_fcfa === 0
@@ -397,7 +397,7 @@ export default function Marketplace() {
               
               return (
                 <motion.div 
-                  key={course.id} 
+                  key={`${course.id}-${index}`} 
                   variants={{
                     hidden: { opacity: 0, y: 20 },
                     visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } }

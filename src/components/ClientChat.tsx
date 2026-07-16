@@ -172,11 +172,11 @@ export const ClientChat: React.FC<ClientChatProps> = ({ courseId, registrationId
           </div>
         ) : (
           <AnimatePresence initial={false}>
-            {messages.map((msg) => {
+            {messages.map((msg, idx) => {
               const isClient = msg.sender_id === clientId;
               return (
                 <motion.div
-                  key={msg.id}
+                  key={`${msg.id}-${idx}`}
                   layout
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}

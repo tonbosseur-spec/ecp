@@ -75,8 +75,8 @@ export default function AdminHub() {
       <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-900 mb-4 px-2">{title}</h3>
         <div className="space-y-4">
-          {courseList.map(course => (
-            <div key={course.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          {courseList.map((course, index) => (
+            <div key={`${course.id}-${index}`} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h4 className="font-bold text-gray-900 text-lg mb-1">{course.title}</h4>
@@ -104,7 +104,7 @@ export default function AdminHub() {
                     Clients inscrits
                   </h5>
                   <div className="space-y-2">
-                    {course.registrations.map((reg: any) => {
+                    {course.registrations.map((reg: any, index: number) => {
                       // Prefer profile data if available (since they registered as client)
                       const clientName = reg.client_profiles 
                         ? `${reg.client_profiles.first_name || ''} ${reg.client_profiles.last_name || ''}`.trim()
@@ -113,7 +113,7 @@ export default function AdminHub() {
                       const clientPhone = reg.client_profiles?.phone || reg.participant_phone;
                       
                       return (
-                        <div key={reg.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl text-sm">
+                        <div key={`${reg.id}-${index}`} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl text-sm">
                           <div>
                             <p className="font-medium text-gray-900">{clientName || 'Client inconnu'}</p>
                             <p className="text-gray-500 text-xs">{reg.participant_email}</p>
