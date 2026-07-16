@@ -420,38 +420,62 @@ END:VCALENDAR`;
       `}} />
 
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40 border-b theme-border-light py-4 sm:py-5">
-        <div className="max-w-3xl mx-auto px-4 flex flex-col items-center justify-center text-center">
-          <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight leading-tight">
-            Exceller chez Pierre
-          </h1>
+      <header className="bg-white shadow-md sticky top-0 z-40 border-b theme-border-light py-3 sm:py-4">
+        <div className="max-w-3xl mx-auto px-4 flex flex-col items-center justify-center text-center gap-3">
+          {/* Top Row: Back button, Title, Espace button */}
+          <div className="w-full flex items-center justify-between gap-4">
+            <a 
+              href="/client/marketplace" 
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-gray-700 hover:text-gray-950 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Boutique</span>
+            </a>
+            
+            <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">
+              Exceller chez Pierre
+            </h1>
+            
+            <a 
+              href="/client/login" 
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-gray-700 hover:text-gray-950 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
+            >
+              <User className="w-3.5 h-3.5 text-gray-500" />
+              <span className="hidden sm:inline">Mon Espace</span>
+            </a>
+          </div>
+
+          {/* Cover image or pattern render inside the header */}
           {course && (
-            <p className="text-2xl sm:text-4xl font-bold theme-text mt-2 max-w-2xl leading-normal break-words font-handwritten tracking-wide">
-              {course.title}
-            </p>
+            <div className="w-full max-w-md h-24 sm:h-28 rounded-2xl overflow-hidden shadow-inner relative border border-gray-150/80 bg-white">
+              {course.cover_image_url ? (
+                <img 
+                  src={course.cover_image_url} 
+                  alt={course.title} 
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform hover:scale-105 duration-500"
+                />
+              ) : (
+                /* Beautiful abstract render with patterns & theme gradient if no image */
+                <div className="w-full h-full theme-gradient flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_15%,transparent_16%)] [background-size:16px_16px]"></div>
+                  <div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,#fff_25%,transparent_25%,transparent_75%,#fff_75%,#fff),linear-gradient(45deg,#fff_25%,transparent_25%,transparent_75%,#fff_75%,#fff)] [background-size:20px_20px] [background-position:0_0,10px_10px]"></div>
+                  <div className="absolute -top-10 -left-10 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
+                  <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
+                  <div className="relative text-center px-4">
+                    <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider uppercase bg-white/20 px-2.5 py-0.5 rounded-full">
+                      {course.product_type === 'ebook' ? "📖 E-book" : "🎓 Formation"}
+                    </span>
+                    <p className="text-white font-bold text-xs sm:text-sm mt-1 max-w-sm line-clamp-1">
+                      {course.title}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </header>
-
-      {/* Sub-header buttons side-by-side */}
-      <div className="bg-gray-50/80 border-b border-gray-100 py-3.5 px-4 sticky top-[100px] sm:top-[120px] z-30 backdrop-blur-xs">
-        <div className="max-w-3xl mx-auto flex items-center justify-center gap-2.5">
-          <a 
-            href="/client/marketplace" 
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-gray-700 hover:text-gray-950 bg-white hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Boutique</span>
-          </a>
-          <a 
-            href="/client/login" 
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-gray-700 hover:text-gray-950 bg-white hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
-          >
-            <User className="w-3.5 h-3.5 text-gray-500" />
-            <span>Mon Espace Personnel</span>
-          </a>
-        </div>
-      </div>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 mt-8 space-y-8 sm:space-y-12">
         {/* Hero Section */}
