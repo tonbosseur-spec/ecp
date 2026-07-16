@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabaseClient';
 import { 
@@ -18,7 +18,8 @@ import {
   X,
   Search,
   UserPlus,
-  LogIn
+  LogIn,
+  ShoppingBag
 } from 'lucide-react';
 
 const PROPOSAL_TEMPLATES = [
@@ -83,6 +84,15 @@ export default function Marketplace() {
   const [proposalDescription, setProposalDescription] = useState('');
   const [proposalPrice, setProposalPrice] = useState('');
   const [submittingProposal, setSubmittingProposal] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const action = searchParams.get('action');
+
+  useEffect(() => {
+    if (action === 'propose' && session) {
+      setShowProposalModal(true);
+    }
+  }, [action, session]);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -194,7 +204,7 @@ export default function Marketplace() {
 
   const handleOpenProposalModal = () => {
     if (!session) {
-      setAuthModalReason("proposer une idée de formation");
+      setAuthModalReason("réserver un accompagnement personnalisé");
       setShowAuthModal(true);
       return;
     }
@@ -276,8 +286,8 @@ export default function Marketplace() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold text-lg">
-                E
+              <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+                <ShoppingBag className="w-6 h-6" />
               </div>
               <span className="font-bold text-xl text-gray-900 tracking-tight">Exceller Market</span>
             </div>
@@ -301,39 +311,18 @@ export default function Marketplace() {
           </p>
         </div>
 
-        {/* Custom Proposal Call-to-Action Banner */}
-        <div className="mb-12 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="absolute inset-0 bg-cover bg-center opacity-10 mix-blend-overlay" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80')" }}></div>
-          <div className="relative z-10 space-y-2 text-center md:text-left max-w-xl">
-            <h2 className="text-xl sm:text-2xl font-bold flex items-center justify-center md:justify-start gap-2">
-              <Sparkles className="w-6 h-6 text-yellow-300 animate-pulse" />
-              Une idée de formation sur-mesure ?
-            </h2>
-            <p className="text-blue-100 text-sm sm:text-base leading-relaxed">
-              Proposez-nous vos thématiques idéales ! Nous concevrons des formations adaptées à vos besoins spécifiques.
-            </p>
-          </div>
-          <button
-            onClick={handleOpenProposalModal}
-            className="relative z-10 shrink-0 px-6 py-3.5 bg-white text-blue-700 font-bold rounded-2xl shadow-md hover:bg-blue-50 transition-all hover:scale-105 active:scale-95 text-sm flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Proposer une formation</span>
-          </button>
-        </div>
-
         {/* Search Bar */}
-        <div className="mb-8 max-w-xl mx-auto">
-          <div className="relative">
+        <div className="mb-10 max-w-2xl mx-auto">
+          <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
             </div>
             <input
               type="text"
-              placeholder="Rechercher une formation (titre, description...)"
+              placeholder="Rechercher une formation (logiciel, domaine, outils...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-11 pr-12 py-3.5 border border-gray-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all shadow-xs text-sm"
+              className="block w-full pl-11 pr-12 py-4 border-2 border-gray-100 rounded-[1.5rem] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm text-base"
             />
             {searchQuery && (
               <button
@@ -341,10 +330,31 @@ export default function Marketplace() {
                 className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                 title="Effacer la recherche"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               </button>
             )}
           </div>
+        </div>
+
+        {/* Custom Proposal Call-to-Action Banner */}
+        <div className="mb-12 bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 rounded-[2.5rem] p-8 sm:p-10 text-white shadow-xl shadow-blue-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="absolute inset-0 bg-cover bg-center opacity-10 mix-blend-overlay" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80')" }}></div>
+          <div className="relative z-10 space-y-3 text-center md:text-left max-w-xl">
+            <h2 className="text-2xl sm:text-3xl font-black flex items-center justify-center md:justify-start gap-3 tracking-tight">
+              <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
+              Accompagnement personnalisé
+            </h2>
+            <p className="text-blue-100 text-base sm:text-lg leading-relaxed font-medium">
+              Besoin d'une formation sur mesure ou d'un suivi spécifique pour vos projets ? Nous concevons le programme idéal pour vous.
+            </p>
+          </div>
+          <button
+            onClick={handleOpenProposalModal}
+            className="relative z-10 shrink-0 px-8 py-4 bg-white text-blue-700 font-black rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-50 transition-all hover:scale-105 active:scale-95 text-base flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Réservez un accompagnement</span>
+          </button>
         </div>
 
         {courses.length === 0 ? (
@@ -358,20 +368,30 @@ export default function Marketplace() {
             </p>
           </div>
         ) : filteredCourses.length === 0 ? (
-          <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Search className="w-10 h-10 text-gray-400" />
+          <div className="bg-white rounded-[2.5rem] p-10 sm:p-16 text-center border border-gray-100 shadow-xl shadow-gray-200/40 max-w-2xl mx-auto">
+            <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-8">
+              <Search className="w-12 h-12 text-blue-400" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Aucun résultat trouvé</h3>
-            <p className="text-gray-500 mb-6 max-w-md mx-auto">
-              Aucune formation ne correspond à votre recherche "{searchQuery}". Essayez avec d'autres mots-clés.
+            <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight">Aucun résultat pour "{searchQuery}"</h3>
+            <p className="text-gray-500 mb-10 max-w-md mx-auto leading-relaxed">
+              Nous n'avons pas trouvé de formation correspondant à votre recherche. Pourquoi ne pas demander un accompagnement sur mesure ?
             </p>
-            <button
-              onClick={() => setSearchQuery('')}
-              className="px-5 py-2.5 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors text-sm"
-            >
-              Réinitialiser la recherche
-            </button>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={handleOpenProposalModal}
+                className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-5 h-5 text-yellow-300" />
+                <span>Demander un accompagnement personnalisé</span>
+              </button>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="w-full sm:w-auto px-8 py-4 bg-gray-100 text-gray-700 font-bold rounded-2xl hover:bg-gray-200 transition-all"
+              >
+                Voir tout le catalogue
+              </button>
+            </div>
           </div>
         ) : (
           <motion.div 
@@ -533,29 +553,27 @@ export default function Marketplace() {
             })}
           </motion.div>
         )}
+
+        {/* Bottom CTA Section (replaced floating buttons) */}
+        <div className="mt-20 pt-10 border-t border-gray-100 text-center">
+          <div className="max-w-xl mx-auto space-y-6">
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="w-8 h-8 text-blue-500" />
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Vous ne trouvez pas ce que vous cherchez ?</h3>
+            <p className="text-gray-500 text-base leading-relaxed">
+              Nous pouvons créer un programme sur mesure adapté à vos objectifs spécifiques.
+            </p>
+            <button
+              onClick={handleOpenProposalModal}
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 transition-all hover:scale-105 active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Réserver un accompagnement personnalisé</span>
+            </button>
+          </div>
+        </div>
       </main>
-
-      {/* Floating Action Button (FAB) for custom proposal (visible on desktop/tablet) */}
-      <div className="fixed bottom-6 right-6 z-40 hidden sm:block">
-        <button
-          onClick={handleOpenProposalModal}
-          className="flex items-center gap-2 px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 group"
-        >
-          <Sparkles className="w-5 h-5 text-yellow-300 group-hover:animate-spin" />
-          <span>Une idée ? Proposez-la !</span>
-        </button>
-      </div>
-
-      {/* Floating Action Button for mobile */}
-      <div className="fixed bottom-4 left-4 right-4 z-40 sm:hidden">
-        <button
-          onClick={handleOpenProposalModal}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 text-white font-bold rounded-2xl shadow-xl transition-all hover:bg-blue-700"
-        >
-          <Sparkles className="w-5 h-5 text-yellow-300 animate-pulse" />
-          <span>Proposer une idée de formation</span>
-        </button>
-      </div>
 
       {/* Toast Notification */}
       {toast.show && (
@@ -670,8 +688,8 @@ export default function Marketplace() {
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Proposer une formation</h3>
-                <p className="text-gray-500 text-xs">Exprimez vos besoins, nous créons la formation idéale !</p>
+                <h3 className="text-xl font-bold text-gray-900">Demander un accompagnement</h3>
+                <p className="text-gray-500 text-xs">Exprimez vos besoins, nous créons la solution idéale !</p>
               </div>
             </div>
 

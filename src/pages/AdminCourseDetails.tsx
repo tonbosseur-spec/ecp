@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import ShareCourseButton from '../components/ShareCourseButton';
 
 interface Course {
@@ -15,6 +16,7 @@ interface Course {
 
 interface Registration {
   id: string;
+  client_id: string | null;
   participant_name: string;
   participant_email: string;
   participant_phone: string;
@@ -28,6 +30,11 @@ export default function AdminCourseDetails() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Broadcast message state
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcasting, setBroadcasting] = useState(false);
 
   useEffect(() => {
     if (id) fetchCourseData();
@@ -39,7 +46,7 @@ export default function AdminCourseDetails() {
       
       const [courseResponse, registrationsResponse] = await Promise.all([
         supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active').eq('id', id).single(),
-        supabase.from('registrations').select('*').eq('course_id', id).order('registered_at', { ascending: false })
+        supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, registered_at').eq('course_id', id).order('registered_at', { ascending: false })
       ]);
 
       if (courseResponse.error) throw courseResponse.error;
@@ -51,6 +58,46 @@ export default function AdminCourseDetails() {
       setError(err.message || 'Erreur lors du chargement des données.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBroadcast = async () => {
+    if (!broadcastMessage.trim() || !course) return;
+    
+    setBroadcasting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Vous devez être connecté pour envoyer des messages.");
+
+      // Filter registrations that have a client_id (actual users)
+      const clientsWithAccounts = registrations.filter(reg => reg.client_id);
+      
+      if (clientsWithAccounts.length === 0) {
+        alert("Aucun inscrit n'a de compte utilisateur associé pour recevoir ce message.");
+        setBroadcasting(false);
+        return;
+      }
+
+      // Create messages for each registered client
+      const messagesToInsert = clientsWithAccounts.map(reg => ({
+        client_id: reg.client_id,
+        sender_id: user.id,
+        course_id: course.id,
+        content: broadcastMessage.trim(),
+        is_read: false
+      }));
+
+      const { error: msgError } = await supabase.from('messages').insert(messagesToInsert);
+      
+      if (msgError) throw msgError;
+
+      alert(`Message envoyé avec succès à ${clientsWithAccounts.length} participant(s).`);
+      setBroadcastMessage('');
+      setShowBroadcastModal(false);
+    } catch (err: any) {
+      alert("Erreur lors de l'envoi : " + err.message);
+    } finally {
+      setBroadcasting(false);
     }
   };
 
@@ -236,16 +283,25 @@ export default function AdminCourseDetails() {
 
       {/* Participants List */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Participants ({totalRegistrations})</h2>
           {registrations.length > 0 && (
-            <button
-              onClick={exportToGoogleContacts}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
-            >
-              <Users className="w-4 h-4" />
-              Exporter Contacts
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowBroadcastModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Message groupé
+              </button>
+              <button
+                onClick={exportToGoogleContacts}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+              >
+                <Users className="w-4 h-4" />
+                Exporter Contacts
+              </button>
+            </div>
           )}
         </div>
         
@@ -300,6 +356,87 @@ export default function AdminCourseDetails() {
           })
         )}
       </div>
+
+      {/* Broadcast Modal */}
+      <AnimatePresence>
+        {showBroadcastModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl relative border border-gray-100"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-gray-50">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 tracking-tight">Message à tous les inscrits</h3>
+                  <p className="text-xs text-gray-500 mt-1">Diffusion groupée pour : {course.title}</p>
+                </div>
+                <button 
+                  onClick={() => setShowBroadcastModal(false)} 
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    <strong>Note :</strong> Ce message sera envoyé individuellement à chaque inscrit possédant un compte client. Ils recevront une notification dans leur espace personnel.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-700 ml-1">
+                    Votre message
+                  </label>
+                  <textarea
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    placeholder="Bonjour à tous, voici une information importante concernant..."
+                    className="w-full h-40 px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-sm resize-none"
+                  />
+                  <div className="flex justify-between items-center px-1">
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      {registrations.filter(r => r.client_id).length} destinataires potentiels
+                    </p>
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      {broadcastMessage.length} caractères
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowBroadcastModal(false)}
+                    className="flex-1 px-4 py-3 text-sm font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleBroadcast}
+                    disabled={broadcasting || !broadcastMessage.trim()}
+                    className="flex-[2] flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition-all shadow-lg shadow-emerald-200"
+                  >
+                    {broadcasting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Envoi...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Diffuser le message
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

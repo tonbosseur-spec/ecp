@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Send, Loader2, MessageSquare, ChevronLeft, Phone, User, Clock, CheckCircle2, CheckCheck } from 'lucide-react';
+import { Send, Loader2, MessageSquare, ChevronLeft, Phone, User, Clock, CheckCircle2, CheckCheck, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Message {
@@ -33,6 +33,7 @@ export const AdminChat = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [adminId, setAdminId] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -50,9 +51,13 @@ export const AdminChat = () => {
     const setupChat = async () => {
       setLoading(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        setAdminId(user.id);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setAdminId(session.user.id);
+        } else {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) setAdminId(user.id);
+        }
 
         await fetchAllMessages();
 
@@ -67,8 +72,7 @@ export const AdminChat = () => {
               table: 'messages',
             },
             () => {
-              // When any message changes, re-fetch all to keep it simple and consistent for admin
-              // In a real huge app we'd incrementally update the state
+              // When any message changes, re-fetch all
               fetchAllMessages();
             }
           )
@@ -90,44 +94,47 @@ export const AdminChat = () => {
   }, []);
 
   const fetchAllMessages = async () => {
-    const { data: messagesData, error } = await supabase
-      .from('messages')
-      .select('*, client_profiles(first_name, last_name, phone), courses(title)')
-      .order('created_at', { ascending: false });
+    try {
+      const { data: messagesData, error } = await supabase
+        .from('messages')
+        .select('*, client_profiles(first_name, last_name, phone), courses(title)')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching messages:', error);
-      return;
-    }
+      if (error) {
+        console.error('Error fetching messages:', error);
+        return;
+      }
 
-    if (messagesData) {
-      // Group by client
-      const convosMap = new Map<string, Conversation>();
-      
-      // Since it's ordered by created_at DESC, the first time we see a client_id, it's their latest message
-      messagesData.forEach((msg: any) => {
-        const cId = msg.client_id;
+      if (messagesData) {
+        // Group by client
+        const convosMap = new Map<string, Conversation>();
         
-        if (!convosMap.has(cId)) {
-          convosMap.set(cId, {
-            client_id: cId,
-            first_name: msg.client_profiles?.first_name || 'Client',
-            last_name: msg.client_profiles?.last_name || 'Inconnu',
-            phone: msg.client_profiles?.phone || '',
-            last_message: msg,
-            unread_count: 0
-          });
-        }
-        
-        // Count unread (sent by client, not read)
-        if (msg.sender_id === cId && !msg.is_read) {
-          const conv = convosMap.get(cId)!;
-          conv.unread_count += 1;
-        }
-      });
+        messagesData.forEach((msg: any) => {
+          const cId = msg.client_id;
+          
+          if (!convosMap.has(cId)) {
+            convosMap.set(cId, {
+              client_id: cId,
+              first_name: msg.client_profiles?.first_name || 'Client',
+              last_name: msg.client_profiles?.last_name || 'Inconnu',
+              phone: msg.client_profiles?.phone || '',
+              last_message: msg,
+              unread_count: 0
+            });
+          }
+          
+          // Count unread (sent by client, not read)
+          if (msg.sender_id === cId && !msg.is_read) {
+            const conv = convosMap.get(cId)!;
+            conv.unread_count += 1;
+          }
+        });
 
-      setConversations(Array.from(convosMap.values()));
-      setMessages(messagesData.reverse()); // Reverse to have chronological order for the chat view
+        setConversations(Array.from(convosMap.values()));
+        setMessages([...messagesData].reverse());
+      }
+    } catch (err) {
+      console.error('Error in fetchAllMessages:', err);
     }
   };
 
@@ -142,8 +149,6 @@ export const AdminChat = () => {
             .eq('client_id', selectedClientId)
             .neq('sender_id', adminId)
             .eq('is_read', false);
-            
-          // Local state update is handled by the realtime subscription triggering fetchAllMessages
         } catch (err) {
           console.error('Error marking as read:', err);
         }
@@ -154,17 +159,33 @@ export const AdminChat = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedClientId || !adminId) return;
+    const content = newMessage.trim();
+    if (!content || !selectedClientId) return;
 
     setSending(true);
+    setSendError(null);
+    
     try {
+      let currentAdminId = adminId;
+      
+      // Fallback if adminId is not yet set
+      if (!currentAdminId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          currentAdminId = user.id;
+          setAdminId(user.id);
+        } else {
+          throw new Error("Impossible d'identifier l'administrateur. Veuillez vous reconnecter.");
+        }
+      }
+
       const clientMessages = messages.filter(m => m.client_id === selectedClientId);
-      const lastMsg = clientMessages[clientMessages.length - 1]; // Already chronologically sorted ascending
+      const lastMsg = clientMessages[clientMessages.length - 1];
 
       const msgData = {
         client_id: selectedClientId,
-        sender_id: adminId,
-        content: newMessage.trim(),
+        sender_id: currentAdminId,
+        content: content,
         course_id: lastMsg?.course_id || null,
         registration_id: lastMsg?.registration_id || null,
         is_read: false
@@ -174,8 +195,9 @@ export const AdminChat = () => {
       if (error) throw error;
 
       setNewMessage('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error sending message:', err);
+      setSendError(err.message || "Erreur lors de l'envoi du message.");
     } finally {
       setSending(false);
     }
@@ -373,6 +395,12 @@ export const AdminChat = () => {
 
             {/* Input Area */}
             <div className="p-3 bg-white border-t border-gray-200">
+              {sendError && (
+                <div className="mb-2 p-2 text-xs bg-red-50 text-red-600 rounded-lg flex items-center gap-2 border border-red-100">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {sendError}
+                </div>
+              )}
               <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
                 <textarea
                   value={newMessage}

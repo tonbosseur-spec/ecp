@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, useInView } from 'motion/react';
 import { supabase } from '../lib/supabaseClient';
 import { 
@@ -24,7 +24,8 @@ import {
   Loader2,
   PenTool,
   Check,
-  Gift
+  Gift,
+  ShoppingBag
 } from 'lucide-react';
 
 // Subcomponent for counting animation
@@ -61,7 +62,7 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
 }
 
 export default function LandingPage() {
-  const adminWhatsAppPhone = "237650989019"; // Pierre's phone number
+  const adminWhatsAppPhone = "237698389030"; // Pierre's phone number
 
   const services = [
     {
@@ -135,6 +136,7 @@ export default function LandingPage() {
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [latestCourse, setLatestCourse] = useState<any>(null);
+  const navigate = useNavigate();
 
   // Form states for new testimonial
   const [newName, setNewName] = useState("");
@@ -158,7 +160,7 @@ export default function LandingPage() {
       const { data, error } = await supabase
         .from('courses')
         .select('id, title')
-        .order('created_at', { ascending: false })
+        .order('date_time', { ascending: false })
         .limit(1);
       
       if (error) throw error;
@@ -176,7 +178,7 @@ export default function LandingPage() {
       const { data, error } = await supabase
         .from('testimonials')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('id', { ascending: false });
       
       if (error) throw error;
       if (data && data.length > 0) {
@@ -283,10 +285,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-xl flex items-center justify-center font-black text-xl shadow-md shadow-blue-200">
-                E
-              </div>
-              <span className="font-bold text-xl text-gray-900 tracking-tight">Exceller chez Pierre</span>
+              <span className="font-black text-2xl text-gray-900 tracking-tight">Exceller chez Pierre</span>
             </div>
             
             <div className="flex items-center gap-4">
@@ -345,8 +344,8 @@ export default function LandingPage() {
               Atteignez l'excellence avec un <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">accompagnement sur mesure</span>.
             </h1>
             
-             <p className="text-gray-600 text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
-              Que vous soyez étudiant, chercheur ou professionnel, bénéficiez de formations de pointe, d'un suivi de mémoire rigoureux et d'analyses statistiques de haut niveau pour concrétiser vos projets.
+            <p className="text-gray-600 text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
+              Nous accompagnons les étudiants, chercheurs et professionnels avec des formations aux logiciels d’analyse, des livres d’apprentissage étape par étape et un suivi sur mesure des projets de recherche et travaux d’entreprise
             </p>
 
             {/* Elegant Image Integration */}
@@ -377,6 +376,21 @@ export default function LandingPage() {
                   <span>Créer mon espace client</span>
                 </Link>
               )}
+              
+              <button
+                onClick={() => {
+                  if (currentSession) {
+                    navigate('/client/marketplace?action=propose');
+                  } else {
+                    navigate('/client/register?redirect=/client/marketplace?action=propose&reason=propose');
+                  }
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-gray-50 text-blue-600 font-extrabold rounded-2xl border-2 border-blue-600/20 hover:border-blue-600/40 shadow-sm transition-all text-base"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                <span>Demander un accompagnement</span>
+              </button>
+
               <Link
                 to="/client/marketplace"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-gray-50 text-gray-800 font-bold rounded-2xl border border-gray-200 hover:border-gray-300 shadow-xs transition-all text-base"
@@ -404,18 +418,18 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
-                className="order-2 lg:order-1 flex justify-center"
+                className="order-1 flex justify-center"
               >
-                <div className="relative group max-w-sm sm:max-w-md">
+                <div className="relative group max-w-2xl lg:max-w-full w-full">
                   {/* Decorative frame shadow */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl blur-2xl opacity-20 group-hover:opacity-30 transition-opacity duration-300"></div>
                   
-                  <div className="relative rounded-3xl border border-gray-100 bg-white p-2.5 shadow-lg">
+                  <div className="relative rounded-3xl overflow-hidden shadow-2xl">
                     <img
                       src="https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/sign/Images/file_00000000a6e871f49516e7166eb65c0f.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hODRjMTA3My1lMDY4LTQxYzQtYjJkYi1hNGUyMDk0MGE2NzciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJJbWFnZXMvZmlsZV8wMDAwMDAwMGE2ZTg3MWY0OTUxNmU3MTY2ZWI2NWMwZi5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0MTk3ODQyLCJleHAiOjE4MTU3MzM4NDJ9.Eir17hsCyqArRAxa3wrQI0TU0Od2xcsw1wgj-fL4BB8"
                       alt="Votre Cadeau de Bienvenue"
                       referrerPolicy="no-referrer"
-                      className="w-full h-auto rounded-2xl object-cover transition-transform duration-500 group-hover:scale-[1.01]"
+                      className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-[1.02]"
                     />
                   </div>
                 </div>
@@ -423,11 +437,11 @@ export default function LandingPage() {
 
               {/* Text side */}
               <motion.div
-                initial={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
-                className="order-1 lg:order-2 space-y-6 text-left"
+                className="order-2 space-y-6 text-left"
               >
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 font-extrabold text-xs uppercase tracking-wider">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
@@ -743,6 +757,53 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Final CTA Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 rounded-[2.5rem] p-10 sm:p-16 text-white shadow-2xl shadow-emerald-200 relative overflow-hidden group"
+          >
+            {/* Background Image with Overlay */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center mix-blend-overlay opacity-30 transition-transform duration-700 group-hover:scale-105" 
+              style={{ backgroundImage: "url('https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80')" }}
+            ></div>
+            
+            {/* Decorative circles */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-400/20 rounded-full -ml-16 -mb-16 blur-2xl"></div>
+
+            <div className="relative z-10 space-y-8">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight max-w-3xl mx-auto drop-shadow-sm">
+                Prêt à réussir vos analyses de données ?
+              </h2>
+              
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
+                <Link
+                  to="/client/marketplace"
+                  className="w-full sm:w-auto px-8 py-4 bg-white text-emerald-700 font-black rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all text-base flex items-center justify-center gap-2"
+                >
+                  <GraduationCap className="w-5 h-5" />
+                  <span>Commencer une formation</span>
+                </Link>
+                <a
+                  href={`https://wa.me/${adminWhatsAppPhone}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all text-base flex items-center justify-center gap-2 border border-white/20"
+                >
+                  <MessageSquare className="w-5 h-5 fill-white" />
+                  <span>Réserver un accompagnement</span>
+                </a>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* 5. Footer & Contact Direct */}
       <footer className="bg-gray-950 text-gray-400 py-16 border-t border-gray-900">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-10">
@@ -769,11 +830,8 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-gray-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-2 text-white font-bold">
-              <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center font-black text-xs">
-                E
-              </div>
-              <span>Exceller chez Pierre</span>
+            <div className="flex items-center gap-2 text-white">
+              <span className="font-black text-3xl tracking-tighter">Exceller chez Pierre</span>
             </div>
             
             <div className="flex gap-4">

@@ -194,10 +194,7 @@ export default function ClientHub() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold text-lg">
-                e
-              </div>
-              <span className="font-bold text-xl text-gray-900 tracking-tight">ecpmanager</span>
+              <span className="font-bold text-xl text-green-600 tracking-tight">{firstName}</span>
             </div>
             <div className="flex items-center gap-6">
               <Link

@@ -1100,9 +1100,7 @@ END:VCALENDAR`;
           <h3 className="text-xl font-bold text-gray-900">Pour aller plus loin</h3>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <a 
-              href="https://excellerchezpierre.vercel.app/" 
-              target="_blank" 
-              rel="noopener noreferrer"
+              href="/" 
               className="inline-flex justify-center items-center gap-2 px-6 py-3 theme-bg-light theme-text rounded-xl font-semibold hover:opacity-80 transition-opacity shadow-sm border theme-border"
             >
               <Globe className="w-5 h-5 theme-text" />
