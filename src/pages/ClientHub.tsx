@@ -477,10 +477,14 @@ export default function ClientHub() {
 
         {/* Messagerie Section */}
         {activeSection === 'messages' && (
-          <div className="max-w-3xl mx-auto h-[600px]">
+          <div className="fixed inset-0 z-[100] bg-white">
             <ClientChat 
               courseId={chatContext?.courseId} 
               registrationId={chatContext?.registrationId} 
+              onClose={() => {
+                setActiveSection('courses');
+                setChatContext(null);
+              }}
             />
           </div>
         )}

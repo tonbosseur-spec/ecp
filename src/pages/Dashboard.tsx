@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
   
   const [loading, setLoading] = useState(true);
   const [loadingPayments, setLoadingPayments] = useState(false);
@@ -64,11 +65,46 @@ export default function Dashboard() {
   useEffect(() => {
     fetchCourses();
     fetchPendingPayments();
+    fetchUnreadMessages();
+
+    const channel = supabase
+      .channel(`admin_unread_messages_${Math.random()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        () => {
+          fetchUnreadMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
     fetchProposals();
   }, [proposalFilter]);
+
+  const fetchUnreadMessages = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { count, error } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .neq('sender_id', user.id)
+        .eq('is_read', false);
+        
+      if (!error && count !== null) {
+        setUnreadMessagesCount(count);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchCourses = async () => {
     try {
@@ -393,6 +429,9 @@ export default function Dashboard() {
           }`}
         >
           Messages
+          {unreadMessagesCount > 0 && (
+            <span className="absolute top-2 right-1.5 flex h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-green-100 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></span>
+          )}
         </button>
       </div>
 
@@ -823,9 +862,7 @@ export default function Dashboard() {
       )}
 
       {activeTab === 'messages' && (
-        <div className="w-full">
-          <AdminChat />
-        </div>
+        <AdminChat onBack={() => setActiveTab('formations')} />
       )}
     </div>
   );

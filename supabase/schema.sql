@@ -234,7 +234,7 @@ CREATE POLICY "Clients can update their own messages" ON messages
 CREATE POLICY "Admins have full access to all messages" ON messages
     FOR ALL
     TO authenticated
-    USING (auth.jwt() ->> 'email' = 'association.astral@gmail.com')
-    WITH CHECK (auth.jwt() ->> 'email' = 'association.astral@gmail.com');
+    USING (auth.jwt() ->> 'email' = 'pmbom@ecp.cm')
+    WITH CHECK (auth.jwt() ->> 'email' = 'pmbom@ecp.cm');
 
 
