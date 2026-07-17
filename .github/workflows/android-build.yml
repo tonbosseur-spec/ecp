@@ -26,7 +26,10 @@ jobs:
           java-version: '17'
 
       - name: Install Dependencies
-        run: npm install
+        run: |
+          npm install
+          # Force install native bindings for Tailwind 4 oxide engine to avoid "Cannot find native binding" error in CI
+          npm install @tailwindcss/oxide-linux-x64-gnu --save-optional || true
 
       - name: Create .env File
         run: |
