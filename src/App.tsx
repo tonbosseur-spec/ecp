@@ -29,13 +29,18 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   // Initialisation des fonctionnalités natives (Capacitor)
-  useNativeFeatures();
+  const { registerPushNotifications } = useNativeFeatures();
 
   useEffect(() => {
     // Obtenir la session actuelle
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+      
+      // Auto-enregistrement des notifications si l'utilisateur est connecté
+      if (session?.user?.id) {
+        registerPushNotifications(session.user.id).catch(console.error);
+      }
     });
 
     // Écouter les changements de session (connexion, déconnexion)
@@ -43,6 +48,11 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      
+      // Re-vérifier lors du changement d'état (login)
+      if (session?.user?.id) {
+        registerPushNotifications(session.user.id).catch(console.error);
+      }
     });
 
     return () => subscription.unsubscribe();
