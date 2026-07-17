@@ -31,6 +31,8 @@ export default function AdminCourseDetails() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [courseModules, setCourseModules] = useState<any[]>([]);
+  const [progressMap, setProgressMap] = useState<Record<string, string[]>>({});
   
   // Broadcast message state
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
@@ -45,9 +47,10 @@ export default function AdminCourseDetails() {
     try {
       setLoading(true);
       
-      const [courseResponse, registrationsResponse] = await Promise.all([
+      const [courseResponse, registrationsResponse, modulesResponse] = await Promise.all([
         supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active, product_type').eq('id', id).single(),
-        supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, registered_at').eq('course_id', id).order('registered_at', { ascending: false })
+        supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, registered_at').eq('course_id', id).order('registered_at', { ascending: false }),
+        supabase.from('course_modules').select('id, title').eq('course_id', id)
       ]);
 
       if (courseResponse.error) throw courseResponse.error;
@@ -55,6 +58,30 @@ export default function AdminCourseDetails() {
 
       setCourse(courseResponse.data);
       setRegistrations(registrationsResponse.data || []);
+      
+      const modules = modulesResponse.data || [];
+      setCourseModules(modules);
+
+      if (modules.length > 0) {
+        const moduleIds = modules.map(m => m.id);
+        const { data: progressData, error: progressError } = await supabase
+          .from('module_progress')
+          .select('client_id, module_id')
+          .in('module_id', moduleIds);
+
+        if (!progressError && progressData) {
+          const map: Record<string, string[]> = {};
+          progressData.forEach(p => {
+            if (!map[p.client_id]) {
+              map[p.client_id] = [];
+            }
+            if (!map[p.client_id].includes(p.module_id)) {
+              map[p.client_id].push(p.module_id);
+            }
+          });
+          setProgressMap(map);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Erreur lors du chargement des données.');
     } finally {
@@ -330,6 +357,10 @@ export default function AdminCourseDetails() {
               minute: '2-digit'
             }).format(new Date(participant.registered_at));
 
+            const completedCount = participant.client_id ? (progressMap[participant.client_id]?.length || 0) : 0;
+            const totalCount = courseModules.length;
+            const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
             return (
               <div key={`${participant.id}-${index}`} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
                 <div className="flex justify-between items-start mb-3">
@@ -350,6 +381,26 @@ export default function AdminCourseDetails() {
                       {participant.participant_phone}
                     </a>
                   </div>
+
+                  {course.product_type !== 'ebook' && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                      <div className="flex justify-between items-center text-xs font-bold text-gray-500 mb-1.5">
+                        <span>Progression de l'étudiant</span>
+                        <span className="text-purple-600 font-extrabold">{completedCount} / {totalCount} validés ({percent}%)</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-purple-600 h-2 rounded-full transition-all duration-500" 
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      {!participant.client_id && (
+                        <p className="text-[10px] text-amber-600 font-medium mt-1">
+                          L'étudiant n'a pas encore créé de compte pour enregistrer son avancement.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-gray-50">

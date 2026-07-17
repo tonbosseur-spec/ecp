@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, ChevronRight, GraduationCap } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -106,8 +106,18 @@ export default function Login() {
             </button>
           </form>
         </div>
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 text-center">
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 text-center flex flex-col gap-2.5">
           <p className="text-xs text-gray-500">Accès restreint aux administrateurs autorisés.</p>
+          <div className="border-t border-gray-200/60 pt-3">
+            <Link 
+              to="/client/login"
+              className="inline-flex items-center justify-center gap-1.5 text-xs font-black text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <GraduationCap className="w-4 h-4" />
+              Retourner à l'Espace Apprenant (Client)
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Calendar, Video, FileText, MessageCircle, ArrowRight, LogOut, BookOpen, Heart, Lightbulb, MessageSquare, ChevronLeft, ChevronRight, Clock, Info } from 'lucide-react';
+import { 
+  Loader2, 
+  Calendar, 
+  Video, 
+  FileText, 
+  MessageCircle, 
+  ArrowRight, 
+  LogOut, 
+  BookOpen, 
+  Heart, 
+  Lightbulb, 
+  MessageSquare, 
+  ChevronLeft, 
+  ChevronRight, 
+  Clock, 
+  Info,
+  CheckCircle2,
+  Play,
+  ExternalLink,
+  RefreshCw,
+  Check
+} from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
 
 const stripHtml = (html: string) => {
@@ -24,6 +45,15 @@ export default function ClientHub() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const navigate = useNavigate();
+
+  // Course detailed content (LMS) states
+  const [activeCourseContentReg, setActiveCourseContentReg] = useState<any | null>(null);
+  const [courseModules, setCourseModules] = useState<any[]>([]);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [completedModuleIds, setCompletedModuleIds] = useState<string[]>([]);
+  const [allCompletedModuleIds, setAllCompletedModuleIds] = useState<string[]>([]);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [togglingProgressId, setTogglingProgressId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -58,10 +88,10 @@ export default function ClientHub() {
           });
         }
 
-        // Fetch registrations with courses
+        // Fetch registrations with courses and nested course module IDs for progress tracking
         const { data: regData, error: regError } = await supabase
           .from('registrations')
-          .select('*, courses(*)')
+          .select('*, courses(*, course_modules(id))')
           .eq('client_id', userId)
           .order('registered_at', { ascending: false });
 
@@ -70,6 +100,16 @@ export default function ClientHub() {
         if (regData) {
           // Filter out registrations where course is null (just in case)
           setRegistrations(regData.filter(r => r.courses));
+        }
+
+        // Fetch client's completed module progress
+        const { data: progressData, error: progressError } = await supabase
+          .from('module_progress')
+          .select('module_id')
+          .eq('client_id', userId);
+          
+        if (!progressError && progressData) {
+          setAllCompletedModuleIds(progressData.map(p => p.module_id));
         }
 
         // Fetch proposals & interests
@@ -90,6 +130,104 @@ export default function ClientHub() {
 
     fetchClientData();
   }, [navigate]);
+
+  useEffect(() => {
+    if (activeCourseContentReg) {
+      fetchCourseContent(activeCourseContentReg.course_id);
+    }
+  }, [activeCourseContentReg]);
+
+  const fetchCourseContent = async (courseId: string) => {
+    try {
+      setLoadingContent(true);
+      
+      // Fetch modules for this course
+      const { data: modulesData, error: modulesError } = await supabase
+        .from('course_modules')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('order_index', { ascending: true });
+        
+      if (modulesError) throw modulesError;
+      
+      const fetchedModules = modulesData || [];
+      setCourseModules(fetchedModules);
+      if (fetchedModules.length > 0) {
+        setSelectedModuleId(fetchedModules[0].id);
+      } else {
+        setSelectedModuleId(null);
+      }
+      
+      // Fetch user's progress for these modules
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: progressData, error: progressError } = await supabase
+          .from('module_progress')
+          .select('module_id')
+          .eq('client_id', session.user.id);
+          
+        if (!progressError && progressData) {
+          const completedIds = progressData.map(p => p.module_id);
+          setCompletedModuleIds(completedIds);
+          setAllCompletedModuleIds(completedIds);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading course content:", err);
+    } finally {
+      setLoadingContent(false);
+    }
+  };
+
+  const toggleModuleCompletion = async (moduleId: string) => {
+    if (togglingProgressId) return;
+    try {
+      setTogglingProgressId(moduleId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const userId = session.user.id;
+      
+      const isCompleted = completedModuleIds.includes(moduleId);
+      
+      if (isCompleted) {
+        const { error } = await supabase
+          .from('module_progress')
+          .delete()
+          .eq('client_id', userId)
+          .eq('module_id', moduleId);
+          
+        if (error) throw error;
+        setCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
+        setAllCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
+      } else {
+        const { error } = await supabase
+          .from('module_progress')
+          .insert([{ client_id: userId, module_id: moduleId }]);
+          
+        if (error) throw error;
+        setCompletedModuleIds(prev => [...prev, moduleId]);
+        setAllCompletedModuleIds(prev => [...prev, moduleId]);
+      }
+    } catch (err) {
+      console.error("Error toggling module completion:", err);
+    } finally {
+      setTogglingProgressId(null);
+    }
+  };
+
+  const getYoutubeEmbedUrl = (url: string) => {
+    if (!url) return '';
+    try {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      if (match && match[2].length === 11) {
+        return `https://www.youtube.com/embed/${match[2]}`;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return '';
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -304,7 +442,256 @@ export default function ClientHub() {
 
         {/* Section Content */}
         {activeSection === 'inscriptions' && (
-          registrations.length === 0 ? (
+          activeCourseContentReg ? (
+            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[600px] animate-fade-in">
+              {/* Sidebar: Course Modules List */}
+              <div className="w-full md:w-80 bg-gray-50 border-r border-gray-100 flex flex-col shrink-0">
+                {/* Workspace Header */}
+                <div className="p-6 border-b border-gray-200 bg-white">
+                  <button
+                    onClick={() => setActiveCourseContentReg(null)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 hover:text-purple-700 mb-3 transition-colors uppercase tracking-wider"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Mes formations
+                  </button>
+                  <h2 className="text-lg font-extrabold text-gray-900 leading-tight">
+                    {activeCourseContentReg.courses.title}
+                  </h2>
+                </div>
+
+                {/* Progress Stats Summary */}
+                <div className="p-6 bg-purple-50/50 border-b border-gray-100">
+                  <div className="flex justify-between items-center text-xs font-semibold text-gray-500 mb-2">
+                    <span>Progression globale</span>
+                    <span className="text-purple-600 font-bold">
+                      {courseModules.filter(m => completedModuleIds.includes(m.id)).length} / {courseModules.length} modules
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-purple-600 rounded-full transition-all duration-500"
+                      style={{ 
+                        width: `${courseModules.length > 0 
+                          ? Math.round((courseModules.filter(m => completedModuleIds.includes(m.id)).length / courseModules.length) * 100) 
+                          : 0}%` 
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Scrollable list of modules */}
+                <div className="flex-grow overflow-y-auto max-h-[450px] p-4 space-y-2">
+                  {loadingContent ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                      <span className="text-xs text-gray-500">Chargement des modules...</span>
+                    </div>
+                  ) : courseModules.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-gray-400 italic">
+                      Aucun module disponible pour ce cours.
+                    </div>
+                  ) : (
+                    courseModules.map((m, index) => {
+                      const isCompleted = completedModuleIds.includes(m.id);
+                      const isSelected = selectedModuleId === m.id;
+                      
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => setSelectedModuleId(m.id)}
+                          className={`w-full text-left p-3.5 rounded-xl transition-all flex items-start gap-3 border ${
+                            isSelected
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                              : 'bg-white text-gray-700 border-gray-100 hover:bg-gray-100 hover:border-gray-200'
+                          }`}
+                        >
+                          <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
+                            isCompleted 
+                              ? isSelected ? 'bg-white text-purple-600' : 'bg-green-100 text-green-600'
+                              : isSelected ? 'bg-purple-500 text-purple-100' : 'bg-gray-100 text-gray-400'
+                          }`}>
+                            {isCompleted ? (
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            ) : (
+                              <span className="text-[10px] font-bold">{index + 1}</span>
+                            )}
+                          </div>
+                          <div className="flex-grow min-w-0">
+                            <p className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${
+                              isSelected ? 'text-purple-200' : 'text-gray-400'
+                            }`}>
+                              Module {index + 1}
+                            </p>
+                            <p className="text-sm font-bold truncate leading-snug">
+                              {m.title}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Main Content Pane */}
+              <div className="flex-grow p-6 sm:p-8 flex flex-col bg-white border-t md:border-t-0">
+                {loadingContent ? (
+                  <div className="flex-grow flex flex-col items-center justify-center py-20 gap-3">
+                    <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
+                    <span className="text-sm text-gray-500 font-medium">Chargement des détails du module...</span>
+                  </div>
+                ) : !selectedModuleId ? (
+                  <div className="flex-grow flex flex-col items-center justify-center py-20 text-center max-w-md mx-auto">
+                    <BookOpen className="w-12 h-12 text-gray-300 mb-4" />
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Sélectionnez un module</h3>
+                    <p className="text-gray-500 text-sm">
+                      Choisissez un module dans la liste de gauche pour afficher son résumé, ses vidéos et supports de cours.
+                    </p>
+                  </div>
+                ) : (
+                  (() => {
+                    const activeModule = courseModules.find(m => m.id === selectedModuleId);
+                    if (!activeModule) return null;
+                    
+                    const embedUrl = getYoutubeEmbedUrl(activeModule.youtube_url);
+                    const isCompleted = completedModuleIds.includes(activeModule.id);
+                    
+                    return (
+                      <div className="space-y-8 animate-fade-in flex-grow flex flex-col">
+                        <div className="border-b border-gray-100 pb-5">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100 mb-3">
+                            <BookOpen className="w-3.5 h-3.5" />
+                            Module actif
+                          </span>
+                          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight mb-2">
+                            {activeModule.title}
+                          </h1>
+                          {activeModule.description && (
+                            <p className="text-gray-500 text-sm">
+                              {activeModule.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Long Summary / Rich text */}
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-semibold text-gray-800 uppercase tracking-wider">
+                            Résumé & Contenu du module
+                          </h4>
+                          {activeModule.long_summary ? (
+                            <div 
+                              className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50/50 border border-gray-100 p-6 rounded-2xl [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline animate-fade-in"
+                              dangerouslySetInnerHTML={{ __html: activeModule.long_summary }}
+                            />
+                          ) : (
+                            <p className="text-gray-400 italic text-sm p-4 bg-gray-50 border border-gray-100/50 rounded-xl animate-fade-in">
+                              Aucun résumé détaillé pour ce module.
+                            </p>
+                          )}
+                        </div>
+
+                        {/* YouTube Video */}
+                        {embedUrl ? (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                              <Video className="w-4 h-4 text-red-500" />
+                              Vidéo de cours
+                            </h4>
+                            <div className="aspect-video w-full max-w-3xl rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-black">
+                              <iframe
+                                src={embedUrl}
+                                title={activeModule.title}
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="w-full h-full"
+                              />
+                            </div>
+                          </div>
+                        ) : activeModule.youtube_url ? (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                              <Video className="w-4 h-4 text-amber-500" />
+                              Vidéo externe
+                            </h4>
+                            <div className="p-4 bg-amber-50 text-amber-800 rounded-xl text-sm flex items-center gap-3 border border-amber-100">
+                              <Play className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span>
+                                Support vidéo disponible sur YouTube :{' '}
+                                <a 
+                                  href={activeModule.youtube_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="underline font-bold hover:text-amber-900 inline-flex items-center gap-1"
+                                >
+                                  Ouvrir le lien externe <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* Download files */}
+                        {activeModule.download_files && activeModule.download_files.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                              <FileText className="w-4 h-4 text-blue-500" />
+                              Ressources & Supports téléchargeables
+                            </h4>
+                            <div className="grid gap-3 sm:grid-cols-2 max-w-3xl">
+                              {activeModule.download_files.map((file: any, fIdx: number) => (
+                                <a
+                                  key={fIdx}
+                                  href={file.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-3 p-3 bg-white border border-gray-100 hover:border-purple-200 hover:bg-purple-50/20 rounded-xl transition-all shadow-xs group"
+                                >
+                                  <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center shrink-0">
+                                    <FileText className="w-5 h-5" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-gray-900 truncate group-hover:text-purple-700 transition-colors">
+                                      {file.name || "Support de cours"}
+                                    </p>
+                                    <span className="text-[10px] text-gray-400">Cliquez pour télécharger</span>
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Progress controls footer */}
+                        <div className="pt-6 border-t border-gray-100 flex justify-end mt-auto">
+                          <button
+                            type="button"
+                            onClick={() => toggleModuleCompletion(activeModule.id)}
+                            disabled={togglingProgressId === activeModule.id}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                              isCompleted
+                                ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 hover:scale-[1.01]'
+                                : 'bg-gray-900 hover:bg-gray-800 text-white hover:scale-[1.01] active:scale-[0.99]'
+                            }`}
+                          >
+                            {togglingProgressId === activeModule.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : isCompleted ? (
+                              <Check className="w-4 h-4 stroke-[3]" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4" />
+                            )}
+                            {isCompleted ? "Module complété (Marquer comme non lu)" : "Marquer comme lu"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            </div>
+          ) : registrations.length === 0 ? (
             <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm">
               <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <BookOpen className="w-10 h-10 text-gray-400" />
@@ -327,6 +714,12 @@ export default function ClientHub() {
                 const course = reg.courses;
                 const courseDate = new Date(course.date_time);
                 const purchaseDate = reg.registered_at ? new Date(reg.registered_at) : new Date();
+                
+                // Progress calculations
+                const courseModulesList = course.course_modules || [];
+                const totalModulesCount = courseModulesList.length;
+                const completedCount = courseModulesList.filter((m: any) => allCompletedModuleIds.includes(m.id)).length;
+                const progressPercentage = totalModulesCount > 0 ? Math.round((completedCount / totalModulesCount) * 100) : 0;
                 
                 return (
                   <div key={`${reg.id}-${index}`} className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
@@ -375,6 +768,21 @@ export default function ClientHub() {
                           )}
                         </span>
                       </div>
+
+                      {reg.payment_status === 'approved' && course.product_type !== 'ebook' && (
+                        <div className="mt-4 pt-4 border-t border-gray-100 space-y-2 animate-fade-in">
+                          <div className="flex justify-between items-center text-xs font-semibold text-gray-500">
+                            <span>Progression</span>
+                            <span className="text-purple-600 font-bold">{completedCount} / {totalModulesCount} modules ({progressPercentage}%)</span>
+                          </div>
+                          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-purple-600 rounded-full transition-all duration-500" 
+                              style={{ width: `${progressPercentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="p-6 pt-0 mt-auto space-y-3 border-t border-gray-50 bg-gray-50/50">
@@ -382,6 +790,16 @@ export default function ClientHub() {
                       
                       {reg.payment_status === 'approved' ? (
                         <>
+                          {course.product_type !== 'ebook' && (
+                            <Link
+                              to={`/client/course/${course.id}`}
+                              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-all text-sm shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] mb-1"
+                            >
+                              <BookOpen className="w-4 h-4" />
+                              Accéder aux modules du cours
+                            </Link>
+                          )}
+
                           {course.product_type === 'ebook' && course.download_file_url && (
                             <a 
                               href={course.download_file_url}

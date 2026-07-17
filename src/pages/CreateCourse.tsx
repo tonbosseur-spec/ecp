@@ -5,6 +5,7 @@ import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIc
 import ShareCourseButton from '../components/ShareCourseButton';
 import { NativeImageUploader } from '../components/NativeImageUploader';
 import { RichTextEditorModal } from '../components/RichTextEditorModal';
+import { EnrichModuleModal } from '../components/EnrichModuleModal';
 
 interface Trainer {
   id: string;
@@ -23,6 +24,10 @@ interface ModuleInput {
   localId: string;
   title: string;
   description: string;
+  long_summary?: string;
+  youtube_url?: string;
+  download_files?: { name: string; url: string }[];
+  quiz?: any;
 }
 
 export default function CreateCourse() {
@@ -48,6 +53,7 @@ export default function CreateCourse() {
   // Product Type
   const [productType, setProductType] = useState('formation');
   const [isRichTextModalOpen, setIsRichTextModalOpen] = useState(false);
+  const [enrichingModuleLocalId, setEnrichingModuleLocalId] = useState<string | null>(null);
 
   // Image Upload
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
@@ -208,13 +214,56 @@ export default function CreateCourse() {
           title: mod.title,
           description: mod.description,
           order_index: index,
+          long_summary: mod.long_summary || null,
+          youtube_url: mod.youtube_url || null,
+          download_files: mod.download_files || []
         }));
 
-        const { error: modulesError } = await supabase
+        const { data: insertedModules, error: modulesError } = await supabase
           .from('course_modules')
-          .insert(modulesToInsert);
+          .insert(modulesToInsert)
+          .select();
 
         if (modulesError) throw modulesError;
+
+        if (insertedModules) {
+          const filesToInsert: any[] = [];
+          for (const savedMod of insertedModules) {
+            const originalMod = modules.find(m => m.title === savedMod.title);
+            if (originalMod) {
+              // Insérer le quiz si configuré
+              if (originalMod.quiz) {
+                const { error: quizError } = await supabase
+                  .from('quizzes')
+                  .insert({
+                    module_id: savedMod.id,
+                    title: originalMod.quiz.title || `Quizz : ${savedMod.title}`,
+                    questions: originalMod.quiz.questions
+                  });
+                if (quizError) {
+                  console.error("Erreur insertion quiz:", quizError);
+                }
+              }
+
+              if (originalMod.download_files && originalMod.download_files.length > 0) {
+                originalMod.download_files.forEach(file => {
+                  filesToInsert.push({
+                    module_id: savedMod.id,
+                    name: file.name,
+                    url: file.url
+                  });
+                });
+              }
+            }
+          }
+
+          if (filesToInsert.length > 0) {
+            const { error: filesInsertError } = await supabase
+              .from('module_files')
+              .insert(filesToInsert);
+            if (filesInsertError) throw filesInsertError;
+          }
+        }
       }
 
       setCreatedCourseId(newCourseId);
@@ -236,14 +285,26 @@ export default function CreateCourse() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-lg mx-auto pb-24">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-          {productType === 'ebook' ? 'Nouvel E-book' : 'Nouvelle Formation'}
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {productType === 'ebook' ? 'Créez un nouvel e-book avec son fichier de téléchargement' : 'Créez un nouvel événement et ses modules'}
-        </p>
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto pb-24">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-150 pb-5">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+            {productType === 'ebook' ? 'Nouvel E-book' : 'Nouvelle Formation'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {productType === 'ebook' ? 'Créez un nouvel e-book avec son fichier de téléchargement' : 'Créez un nouvel événement et ses modules'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="w-full sm:w-auto px-4 py-2.5 text-xs font-black text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 hover:border-slate-300 hover:text-slate-900"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500 transition-transform group-hover:-translate-x-0.5" />
+            Retour / Annuler
+          </button>
+        </div>
       </div>
 
       {trainers.length === 0 && (
@@ -713,6 +774,34 @@ export default function CreateCourse() {
                             placeholder="Description du module..."
                           />
                         </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setEnrichingModuleLocalId(mod.localId)}
+                            className="flex items-center gap-1 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors bg-purple-50 hover:bg-purple-100/80 px-2.5 py-1.5 rounded-lg"
+                          >
+                            <Palette className="w-3.5 h-3.5" />
+                            {mod.long_summary || mod.youtube_url || (mod.download_files && mod.download_files.length > 0) ? (
+                              "Contenu enrichi (Modifier)"
+                            ) : (
+                              "Enrichir le module"
+                            )}
+                          </button>
+                          
+                          <div className="flex items-center gap-1.5">
+                            {mod.long_summary && (
+                              <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-md" title="Résumé long défini">TXT</span>
+                            )}
+                            {mod.youtube_url && (
+                              <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md" title="Vidéo YouTube définie">YT</span>
+                            )}
+                            {mod.download_files && mod.download_files.length > 0 && (
+                              <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-md" title={`${mod.download_files.length} fichier(s)`}>
+                                DOC ({mod.download_files.length})
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -732,11 +821,19 @@ export default function CreateCourse() {
             </div>
           )}
 
-          <div className="pt-4">
+          <div className="pt-6 flex flex-col sm:flex-row items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="w-full sm:w-auto px-6 py-3.5 border border-slate-200 hover:border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4 text-slate-500" />
+              Annuler et Retourner
+            </button>
             <button
               type="submit"
               disabled={submitting || trainers.length === 0}
-              className="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-950 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {submitting ? (
                 <>
@@ -757,6 +854,30 @@ export default function CreateCourse() {
             initialValue={description}
             onSave={(val) => setDescription(val)}
             title={productType === 'ebook' ? "Description de l'e-book" : "Description de la formation"}
+          />
+
+          <EnrichModuleModal
+            isOpen={enrichingModuleLocalId !== null}
+            onClose={() => setEnrichingModuleLocalId(null)}
+            moduleTitle={modules.find(m => m.localId === enrichingModuleLocalId)?.title || ''}
+            initialData={{
+              long_summary: modules.find(m => m.localId === enrichingModuleLocalId)?.long_summary || '',
+              youtube_url: modules.find(m => m.localId === enrichingModuleLocalId)?.youtube_url || '',
+              download_files: modules.find(m => m.localId === enrichingModuleLocalId)?.download_files || [],
+              quiz: modules.find(m => m.localId === enrichingModuleLocalId)?.quiz || null
+            }}
+            onSave={(data) => {
+              if (enrichingModuleLocalId) {
+                setModules(modules.map(m => m.localId === enrichingModuleLocalId ? {
+                  ...m,
+                  long_summary: data.long_summary,
+                  youtube_url: data.youtube_url,
+                  download_files: data.download_files,
+                  quiz: data.quiz
+                } : m));
+              }
+              setEnrichingModuleLocalId(null);
+            }}
           />
           
         </form>

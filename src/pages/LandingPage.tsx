@@ -25,7 +25,9 @@ import {
   PenTool,
   Check,
   Gift,
-  ShoppingBag
+  ShoppingBag,
+  Smartphone,
+  Download
 } from 'lucide-react';
 
 // Subcomponent for counting animation
@@ -265,6 +267,19 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
+      {/* 1. Mobile Smart Banner - Visible only on mobile/tablet */}
+      <Link 
+        to="/download" 
+        className="block lg:hidden bg-violet-50 border-b border-violet-100 py-2.5 px-4 text-center transition-colors hover:bg-violet-100/80 group"
+      >
+        <div className="flex items-center justify-center gap-2 text-[10px] sm:text-xs font-medium text-slate-800">
+          <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+          <span>
+            📱 Pour un suivi optimal de vos cours en live et vos statistiques, téléchargez l'application Android officielle. <span className="underline decoration-indigo-300 underline-offset-2 font-bold group-hover:text-indigo-700">Télécharger l'APK</span>
+          </span>
+        </div>
+      </Link>
+
       {/* Top Notification Bar */}
       {latestCourse && (
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white text-xs sm:text-sm font-semibold py-2.5 px-4 shadow-sm relative overflow-hidden transition-all text-center">
@@ -801,6 +816,48 @@ export default function LandingPage() {
               </div>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* 5. Mobile App Promotion Section */}
+      <section className="py-16 sm:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-br from-slate-50 via-violet-50/30 to-slate-50 rounded-[2.5rem] border border-slate-100 p-8 sm:p-12 md:p-16 overflow-hidden relative group">
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-violet-200/20 rounded-full blur-3xl -mr-20 -mt-20 opacity-60"></div>
+            
+            <div className="relative grid gap-12 md:grid-cols-2 items-center">
+              {/* Left: Text */}
+              <div className="space-y-6 text-left">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-violet-100 border border-violet-200 text-violet-700 font-extrabold text-[10px] uppercase tracking-wider">
+                  <Smartphone className="w-3 h-3" />
+                  <span>Application Officielle</span>
+                </div>
+                
+                <h3 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight leading-tight">
+                  Votre apprentissage ne s'arrête jamais
+                </h3>
+                
+                <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+                  Accédez instantanément à vos résumés de cours, visionnez les replays de vos séances de formation et téléchargez vos guides pratiques et fichiers d'exercices (Excel, SPSS) directement depuis votre smartphone, même sans connexion Internet.
+                </p>
+              </div>
+
+              {/* Right: CTA */}
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <Link
+                  to="/download"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-98 text-base group"
+                >
+                  <Download className="w-6 h-6 mr-3 transition-transform group-hover:-translate-y-0.5" />
+                  <span>Télécharger l'application (.apk)</span>
+                </Link>
+                <p className="text-[10px] text-slate-400 font-medium italic">
+                  Optimisé pour Android et appareils Samsung Galaxy
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

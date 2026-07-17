@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2, BookOpen, GraduationCap, Sparkles } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2, BookOpen, GraduationCap, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
 
 export default function ClientLogin() {
   const [email, setEmail] = useState('');
@@ -198,6 +198,23 @@ export default function ClientLogin() {
                 Inscrivez-vous gratuitement
               </Link>
             </p>
+          </div>
+
+          <div className="mt-4 p-5 bg-slate-900 rounded-[2rem] border border-slate-800 text-center flex flex-col items-center gap-3 shadow-xl">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-purple-400" />
+              <span className="text-xs font-black uppercase tracking-wider text-purple-300">Espace Formateur & Admin</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-xs">
+              Vous gérez des formations, des apprenants ou des formateurs ?
+            </p>
+            <Link 
+              to="/login"
+              className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black tracking-wider uppercase transition-all shadow-lg shadow-purple-500/10 flex items-center justify-center gap-1.5 hover:scale-[1.02]"
+            >
+              Accéder à l'Espace Administrateur
+              <ChevronRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </div>

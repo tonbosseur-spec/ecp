@@ -16,13 +16,24 @@ import EditCourse from './pages/EditCourse';
 import ClientRegister from './pages/ClientRegister';
 import ClientLogin from './pages/ClientLogin';
 import ClientHub from './pages/ClientHub';
+import ClientCourseView from './pages/ClientCourseView';
+import ClientModuleView from './pages/ClientModuleView';
 import Marketplace from './pages/Marketplace';
 import LandingPage from './pages/LandingPage';
+import DownloadAppPage from './pages/DownloadAppPage';
 import AdminHub from './pages/AdminHub';
 import AdminLayout from './components/AdminLayout';
 import { Loader2 } from 'lucide-react';
 
 import { useNativeFeatures } from './hooks/useNativeFeatures';
+import { Capacitor } from '@capacitor/core';
+
+function RootRedirector() {
+  if (Capacitor.isNativePlatform()) {
+    return <Navigate to="/client/marketplace" replace />;
+  }
+  return <LandingPage />;
+}
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -68,7 +79,8 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<RootRedirector />} />
+      <Route path="/download" element={<DownloadAppPage />} />
       <Route path="/course/:id" element={<PublicCoursePage />} />
       
       <Route path="/client/register" element={<ClientRegister />} />
@@ -77,6 +89,8 @@ export default function App() {
         element={!session ? <ClientLogin /> : <Navigate to="/client/hub" replace />} 
       />
       <Route path="/client/hub" element={<ClientHub />} />
+      <Route path="/client/course/:courseId" element={<ClientCourseView />} />
+      <Route path="/client/course/:courseId/module/:moduleId" element={<ClientModuleView />} />
       <Route path="/client/marketplace" element={<Marketplace />} />
       
       <Route 
