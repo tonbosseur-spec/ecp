@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -22,9 +22,14 @@ import AdminHub from './pages/AdminHub';
 import AdminLayout from './components/AdminLayout';
 import { Loader2 } from 'lucide-react';
 
+import { useNativeFeatures } from './hooks/useNativeFeatures';
+
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Initialisation des fonctionnalités natives (Capacitor)
+  useNativeFeatures();
 
   useEffect(() => {
     // Obtenir la session actuelle
@@ -52,38 +57,36 @@ export default function App() {
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/course/:id" element={<PublicCoursePage />} />
-        
-        <Route path="/client/register" element={<ClientRegister />} />
-        <Route 
-          path="/client/login" 
-          element={!session ? <ClientLogin /> : <Navigate to="/client/hub" replace />} 
-        />
-        <Route path="/client/hub" element={<ClientHub />} />
-        <Route path="/client/marketplace" element={<Marketplace />} />
-        
-        <Route 
-          path="/login" 
-          element={!session ? <Login /> : <Navigate to="/dashboard" replace />} 
-        />
-        
-        {session ? (
-          <Route element={<AdminLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/courses/new" element={<CreateCourse />} />
-            <Route path="/edit-course/:id" element={<EditCourse />} />
-            <Route path="/courses/:id" element={<AdminCourseDetails />} />
-            <Route path="/trainers" element={<ManageTrainers />} />
-            <Route path="/admin/hub" element={<AdminHub />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Route>
-        ) : (
-          <Route path="*" element={<Navigate to="/" replace />} />
-        )}
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/course/:id" element={<PublicCoursePage />} />
+      
+      <Route path="/client/register" element={<ClientRegister />} />
+      <Route 
+        path="/client/login" 
+        element={!session ? <ClientLogin /> : <Navigate to="/client/hub" replace />} 
+      />
+      <Route path="/client/hub" element={<ClientHub />} />
+      <Route path="/client/marketplace" element={<Marketplace />} />
+      
+      <Route 
+        path="/login" 
+        element={!session ? <Login /> : <Navigate to="/dashboard" replace />} 
+      />
+      
+      {session ? (
+        <Route element={<AdminLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/courses/new" element={<CreateCourse />} />
+          <Route path="/edit-course/:id" element={<EditCourse />} />
+          <Route path="/courses/:id" element={<AdminCourseDetails />} />
+          <Route path="/trainers" element={<ManageTrainers />} />
+          <Route path="/admin/hub" element={<AdminHub />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      ) : (
+        <Route path="*" element={<Navigate to="/" replace />} />
+      )}
+    </Routes>
   );
 }

@@ -1,6 +1,6 @@
 {
-  "name": "ecpmanager",
-  "description": "Supabase PostgreSQL Schema Generator",
-  "requestFramePermissions": [],
+  "name": "Exceller chez Pierre",
+  "description": "Application mobile de formation et d'excellence pour Exceller chez Pierre",
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

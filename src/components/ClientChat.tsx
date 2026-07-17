@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Send, Loader2, MessageSquare } from 'lucide-react';
+import { Send, Loader2, MessageSquare, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ClientChatProps {
@@ -24,6 +24,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ courseId, registrationId
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [courseTitle, setCourseTitle] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -114,6 +115,7 @@ export const ClientChat: React.FC<ClientChatProps> = ({ courseId, registrationId
     if (!newMessage.trim() || !clientId) return;
 
     setSending(true);
+    setSendError(null);
     try {
       const msgData = {
         client_id: clientId,
@@ -121,14 +123,16 @@ export const ClientChat: React.FC<ClientChatProps> = ({ courseId, registrationId
         content: newMessage.trim(),
         course_id: courseId || null,
         registration_id: registrationId || null,
+        is_read: false
       };
 
       const { error } = await supabase.from('messages').insert([msgData]);
       if (error) throw error;
 
       setNewMessage('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error sending message:', err);
+      setSendError(err.message || "Une erreur est survenue lors de l'envoi du message.");
     } finally {
       setSending(false);
     }
@@ -205,6 +209,12 @@ export const ClientChat: React.FC<ClientChatProps> = ({ courseId, registrationId
 
       {/* Input Area */}
       <div className="p-3 bg-white border-t border-gray-100">
+        {sendError && (
+          <div className="mb-2 p-2 text-xs bg-red-50 text-red-600 rounded-lg flex items-center gap-2 border border-red-100">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            {sendError}
+          </div>
+        )}
         <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
           <textarea
             value={newMessage}

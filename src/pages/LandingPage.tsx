@@ -160,7 +160,7 @@ export default function LandingPage() {
       const { data, error } = await supabase
         .from('courses')
         .select('id, title')
-        .order('date_time', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1);
       
       if (error) throw error;
