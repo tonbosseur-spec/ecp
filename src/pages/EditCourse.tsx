@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette } from 'lucide-react';
 import { NativeImageUploader } from '../components/NativeImageUploader';
+import { RichTextEditorModal } from '../components/RichTextEditorModal';
 
 interface Trainer {
   id: string;
@@ -43,6 +44,12 @@ export default function EditCourse() {
   const [maxSeats, setMaxSeats] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [templateId, setTemplateId] = useState('');
+  
+  // Product Type and Ebook
+  const [productType, setProductType] = useState('formation');
+  const [isRichTextModalOpen, setIsRichTextModalOpen] = useState(false);
+  const [downloadFile, setDownloadFile] = useState<File | null>(null);
+  const [downloadFileUrl, setDownloadFileUrl] = useState<string | null>(null);
   
   // Image Upload
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
@@ -113,6 +120,8 @@ export default function EditCourse() {
         setIsActive(courseData.is_active !== false);
         setTemplateId(courseData.template_id || (templatesRes.data && templatesRes.data.length > 0 ? templatesRes.data[0].id : ''));
         setCoverImageUrl(courseData.cover_image_url || null);
+        setProductType(courseData.product_type || 'formation');
+        setDownloadFileUrl(courseData.download_file_url || null);
         setWhatsappLink(courseData.whatsapp_link || '');
         setGoogleMeetLink(courseData.google_meet_link || '');
         setGuideUrl(courseData.guide_url || '');
@@ -163,27 +172,65 @@ export default function EditCourse() {
     }
 
     try {
-      // 1. Update Course
+      let uploadedFileUrl = downloadFileUrl;
+
+      // If it's an ebook and a new file was uploaded, upload it to storage
+      if (productType === 'ebook' && downloadFile) {
+        const fileExt = downloadFile.name.split('.').pop();
+        const fileName = `ebook-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('course-image')
+          .upload(fileName, downloadFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('course-image')
+          .getPublicUrl(fileName);
+
+        uploadedFileUrl = publicUrl;
+      }
+
+      // 1. Prepare Update Object
+      const updateData: any = {
+        title,
+        initials: initials || null,
+        description,
+        price_fcfa: parseInt(priceFcfa, 10),
+        trainer_id: trainerId,
+        is_active: isActive,
+        cover_image_url: coverImageUrl,
+        product_type: productType,
+      };
+
+      if (productType === 'ebook') {
+        updateData.download_file_url = uploadedFileUrl;
+        updateData.date_time = new Date().toISOString();
+        updateData.is_date_tbd = false;
+        updateData.max_seats = null;
+        updateData.whatsapp_link = null;
+        updateData.google_meet_link = null;
+        updateData.guide_url = null;
+        updateData.guide_text = null;
+        updateData.youtube_video_url = null;
+        updateData.template_id = null;
+      } else {
+        updateData.date_time = isDateTbd ? null : new Date(dateTime).toISOString();
+        updateData.is_date_tbd = isDateTbd;
+        updateData.max_seats = maxSeats ? parseInt(maxSeats, 10) : null;
+        updateData.whatsapp_link = whatsappLink || null;
+        updateData.google_meet_link = googleMeetLink || null;
+        updateData.guide_url = guideUrl || null;
+        updateData.guide_text = guideText || null;
+        updateData.youtube_video_url = youtubeVideoUrl || null;
+        updateData.template_id = templateId || null;
+        updateData.download_file_url = null;
+      }
+
       const { error: courseError } = await supabase
         .from('courses')
-        .update({
-          title,
-          initials: initials || null,
-          description,
-          price_fcfa: parseInt(priceFcfa, 10),
-          date_time: isDateTbd ? null : new Date(dateTime).toISOString(),
-          is_date_tbd: isDateTbd,
-          trainer_id: trainerId,
-          max_seats: maxSeats ? parseInt(maxSeats, 10) : null,
-          is_active: isActive,
-          template_id: templateId || null,
-          whatsapp_link: whatsappLink || null,
-          google_meet_link: googleMeetLink || null,
-          guide_url: guideUrl || null,
-          guide_text: guideText || null,
-          youtube_video_url: youtubeVideoUrl || null,
-          cover_image_url: coverImageUrl,
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (courseError) throw courseError;
@@ -196,8 +243,8 @@ export default function EditCourse() {
 
       if (deleteError) throw deleteError;
 
-      // 3. Insert new modules
-      if (modules.length > 0) {
+      // 3. Insert new modules if it's a formation
+      if (productType !== 'ebook' && modules.length > 0) {
         const modulesToInsert = modules.map((mod, index) => ({
           course_id: id,
           title: mod.title,
@@ -243,7 +290,9 @@ export default function EditCourse() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Modifier la formation</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            {productType === 'ebook' ? "Modifier l'E-book" : "Modifier la formation"}
+          </h1>
           <p className="text-sm text-gray-500 mt-1">Mettez à jour les informations</p>
         </div>
       </div>
@@ -258,7 +307,9 @@ export default function EditCourse() {
       {success ? (
         <div className="p-8 bg-green-50 rounded-2xl border border-green-100 text-center flex flex-col items-center">
           <CheckCircle2 className="w-12 h-12 text-green-500 mb-3" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Formation modifiée !</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+            {productType === 'ebook' ? "E-book modifié !" : "Formation modifiée !"}
+          </h3>
           <p className="text-sm text-gray-600">Redirection vers les détails...</p>
         </div>
       ) : (
@@ -266,7 +317,9 @@ export default function EditCourse() {
           
           {/* Section: Informations Principales */}
           <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Informations Principales</h2>
+            <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">
+              {productType === 'ebook' ? 'Informations de l\'E-book' : 'Informations Principales'}
+            </h2>
             
             <div>
               <NativeImageUploader 
@@ -277,37 +330,74 @@ export default function EditCourse() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Titre de la formation *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                {productType === 'ebook' ? 'Titre de l\'E-book *' : 'Titre de la formation *'}
+              </label>
               <input
                 required
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
-                placeholder="Ex: Maîtriser React en 2024"
+                placeholder={productType === 'ebook' ? "Ex: Le Guide Ultime de l'E-commerce" : "Ex: Maîtriser React en 2024"}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Initiales de la formation (pour l'export de contacts)</label>
-              <input
-                type="text"
-                value={initials}
-                onChange={e => setInitials(e.target.value)}
-                className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
-                placeholder="Ex: EMS"
-              />
-            </div>
+            {productType !== 'ebook' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Initiales de la formation (pour l'export de contacts)</label>
+                <input
+                  type="text"
+                  value={initials}
+                  onChange={e => setInitials(e.target.value)}
+                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
+                  placeholder="Ex: EMS"
+                />
+              </div>
+            )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                rows={3}
-                className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm resize-none"
-                placeholder="Décrivez le contenu de la formation..."
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <button
+                  type="button"
+                  onClick={() => setIsRichTextModalOpen(true)}
+                  className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors flex items-center gap-1"
+                >
+                  {description ? "Modifier la description" : "Ajouter une description"}
+                </button>
+              </div>
+
+              {description ? (
+                <div className="relative group bg-gray-50 border border-gray-200 rounded-xl p-4 transition-all hover:bg-gray-50/50">
+                  <div 
+                    className="text-xs text-gray-700 leading-relaxed max-h-48 overflow-y-auto prose max-w-none 
+                      [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&_strong]:font-bold [&_em]:italic [&_u]:underline"
+                    dangerouslySetInnerHTML={{ __html: description }}
+                  />
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => setIsRichTextModalOpen(true)}
+                      className="px-2 py-1 bg-white border border-gray-200 rounded-lg shadow-xs text-[10px] font-semibold text-gray-600 hover:bg-gray-50"
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsRichTextModalOpen(true)}
+                  className="block w-full py-6 px-4 border border-dashed border-gray-300 rounded-xl text-center text-gray-500 hover:text-gray-900 hover:border-gray-400 hover:bg-gray-50/40 transition-all text-sm group"
+                >
+                  <Palette className="w-5 h-5 mx-auto text-gray-400 mb-2 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold block text-xs mb-0.5">
+                    {productType === 'ebook' ? "Rédiger la description de l'e-book" : "Rédiger la description de la formation"}
+                  </span>
+                  <span className="text-[10.5px] text-gray-400 block">Prend en charge le gras, l'italique, le souligné, les listes et les couleurs</span>
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -323,70 +413,96 @@ export default function EditCourse() {
                   placeholder="0"
                 />
               </div>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Date et Heure {!isDateTbd && '*'}
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isDateTbd}
-                      onChange={e => {
-                        setIsDateTbd(e.target.checked);
-                        if (e.target.checked) {
-                          setDateTime('');
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                    />
-                    <span className="text-xs font-semibold text-gray-500">Date à déterminer</span>
-                  </label>
+              
+              {productType !== 'ebook' ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Date et Heure {!isDateTbd && '*'}
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isDateTbd}
+                        onChange={e => {
+                          setIsDateTbd(e.target.checked);
+                          if (e.target.checked) {
+                            setDateTime('');
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                      />
+                      <span className="text-xs font-semibold text-gray-500">Date à déterminer</span>
+                    </label>
+                  </div>
+                  <input
+                    required={!isDateTbd}
+                    disabled={isDateTbd}
+                    type="datetime-local"
+                    value={dateTime}
+                    onChange={e => setDateTime(e.target.value)}
+                    className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-100"
+                  />
                 </div>
-                <input
-                  required={!isDateTbd}
-                  disabled={isDateTbd}
-                  type="datetime-local"
-                  value={dateTime}
-                  onChange={e => setDateTime(e.target.value)}
-                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-100"
-                />
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2">
+                    <User className="w-4 h-4" /> Auteur *
+                  </label>
+                  <select
+                    required
+                    value={trainerId}
+                    onChange={e => setTrainerId(e.target.value)}
+                    disabled={trainers.length === 0}
+                    className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm bg-white disabled:bg-gray-50"
+                  >
+                    {trainers.length === 0 ? (
+                      <option value="">Aucun auteur</option>
+                    ) : (
+                      trainers.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2">
-                  <User className="w-4 h-4" /> Formateur *
-                </label>
-                <select
-                  required
-                  value={trainerId}
-                  onChange={e => setTrainerId(e.target.value)}
-                  disabled={trainers.length === 0}
-                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm bg-white disabled:bg-gray-50"
-                >
-                  {trainers.length === 0 ? (
-                    <option value="">Aucun formateur</option>
-                  ) : (
-                    trainers.map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))
-                  )}
-                </select>
+            {productType !== 'ebook' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2">
+                    <User className="w-4 h-4" /> Formateur *
+                  </label>
+                  <select
+                    required
+                    value={trainerId}
+                    onChange={e => setTrainerId(e.target.value)}
+                    disabled={trainers.length === 0}
+                    className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm bg-white disabled:bg-gray-50"
+                  >
+                    {trainers.length === 0 ? (
+                      <option value="">Aucun formateur</option>
+                    ) : (
+                      trainers.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Places limitées (Optionnel)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={maxSeats}
+                    onChange={e => setMaxSeats(e.target.value)}
+                    className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
+                    placeholder="Ex: 20"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Places limitées (Optionnel)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={maxSeats}
-                  onChange={e => setMaxSeats(e.target.value)}
-                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
-                  placeholder="Ex: 20"
-                />
-              </div>
-            </div>
+            )}
 
             <div>
               <label className="flex items-center gap-3 cursor-pointer">
@@ -396,13 +512,64 @@ export default function EditCourse() {
                   onChange={e => setIsActive(e.target.checked)}
                   className="w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                 />
-                <span className="text-sm font-medium text-gray-700">Formation active</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {productType === 'ebook' ? "E-book disponible à l'achat" : "Formation active"}
+                </span>
               </label>
             </div>
           </div>
 
+          {/* Section: Fichier E-book si applicable */}
+          {productType === 'ebook' && (
+            <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-purple-500" />
+                Fichier E-book (PDF)
+              </h2>
+              
+              <div className="space-y-4">
+                {downloadFileUrl && (
+                  <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl flex items-center justify-between text-sm text-purple-800">
+                    <span className="font-medium truncate max-w-[250px]">Fichier PDF actuel en ligne</span>
+                    <a 
+                      href={downloadFileUrl} 
+                      target="_blank" 
+                      referrerPolicy="no-referrer" 
+                      className="text-xs text-purple-700 hover:text-purple-900 underline font-semibold shrink-0"
+                    >
+                      Visualiser le PDF
+                    </a>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {downloadFileUrl ? "Remplacer le fichier PDF (Optionnel)" : "Uploader le PDF de l'E-book *"}
+                  </label>
+                  <input
+                    required={!downloadFileUrl}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setDownloadFile(e.target.files[0]);
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-purple-50 file:text-purple-700
+                      hover:file:bg-purple-100
+                    "
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Section: Design de la page publique */}
-          {templates.length > 0 && (
+          {productType !== 'ebook' && templates.length > 0 && (
             <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2 flex items-center gap-2">
                 <Palette className="w-5 h-5 text-purple-500" />
@@ -444,141 +611,158 @@ export default function EditCourse() {
           )}
 
           {/* Section: Liens & Médias */}
-          <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Liens & Médias (Optionnel)</h2>
-            
-            <div className="space-y-4">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MessageCircle className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  type="url"
-                  value={whatsappLink}
-                  onChange={e => setWhatsappLink(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
-                  placeholder="Lien du groupe WhatsApp"
-                />
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Video className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  type="url"
-                  value={googleMeetLink}
-                  onChange={e => setGoogleMeetLink(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
-                  placeholder="Lien Google Meet"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+          {productType !== 'ebook' && (
+            <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Liens & Médias (Optionnel)</h2>
+              
+              <div className="space-y-4">
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FileText className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={guideText}
-                    onChange={e => setGuideText(e.target.value)}
-                    className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
-                    placeholder="Titre du guide"
-                  />
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <LinkIcon className="h-4 w-4 text-gray-400" />
+                    <MessageCircle className="h-4 w-4 text-gray-400" />
                   </div>
                   <input
                     type="url"
-                    value={guideUrl}
-                    onChange={e => setGuideUrl(e.target.value)}
+                    value={whatsappLink}
+                    onChange={e => setWhatsappLink(e.target.value)}
                     className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
-                    placeholder="URL du guide (PDF)"
+                    placeholder="Lien du groupe WhatsApp"
+                  />
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Video className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="url"
+                    value={googleMeetLink}
+                    onChange={e => setGoogleMeetLink(e.target.value)}
+                    className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
+                    placeholder="Lien Google Meet"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <FileText className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={guideText}
+                      onChange={e => setGuideText(e.target.value)}
+                      className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
+                      placeholder="Titre du guide"
+                    />
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <LinkIcon className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="url"
+                      value={guideUrl}
+                      onChange={e => setGuideUrl(e.target.value)}
+                      className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
+                      placeholder="URL du guide (PDF)"
+                    />
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Video className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    type="url"
+                    value={youtubeVideoUrl}
+                    onChange={e => setYoutubeVideoUrl(e.target.value)}
+                    className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
+                    placeholder="URL Vidéo YouTube"
                   />
                 </div>
               </div>
-
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Video className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  type="url"
-                  value={youtubeVideoUrl}
-                  onChange={e => setYoutubeVideoUrl(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
-                  placeholder="URL Vidéo YouTube"
-                />
-              </div>
             </div>
-          </div>
+          )}
 
           {/* Section: Modules */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Modules de la formation</h2>
-              <button
-                type="button"
-                onClick={addModule}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Ajouter
-              </button>
-            </div>
-
-            {modules.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
-                Aucun module défini. Ajoutez-en pour détailler le programme.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {modules.map((mod, index) => (
-                  <div key={mod.localId} className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm relative group">
-                    <div className="absolute top-4 right-4">
-                      <button
-                        type="button"
-                        onClick={() => removeModule(mod.localId)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                        title="Supprimer ce module"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    
-                    <div className="pr-10 space-y-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">
-                          Module {index + 1}
-                        </label>
-                        <input
-                          required
-                          type="text"
-                          value={mod.title}
-                          onChange={e => updateModule(mod.localId, 'title', e.target.value)}
-                          className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm font-medium"
-                          placeholder="Titre du module"
-                        />
-                      </div>
-                      <div>
-                        <textarea
-                          required
-                          value={mod.description}
-                          onChange={e => updateModule(mod.localId, 'description', e.target.value)}
-                          rows={2}
-                          className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm resize-none"
-                          placeholder="Description du module..."
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          {productType !== 'ebook' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Modules de la formation</h2>
               </div>
-            )}
-          </div>
+
+              {modules.length === 0 ? (
+                <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100 border-dashed flex flex-col items-center gap-3">
+                  <p className="text-sm text-gray-500">
+                    Aucun module défini. Ajoutez-en pour détailler le programme.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addModule}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Ajouter le premier module
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {modules.map((mod, index) => (
+                    <div key={mod.localId} className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm relative group">
+                      <div className="absolute top-4 right-4">
+                        <button
+                          type="button"
+                          onClick={() => removeModule(mod.localId)}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                          title="Supprimer ce module"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      <div className="pr-10 space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">
+                            Module {index + 1}
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            value={mod.title}
+                            onChange={e => updateModule(mod.localId, 'title', e.target.value)}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm font-medium"
+                            placeholder="Titre du module"
+                          />
+                        </div>
+                        <div>
+                          <textarea
+                            required
+                            value={mod.description}
+                            onChange={e => updateModule(mod.localId, 'description', e.target.value)}
+                            rows={2}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm resize-none"
+                            placeholder="Description du module..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex justify-start">
+                    <button
+                      type="button"
+                      onClick={addModule}
+                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Ajouter un module
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="pt-4">
             <button
@@ -596,6 +780,14 @@ export default function EditCourse() {
               )}
             </button>
           </div>
+
+          <RichTextEditorModal
+            isOpen={isRichTextModalOpen}
+            onClose={() => setIsRichTextModalOpen(false)}
+            initialValue={description}
+            onSave={(val) => setDescription(val)}
+            title={productType === 'ebook' ? "Description de l'e-book" : "Description de la formation"}
+          />
           
         </form>
       )}

@@ -4,6 +4,16 @@ import { supabase } from '../lib/supabaseClient';
 import { Loader2, Calendar, Video, FileText, MessageCircle, ArrowRight, LogOut, BookOpen, Heart, Lightbulb, MessageSquare, ChevronLeft, ChevronRight, Clock, Info } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
 
+const stripHtml = (html: string) => {
+  if (!html) return '';
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
+  } catch (e) {
+    return html.replace(/<[^>]*>/g, '');
+  }
+};
+
 export default function ClientHub() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
@@ -828,7 +838,7 @@ export default function ClientHub() {
 
                           {event.description && (
                             <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-3">
-                              {event.description}
+                              {stripHtml(event.description)}
                             </p>
                           )}
 

@@ -16,7 +16,8 @@ import {
   Check,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  BookOpen
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AdminChat } from '../components/AdminChat';
@@ -27,6 +28,7 @@ interface Course {
   date_time: string;
   price_fcfa: number;
   product_type?: string;
+  is_date_tbd?: boolean;
   registrations: { count: number }[];
 }
 
@@ -494,6 +496,8 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-4">
           {filteredCourses.map((course, index) => {
+            const isEbook = course.product_type === 'ebook';
+            
             const formattedDate = (course.is_date_tbd || !course.date_time)
               ? "Date à déterminer"
               : new Intl.DateTimeFormat('fr-FR', {
@@ -508,17 +512,41 @@ export default function Dashboard() {
 
             return (
               <div key={`${course.id}-${index}`} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-gray-900"></div>
+                <div className={`absolute top-0 left-0 w-1 h-full ${isEbook ? 'bg-purple-600' : 'bg-gray-900'}`}></div>
+                
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                    isEbook 
+                      ? 'bg-purple-50 text-purple-700 border border-purple-100' 
+                      : 'bg-blue-50 text-blue-700 border border-blue-100'
+                  }`}>
+                    {isEbook ? 'E-book' : 'Formation'}
+                  </span>
+                </div>
+
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">{course.title}</h3>
                 
                 <div className="flex flex-col gap-2.5 mb-4">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>{formattedDate}</span>
+                    {isEbook ? (
+                      <>
+                        <BookOpen className="w-4 h-4 text-purple-400" />
+                        <span>Fichier numérique PDF (Téléchargement immédiat)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <span>{formattedDate}</span>
+                      </>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Users className="w-4 h-4 text-gray-400" />
-                    <span>{registrationCount} inscrit{registrationCount !== 1 ? 's' : ''}</span>
+                    {isEbook ? (
+                      <span>{registrationCount} vente{registrationCount !== 1 ? 's' : ''}</span>
+                    ) : (
+                      <span>{registrationCount} inscrit{registrationCount !== 1 ? 's' : ''}</span>
+                    )}
                   </div>
                 </div>
 
@@ -530,7 +558,7 @@ export default function Dashboard() {
                     <button
                       onClick={() => handleDelete(course.id)}
                       className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      title="Supprimer la formation"
+                      title={isEbook ? "Supprimer l'e-book" : "Supprimer la formation"}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -538,7 +566,7 @@ export default function Dashboard() {
                       onClick={() => handleDuplicate(course.id)}
                       disabled={duplicatingId === course.id}
                       className="p-2 text-gray-400 hover:text-gray-900 transition-colors disabled:opacity-50"
-                      title="Dupliquer la formation"
+                      title={isEbook ? "Dupliquer l'e-book" : "Dupliquer la formation"}
                     >
                       {duplicatingId === course.id ? (
                         <Loader2 className="w-4 h-4 animate-spin text-gray-900" />

@@ -571,9 +571,17 @@ END:VCALENDAR`;
           </h1>
           
           {course.description && (
-            <p className="text-gray-600 text-base sm:text-lg leading-relaxed mb-6 max-w-2xl mx-auto">
-              {course.description}
-            </p>
+            course.description.includes('<') && course.description.includes('>') ? (
+              <div 
+                className="text-gray-600 text-base sm:text-lg leading-relaxed mb-6 max-w-2xl mx-auto prose max-w-none text-left sm:text-center
+                  [&>ul]:list-disc [&>ul]:inline-block [&>ul]:text-left [&>ol]:list-decimal [&>ol]:inline-block [&>ol]:text-left [&_strong]:font-bold [&_em]:italic [&_u]:underline"
+                dangerouslySetInnerHTML={{ __html: course.description }}
+              />
+            ) : (
+              <p className="text-gray-600 text-base sm:text-lg leading-relaxed mb-6 max-w-2xl mx-auto whitespace-pre-wrap">
+                {course.description}
+              </p>
+            )
           )}
 
           {course.product_type === 'ebook' ? (

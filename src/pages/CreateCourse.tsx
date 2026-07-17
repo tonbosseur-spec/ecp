@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette } from 'lucide-react';
 import ShareCourseButton from '../components/ShareCourseButton';
 import { NativeImageUploader } from '../components/NativeImageUploader';
+import { RichTextEditorModal } from '../components/RichTextEditorModal';
 
 interface Trainer {
   id: string;
@@ -46,6 +47,7 @@ export default function CreateCourse() {
   
   // Product Type
   const [productType, setProductType] = useState('formation');
+  const [isRichTextModalOpen, setIsRichTextModalOpen] = useState(false);
 
   // Image Upload
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
@@ -367,14 +369,47 @@ export default function CreateCourse() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                rows={3}
-                className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm resize-none"
-                placeholder="Décrivez le contenu de la formation..."
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <button
+                  type="button"
+                  onClick={() => setIsRichTextModalOpen(true)}
+                  className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors flex items-center gap-1"
+                >
+                  {description ? "Modifier la description" : "Ajouter une description"}
+                </button>
+              </div>
+
+              {description ? (
+                <div className="relative group bg-gray-50 border border-gray-200 rounded-xl p-4 transition-all hover:bg-gray-50/50">
+                  <div 
+                    className="text-xs text-gray-700 leading-relaxed max-h-48 overflow-y-auto prose max-w-none 
+                      [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&_strong]:font-bold [&_em]:italic [&_u]:underline"
+                    dangerouslySetInnerHTML={{ __html: description }}
+                  />
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => setIsRichTextModalOpen(true)}
+                      className="px-2 py-1 bg-white border border-gray-200 rounded-lg shadow-xs text-[10px] font-semibold text-gray-600 hover:bg-gray-50"
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsRichTextModalOpen(true)}
+                  className="block w-full py-6 px-4 border border-dashed border-gray-300 rounded-xl text-center text-gray-500 hover:text-gray-900 hover:border-gray-400 hover:bg-gray-50/40 transition-all text-sm group"
+                >
+                  <Palette className="w-5 h-5 mx-auto text-gray-400 mb-2 group-hover:scale-110 transition-transform" />
+                  <span className="font-semibold block text-xs mb-0.5">
+                    {productType === 'ebook' ? "Rédiger la description de l'e-book" : "Rédiger la description de la formation"}
+                  </span>
+                  <span className="text-[10.5px] text-gray-400 block">Prend en charge le gras, l'italique, le souligné, les listes et les couleurs</span>
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -623,20 +658,22 @@ export default function CreateCourse() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Modules de la formation</h2>
-                <button
-                  type="button"
-                  onClick={addModule}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Ajouter
-                </button>
               </div>
 
               {modules.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
-                  Aucun module défini. Ajoutez-en pour détailler le programme.
-                </p>
+                <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100 border-dashed flex flex-col items-center gap-3">
+                  <p className="text-sm text-gray-500">
+                    Aucun module défini. Ajoutez-en pour détailler le programme.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addModule}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Ajouter le premier module
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {modules.map((mod, index) => (
@@ -679,6 +716,17 @@ export default function CreateCourse() {
                       </div>
                     </div>
                   ))}
+
+                  <div className="flex justify-start">
+                    <button
+                      type="button"
+                      onClick={addModule}
+                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-900 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Ajouter un module
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -702,6 +750,14 @@ export default function CreateCourse() {
               )}
             </button>
           </div>
+          
+          <RichTextEditorModal
+            isOpen={isRichTextModalOpen}
+            onClose={() => setIsRichTextModalOpen(false)}
+            initialValue={description}
+            onSave={(val) => setDescription(val)}
+            title={productType === 'ebook' ? "Description de l'e-book" : "Description de la formation"}
+          />
           
         </form>
       )}

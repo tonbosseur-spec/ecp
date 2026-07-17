@@ -12,6 +12,7 @@ interface Course {
   price_fcfa: number;
   date_time: string;
   is_active: boolean;
+  product_type?: string;
 }
 
 interface Registration {
@@ -45,7 +46,7 @@ export default function AdminCourseDetails() {
       setLoading(true);
       
       const [courseResponse, registrationsResponse] = await Promise.all([
-        supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active').eq('id', id).single(),
+        supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active, product_type').eq('id', id).single(),
         supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, registered_at').eq('course_id', id).order('registered_at', { ascending: false })
       ]);
 
@@ -223,8 +224,15 @@ export default function AdminCourseDetails() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center gap-2">
             <h1 className="text-xl font-bold text-gray-900 truncate tracking-tight">{course.title}</h1>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold self-start sm:self-auto ${
+              course.product_type === 'ebook' 
+                ? 'bg-purple-50 text-purple-700 border border-purple-100' 
+                : 'bg-blue-50 text-blue-700 border border-blue-100'
+            }`}>
+              {course.product_type === 'ebook' ? 'E-book' : 'Formation'}
+            </span>
           </div>
         </div>
         
@@ -263,7 +271,7 @@ export default function AdminCourseDetails() {
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 text-sm font-medium text-gray-500 mb-2">
             <Users className="w-4 h-4" />
-            Inscrits
+            {course.product_type === 'ebook' ? 'Ventes' : 'Inscrits'}
           </div>
           <div className="text-3xl font-bold text-gray-900">
             {totalRegistrations}
@@ -284,7 +292,9 @@ export default function AdminCourseDetails() {
       {/* Participants List */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-          <h2 className="text-lg font-semibold text-gray-900">Participants ({totalRegistrations})</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {course.product_type === 'ebook' ? 'Acheteurs' : 'Participants'} ({totalRegistrations})
+          </h2>
           {registrations.length > 0 && (
             <div className="flex items-center gap-2">
               <button
@@ -307,7 +317,9 @@ export default function AdminCourseDetails() {
         
         {registrations.length === 0 ? (
           <div className="bg-gray-50 rounded-2xl p-8 text-center border border-gray-100 border-dashed">
-            <p className="text-sm text-gray-500">Aucun participant inscrit pour le moment.</p>
+            <p className="text-sm text-gray-500">
+              {course.product_type === 'ebook' ? 'Aucun achat pour le moment.' : 'Aucun participant inscrit pour le moment.'}
+            </p>
           </div>
         ) : (
           registrations.map((participant, index) => {
