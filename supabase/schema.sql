@@ -26,6 +26,7 @@ CREATE TABLE courses (
     download_file_url TEXT,
     max_seats INTEGER,
     is_active BOOLEAN DEFAULT false,
+    is_archived BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -52,6 +53,17 @@ CREATE TABLE registrations (
 );
 
 -- 5. Politiques de sécurité (RLS - Row Level Security)
+
+-- Fonction d'aide réutilisable pour identifier l'administrateur unique
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT auth.jwt() ->> 'email' = 'pmbom@ecp.cm';
+$$;
+
 ALTER TABLE trainers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE course_modules ENABLE ROW LEVEL SECURITY;
@@ -59,7 +71,7 @@ ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
 
 -- Accès en lecture public pour la page web
 CREATE POLICY "Public profiles are viewable by everyone" ON trainers FOR SELECT USING (true);
-CREATE POLICY "Courses are viewable by everyone" ON courses FOR SELECT USING (true);
+CREATE POLICY "Courses are viewable by everyone" ON courses FOR SELECT USING (is_active = true AND is_archived = false);
 CREATE POLICY "Course modules are viewable by everyone" ON course_modules FOR SELECT USING (true);
 
 -- Tout le monde peut insérer une nouvelle ligne dans registrations (anonyme ou connecté avec son client_id)
@@ -68,11 +80,11 @@ CREATE POLICY "Anyone can register for a course" ON registrations FOR INSERT WIT
 -- Un client authentifié peut lire uniquement ses propres inscriptions
 CREATE POLICY "Clients can view their own registrations" ON registrations FOR SELECT TO authenticated USING (client_id = auth.uid());
 
--- Administrateurs/Gestion : Tous les privilèges (public pour simplifier le développement et éviter les erreurs d'RLS)
-CREATE POLICY "Anyone can manage trainers" ON trainers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Anyone can manage courses" ON courses FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Anyone can manage course modules" ON course_modules FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Anyone can manage registrations" ON registrations FOR ALL USING (true) WITH CHECK (true);
+-- Administrateurs/Gestion : Accès sécurisé réservé à l'administrateur
+CREATE POLICY "Anyone can manage trainers" ON trainers FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY "Anyone can manage courses" ON courses FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY "Anyone can manage course modules" ON course_modules FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+CREATE POLICY "Anyone can manage registrations" ON registrations FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 
 -- 6. Table templates (Modèles visuels)
 CREATE TABLE templates (
@@ -96,7 +108,7 @@ ALTER TABLE courses ADD COLUMN template_id UUID REFERENCES templates(id) ON DELE
 -- RLS pour la table templates
 ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Templates are viewable by everyone" ON templates FOR SELECT USING (true);
-CREATE POLICY "Admins can manage templates" ON templates FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Admins can manage templates" ON templates FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 
 -- 7. Table testimonials (Témoignages)
 CREATE TABLE testimonials (
@@ -112,7 +124,7 @@ CREATE TABLE testimonials (
 ALTER TABLE testimonials ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Testimonials are viewable by everyone" ON testimonials FOR SELECT USING (true);
 CREATE POLICY "Anyone can add a testimonial" ON testimonials FOR INSERT WITH CHECK (true);
-CREATE POLICY "Admins can manage testimonials" ON testimonials FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Admins can manage testimonials" ON testimonials FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
 
 -- 8. Table client_profiles (Profils clients)
 CREATE TABLE client_profiles (
@@ -130,8 +142,8 @@ ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Clients can view their own profile" ON client_profiles FOR SELECT TO authenticated USING (id = auth.uid());
 CREATE POLICY "Clients can update their own profile" ON client_profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
--- L'administrateur peut lire toutes les lignes (Ici, tous les utilisateurs authentifiés car ils agissent comme admin dans le reste du système)
-CREATE POLICY "Admins can view all profiles" ON client_profiles FOR SELECT TO authenticated USING (true);
+-- L'administrateur peut lire toutes les lignes
+CREATE POLICY "Admins can view all profiles" ON client_profiles FOR SELECT TO authenticated USING (is_admin());
 
 -- 9. Trigger pour création de profil automatique
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -161,7 +173,8 @@ CREATE TABLE course_proposals (
     custom_title TEXT,
     custom_description TEXT,
     proposed_price NUMERIC,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'accepted', 'rejected')),
+    admin_feedback TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -184,8 +197,8 @@ CREATE POLICY "Clients can view their own proposals" ON course_proposals
 CREATE POLICY "Admins can manage proposals" ON course_proposals
     FOR ALL 
     TO authenticated 
-    USING (true) 
-    WITH CHECK (true);
+    USING (is_admin()) 
+    WITH CHECK (is_admin());
 
 
 -- 11. Table messages (Messagerie privée contextuelle)
@@ -229,12 +242,10 @@ CREATE POLICY "Clients can update their own messages" ON messages
     WITH CHECK (auth.uid() = client_id);
 
 -- 4. Accès Administrateur : Accès complet (ALL) en lecture, écriture, mise à jour et suppression
--- NOTE : L'adresse email ci-dessous correspond à celle fournie pour votre compte administrateur.
--- Vous pouvez modifier 'association.astral@gmail.com' par une autre adresse si nécessaire.
 CREATE POLICY "Admins have full access to all messages" ON messages
     FOR ALL
     TO authenticated
-    USING (auth.jwt() ->> 'email' = 'pmbom@ecp.cm')
-    WITH CHECK (auth.jwt() ->> 'email' = 'pmbom@ecp.cm');
+    USING (is_admin())
+    WITH CHECK (is_admin());
 
 

@@ -159,18 +159,37 @@ export default function LandingPage() {
 
   const fetchLatestCourse = async () => {
     try {
+      // First attempt with is_archived filter
       const { data, error } = await supabase
         .from('courses')
         .select('id, title')
+        .eq('is_active', true)
+        .eq('is_archived', false)
         .order('created_at', { ascending: false })
         .limit(1);
       
-      if (error) throw error;
+      if (error) {
+        // If it fails, likely due to missing is_archived column, try without it
+        console.warn("Retrying latest course query without is_archived filter...");
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('courses')
+          .select('id, title')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
+          
+        if (fallbackError) throw fallbackError;
+        if (fallbackData && fallbackData.length > 0) {
+          setLatestCourse(fallbackData[0]);
+        }
+        return;
+      }
+
       if (data && data.length > 0) {
         setLatestCourse(data[0]);
       }
-    } catch (err) {
-      console.error("Erreur lors du chargement de la dernière formation:", err);
+    } catch (err: any) {
+      console.error("Erreur lors du chargement de la dernière formation:", err.message || err);
     }
   };
 

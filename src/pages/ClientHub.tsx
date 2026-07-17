@@ -40,7 +40,7 @@ export default function ClientHub() {
   const [profile, setProfile] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages'>('inscriptions');
+  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages'>('hub');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -336,109 +336,136 @@ export default function ClientHub() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans pb-12">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
+    <div className="min-h-screen bg-gray-50 font-sans">
+      {/* Personalized Header */}
+      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-xl text-green-600 tracking-tight">{firstName}</span>
+            <div className="flex items-center gap-3">
+              {activeSection !== 'hub' && (
+                <button 
+                  onClick={() => {
+                    if (activeCourseContentReg) {
+                      setActiveCourseContentReg(null);
+                    } else {
+                      setActiveSection('hub');
+                    }
+                  }}
+                  className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                Bonjour, {firstName} 👋
+              </h1>
             </div>
-            <div className="flex items-center gap-6">
-              <Link
-                to="/client/marketplace"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Catalogue
-              </Link>
+            <div className="flex items-center gap-4">
               <button 
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                title="Déconnexion"
               >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Déconnexion</span>
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {/* Welcome Section */}
-        <div className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight mb-2">
-            Bonjour, {firstName} 👋
-          </h1>
-          <p className="text-gray-500 text-lg">
-            Bienvenue dans votre espace personnel. Retrouvez vos formations et vos livres numériques.
-          </p>
-        </div>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Hub / Home View */}
+        {activeSection === 'hub' && (
+          <div className="animate-fade-in">
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-gray-500 mb-6">Que souhaitez-vous faire aujourd'hui ?</h2>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {/* Mes formations et e-book */}
+                <button
+                  onClick={() => setActiveSection('inscriptions')}
+                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
+                >
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">📚</div>
+                  <span className="text-sm font-bold text-gray-800 leading-tight">Mes formations et e-book</span>
+                </button>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-gray-200 mb-8 overflow-x-auto scrollbar-none gap-2">
-          <button
-            onClick={() => setActiveSection('inscriptions')}
-            className={`pb-4 px-4 font-semibold text-sm border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeSection === 'inscriptions'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Mes Formations & E-books ({registrations.length})</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveSection('interests')}
-            className={`pb-4 px-4 font-semibold text-sm border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeSection === 'interests'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Heart className="w-4 h-4" />
-            <span>Formations d'intérêt ({proposals.filter((p: any) => p.course_id !== null).length})</span>
-          </button>
+                {/* Mes formations d'intérêt */}
+                <button
+                  onClick={() => setActiveSection('interests')}
+                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
+                >
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">❤️</div>
+                  <span className="text-sm font-bold text-gray-800 leading-tight">Mes formations d'intérêt</span>
+                </button>
 
-          <button
-            onClick={() => setActiveSection('proposals')}
-            className={`pb-4 px-4 font-semibold text-sm border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeSection === 'proposals'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Lightbulb className="w-4 h-4" />
-            <span>Mes Suggestions ({proposals.filter((p: any) => p.course_id === null).length})</span>
-          </button>
+                {/* Mes suggestions */}
+                <button
+                  onClick={() => setActiveSection('proposals')}
+                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
+                >
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💡</div>
+                  <span className="text-sm font-bold text-gray-800 leading-tight">Mes suggestions</span>
+                </button>
 
-          <button
-            onClick={() => setActiveSection('calendar')}
-            className={`pb-4 px-4 font-semibold text-sm border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeSection === 'calendar'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Mon Calendrier ({calendarEvents.length})</span>
-          </button>
+                {/* Calendrier */}
+                <button
+                  onClick={() => setActiveSection('calendar')}
+                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
+                >
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">📅</div>
+                  <span className="text-sm font-bold text-gray-800 leading-tight">Calendrier</span>
+                </button>
 
-          <button
-            onClick={() => {
-              setActiveSection('messages');
-              if (activeSection !== 'messages') setChatContext(null);
-            }}
-            className={`pb-4 px-4 font-semibold text-sm border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeSection === 'messages'
-                ? 'border-green-600 text-green-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Messagerie</span>
-          </button>
-        </div>
+                {/* Messagerie */}
+                <button
+                  onClick={() => setActiveSection('messages')}
+                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
+                >
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💬</div>
+                  <span className="text-sm font-bold text-gray-800 leading-tight">Messagerie</span>
+                </button>
+
+                {/* Catalogue */}
+                <Link
+                  to="/client/marketplace"
+                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
+                >
+                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">🛒</div>
+                  <span className="text-sm font-bold text-gray-800 leading-tight">Catalogue</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Quick access or latest activity (Optional but adds value) */}
+            {registrations.length > 0 && !loading && (
+              <div className="mt-8">
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Dernière formation consultée</h3>
+                {registrations.slice(0, 1).map((reg) => (
+                  <button
+                    key={reg.id}
+                    onClick={() => {
+                      setActiveSection('inscriptions');
+                      setActiveCourseContentReg(reg);
+                    }}
+                    className="w-full bg-indigo-600 p-5 rounded-[2rem] text-white flex items-center justify-between shadow-lg shadow-indigo-100 group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                        <Play className="w-6 h-6 fill-white" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-bold text-white leading-tight">{reg.courses.title}</p>
+                        <p className="text-xs text-indigo-100">Continuer l'apprentissage</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-6 h-6 text-indigo-200 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Section Content */}
         {activeSection === 'inscriptions' && (
@@ -905,15 +932,31 @@ export default function ClientHub() {
 
         {/* Messagerie Section */}
         {activeSection === 'messages' && (
-          <div className="fixed inset-0 z-[100] bg-white">
-            <ClientChat 
-              courseId={chatContext?.courseId} 
-              registrationId={chatContext?.registrationId} 
-              onClose={() => {
-                setActiveSection('courses');
-                setChatContext(null);
-              }}
-            />
+          <div className="fixed inset-0 z-50 bg-white">
+            <div className="flex flex-col h-full">
+              <header className="bg-white border-b border-gray-100 h-16 flex items-center px-4 shrink-0">
+                <button 
+                  onClick={() => {
+                    setActiveSection('hub');
+                    setChatContext(null);
+                  }}
+                  className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 flex items-center gap-2"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                  <span className="font-bold">Retour</span>
+                </button>
+              </header>
+              <div className="flex-grow overflow-hidden">
+                <ClientChat 
+                  courseId={chatContext?.courseId} 
+                  registrationId={chatContext?.registrationId} 
+                  onClose={() => {
+                    setActiveSection('hub');
+                    setChatContext(null);
+                  }}
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -962,20 +1005,39 @@ export default function ClientHub() {
                       </div>
 
                       <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
-                        {course?.title || "Formation inconnue"}
+                        {course?.title || prop.custom_title || "Formation inconnue"}
                       </h3>
-                      <p className="text-gray-500 text-xs mb-4">
-                        Vous avez manifesté votre intérêt pour que cette formation soit programmée ou ouverte à l'inscription. Nous analysons la demande générale pour fixer une date.
-                      </p>
+                      
+                      {prop.custom_description && (
+                        <div className="mb-4">
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Votre demande originale :</p>
+                          <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">
+                            {prop.custom_description}
+                          </p>
+                        </div>
+                      )}
+
+                      {!prop.custom_description && (
+                        <p className="text-gray-500 text-xs mb-4 italic">
+                          Vous avez manifesté votre intérêt pour que cette formation soit programmée ou ouverte à l'inscription. Nous analysons la demande générale pour fixer une date.
+                        </p>
+                      )}
                     </div>
 
                     {prop.admin_feedback && (
-                      <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100/50 rounded-2xl text-xs text-emerald-950 leading-relaxed">
-                        <div className="flex gap-2 items-start">
-                          <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="font-bold text-emerald-800 mb-1">Retour de l'équipe :</p>
-                            <p className="whitespace-pre-wrap">{prop.admin_feedback}</p>
+                      <div className="mt-4 p-5 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] text-sm text-slate-900 shadow-sm">
+                        <div className="flex gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-sm shadow-indigo-100">
+                            <MessageSquare className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-grow">
+                            <div className="flex justify-between items-center mb-1.5">
+                              <p className="font-black text-indigo-950 text-xs uppercase tracking-wider">Réponse de l'administration</p>
+                              <span className="text-[10px] font-bold text-indigo-400 bg-white px-2 py-0.5 rounded-full border border-indigo-50">OFFICIEL</span>
+                            </div>
+                            <p className="text-indigo-900 leading-relaxed font-medium italic">
+                              "{prop.admin_feedback}"
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1033,24 +1095,35 @@ export default function ClientHub() {
                       <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
                         {prop.custom_title}
                       </h3>
-                      <p className="text-gray-600 text-sm mb-4 whitespace-pre-wrap leading-relaxed">
-                        {prop.custom_description}
-                      </p>
+                      
+                      <div className="mb-4">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Détails de votre suggestion :</p>
+                        <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">
+                          {prop.custom_description}
+                        </p>
+                      </div>
                       
                       {prop.proposed_price && (
-                        <div className="text-xs text-gray-500 mb-4 bg-gray-50 px-3 py-1.5 rounded-lg inline-block">
+                        <div className="text-xs text-gray-500 mb-4 bg-gray-50 px-3 py-1.5 rounded-lg inline-block border border-gray-100">
                           Budget suggéré : <strong className="text-gray-800 font-mono">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(prop.proposed_price)}</strong>
                         </div>
                       )}
                     </div>
 
                     {prop.admin_feedback && (
-                      <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100/50 rounded-2xl text-xs text-emerald-950 leading-relaxed">
-                        <div className="flex gap-2 items-start">
-                          <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="font-bold text-emerald-800 mb-1">Retour de l'équipe :</p>
-                            <p className="whitespace-pre-wrap">{prop.admin_feedback}</p>
+                      <div className="mt-4 p-5 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] text-sm text-slate-900 shadow-sm">
+                        <div className="flex gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-sm shadow-indigo-100">
+                            <MessageSquare className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="flex-grow">
+                            <div className="flex justify-between items-center mb-1.5">
+                              <p className="font-black text-indigo-950 text-xs uppercase tracking-wider">Réponse de l'administration</p>
+                              <span className="text-[10px] font-bold text-indigo-400 bg-white px-2 py-0.5 rounded-full border border-indigo-50">OFFICIEL</span>
+                            </div>
+                            <p className="text-indigo-900 leading-relaxed font-medium italic">
+                              "{prop.admin_feedback}"
+                            </p>
                           </div>
                         </div>
                       </div>

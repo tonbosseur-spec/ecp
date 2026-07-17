@@ -21,6 +21,7 @@ import ClientModuleView from './pages/ClientModuleView';
 import Marketplace from './pages/Marketplace';
 import LandingPage from './pages/LandingPage';
 import DownloadAppPage from './pages/DownloadAppPage';
+import QuizDemo from './pages/QuizDemo';
 import AdminHub from './pages/AdminHub';
 import AdminLayout from './components/AdminLayout';
 import { Loader2 } from 'lucide-react';
@@ -30,7 +31,7 @@ import { Capacitor } from '@capacitor/core';
 
 function RootRedirector() {
   if (Capacitor.isNativePlatform()) {
-    return <Navigate to="/client/marketplace" replace />;
+    return <Navigate to="/client/login" replace />;
   }
   return <LandingPage />;
 }
@@ -77,10 +78,13 @@ export default function App() {
     );
   }
 
+  const isAdmin = session?.user?.email === 'pmbom@ecp.cm';
+
   return (
     <Routes>
       <Route path="/" element={<RootRedirector />} />
       <Route path="/download" element={<DownloadAppPage />} />
+      <Route path="/quiz-demo" element={<QuizDemo />} />
       <Route path="/course/:id" element={<PublicCoursePage />} />
       
       <Route path="/client/register" element={<ClientRegister />} />
@@ -95,10 +99,10 @@ export default function App() {
       
       <Route 
         path="/login" 
-        element={!session ? <Login /> : <Navigate to="/dashboard" replace />} 
+        element={!isAdmin ? <Login /> : <Navigate to="/dashboard" replace />} 
       />
       
-      {session ? (
+      {isAdmin ? (
         <Route element={<AdminLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses/new" element={<CreateCourse />} />

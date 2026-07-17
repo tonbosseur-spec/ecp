@@ -20,7 +20,9 @@ import {
   BookOpen,
   GraduationCap,
   Award,
-  TrendingUp
+  TrendingUp,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AdminChat } from '../components/AdminChat';
@@ -32,6 +34,8 @@ interface Course {
   price_fcfa: number;
   product_type?: string;
   is_date_tbd?: boolean;
+  is_active: boolean;
+  is_archived?: boolean;
   registrations: { count: number }[];
 }
 
@@ -61,7 +65,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('all');
+  const [filter, setFilter] = useState<'all' | 'upcoming' | 'past' | 'archived'>('all');
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [expandedProposalIds, setExpandedProposalIds] = useState<Record<string, boolean>>({});
@@ -316,7 +320,7 @@ export default function Dashboard() {
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('courses')
         .select(`
           id,
@@ -325,12 +329,30 @@ export default function Dashboard() {
           is_date_tbd,
           price_fcfa,
           product_type,
+          is_active,
+          is_archived,
           registrations (count)
         `)
         .order('date_time', { ascending: false });
 
       if (error) {
-        throw error;
+        // Fallback without is_archived
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('courses')
+          .select(`
+            id,
+            title,
+            date_time,
+            is_date_tbd,
+            price_fcfa,
+            product_type,
+            is_active,
+            registrations (count)
+          `)
+          .order('date_time', { ascending: false });
+        
+        if (fallbackError) throw fallbackError;
+        data = fallbackData as any;
       }
 
       setCourses(data || []);
@@ -533,13 +555,40 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleArchive = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('courses')
+        .update({ is_archived: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setToast(!currentStatus ? "Formation archivée." : "Formation désarchivée.");
+      setTimeout(() => setToast(null), 3000);
+      fetchCourses();
+    } catch (err: any) {
+      alert("Erreur lors du changement d'état : " + err.message);
+    }
+  };
+
   const filteredCourses = useMemo(() => {
     const now = new Date();
     return courses.filter(course => {
+      // Search filter
       if (searchQuery && !course.title.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false;
       }
       
+      // Archive filter
+      if (filter === 'archived') {
+        return course.is_archived === true;
+      } else {
+        // In other filters, we hide archived items
+        if (course.is_archived) return false;
+      }
+
+      // Date filters
       if (course.is_date_tbd) {
         if (filter === 'past') return false;
         return true;
@@ -745,6 +794,12 @@ export default function Dashboard() {
           >
             Passées
           </button>
+          <button
+            onClick={() => setFilter('archived')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'archived' ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            Archivées
+          </button>
         </div>
       </div>
 
@@ -789,13 +844,20 @@ export default function Dashboard() {
                 <div className={`absolute top-0 left-0 w-1 h-full ${isEbook ? 'bg-purple-600' : 'bg-gray-900'}`}></div>
                 
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                    isEbook 
-                      ? 'bg-purple-50 text-purple-700 border border-purple-100' 
-                      : 'bg-blue-50 text-blue-700 border border-blue-100'
-                  }`}>
-                    {isEbook ? 'E-book' : 'Formation'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      isEbook 
+                        ? 'bg-purple-50 text-purple-700 border border-purple-100' 
+                        : 'bg-blue-50 text-blue-700 border border-blue-100'
+                    }`}>
+                      {isEbook ? 'E-book' : 'Formation'}
+                    </span>
+                    {course.is_archived && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-widest">
+                        Archivé
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">{course.title}</h3>
@@ -829,6 +891,13 @@ export default function Dashboard() {
                     {course.price_fcfa.toLocaleString('fr-FR')} FCFA
                   </span>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleArchive(course.id, course.is_archived)}
+                      className={`p-2 transition-colors ${course.is_archived ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}
+                      title={course.is_archived ? "Désarchiver" : "Archiver"}
+                    >
+                      {course.is_archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                    </button>
                     <button
                       onClick={() => handleDelete(course.id)}
                       className="p-2 text-gray-400 hover:text-red-500 transition-colors"

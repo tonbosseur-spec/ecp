@@ -219,7 +219,7 @@ END:VCALENDAR`;
 
       if (courseError) throw courseError;
       
-      if (courseData.is_active === false) {
+      if (courseData.is_active === false || courseData.is_archived === true) {
         setIsInactive(true);
         setLoading(false);
         return;

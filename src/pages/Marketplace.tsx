@@ -19,7 +19,8 @@ import {
   Search,
   UserPlus,
   LogIn,
-  ShoppingBag
+  ShoppingBag,
+  ChevronLeft
 } from 'lucide-react';
 
 const PROPOSAL_TEMPLATES = [
@@ -115,13 +116,23 @@ export default function Marketplace() {
           }
         }
 
-        // Fetch ALL courses (active and inactive)
-        const { data: coursesData, error } = await supabase
+        // Fetch ALL courses
+        let { data: coursesData, error } = await supabase
           .from('courses')
           .select('*, trainers(name, photo_url)')
+          .eq('is_archived', false)
           .order('date_time', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          // Fallback if is_archived doesn't exist
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('courses')
+            .select('*, trainers(name, photo_url)')
+            .order('date_time', { ascending: true });
+          
+          if (fallbackError) throw fallbackError;
+          coursesData = fallbackData as any;
+        }
         
         if (coursesData) {
           const availableCourses = coursesData.filter(c => !userCourseIds.includes(c.id));
@@ -291,12 +302,14 @@ export default function Marketplace() {
               </div>
               <span className="font-bold text-xl text-gray-900 tracking-tight">Exceller Market</span>
             </div>
-            <Link 
-              to="/client/hub"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            <button 
+              onClick={() => navigate('/client/hub')}
+              className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+              title="Retour à mon espace"
             >
-              Mon Espace
-            </Link>
+              <ChevronLeft className="w-6 h-6" />
+              <span className="text-sm font-bold">Retour</span>
+            </button>
           </div>
         </div>
       </header>

@@ -16,6 +16,12 @@ export default function Login() {
     setError(null);
 
     try {
+      if (email !== 'pmbom@ecp.cm') {
+        setError("Accès refusé. Cet espace est strictement réservé à l'administrateur principal.");
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
