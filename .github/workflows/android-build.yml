@@ -56,6 +56,11 @@ jobs:
             cp android_config/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           fi
           
+          STRINGS_FILE="android/app/src/main/res/values/strings.xml"
+          if [ -f "$STRINGS_FILE" ] && ! grep -q "default_notification_channel_id" "$STRINGS_FILE"; then
+            sed -i 's#</resources>#    <string name="default_notification_channel_id">default</string>\n</resources>#' "$STRINGS_FILE"
+          fi
+
           # Synchronize Web assets with Android Native directory
           npx cap sync android
 
