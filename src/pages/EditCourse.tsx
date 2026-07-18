@@ -69,6 +69,7 @@ export default function EditCourse() {
   // Modules
   const [modules, setModules] = useState<ModuleInput[]>([]);
   const [enrichingModuleLocalId, setEnrichingModuleLocalId] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Submission States
   const [submitting, setSubmitting] = useState(false);
@@ -135,6 +136,7 @@ export default function EditCourse() {
         setYoutubeVideoUrl(courseData.youtube_video_url || '');
 
         if (courseData.course_modules && courseData.course_modules.length > 0) {
+          console.log("Raw course modules loaded from Supabase:", courseData.course_modules);
           const moduleIds = courseData.course_modules.map((m: any) => m.id);
           const { data: quizzesData } = await supabase
             .from('quizzes')
@@ -142,7 +144,7 @@ export default function EditCourse() {
             .in('module_id', moduleIds);
           
           const sortedModules = courseData.course_modules.sort((a: any, b: any) => a.order_index - b.order_index);
-          setModules(sortedModules.map((m: any) => {
+          const mappedModules = sortedModules.map((m: any) => {
             const moduleQuiz = quizzesData?.find((q: any) => q.module_id === m.id);
             return {
               localId: m.id || Math.random().toString(36).substring(7),
@@ -153,7 +155,9 @@ export default function EditCourse() {
               download_files: m.module_files && m.module_files.length > 0 ? m.module_files : (m.download_files || []),
               quiz: moduleQuiz ? { title: moduleQuiz.title, questions: moduleQuiz.questions } : null
             };
-          }));
+          });
+          console.log("Mapped modules initialized in React state:", mappedModules);
+          setModules(mappedModules);
         } else if (courseData.course_modules) {
           setModules([]);
         }
@@ -171,14 +175,17 @@ export default function EditCourse() {
       ...modules,
       { localId: Math.random().toString(36).substring(7), title: '', description: '' }
     ]);
+    setHasUnsavedChanges(true);
   };
 
   const removeModule = (localId: string) => {
     setModules(modules.filter(m => m.localId !== localId));
+    setHasUnsavedChanges(true);
   };
 
   const updateModule = (localId: string, field: keyof ModuleInput, value: string) => {
     setModules(modules.map(m => (m.localId === localId ? { ...m, [field]: value } : m)));
+    setHasUnsavedChanges(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -287,10 +294,14 @@ export default function EditCourse() {
             };
           });
 
+          console.log("Saving course modules (upsert payload):", modulesToUpsert);
+
           const { data: upsertedModules, error: upsertError } = await supabase
             .from('course_modules')
             .upsert(modulesToUpsert)
             .select();
+
+          console.log("Supabase upsert response:", { upsertedModules, upsertError });
 
           if (upsertError) throw upsertError;
 
@@ -309,19 +320,39 @@ export default function EditCourse() {
             const filesToInsert: any[] = [];
             for (const savedMod of upsertedModules) {
               const originalMod = modules.find(m => m.localId === savedMod.id) || 
-                                   modules.find(m => m.title === savedMod.title);
+                                   modules[savedMod.order_index];
               
               if (originalMod) {
                 // Sauvegarde ou suppression du Quizz
                 if (originalMod.quiz) {
-                  const { error: quizError } = await supabase
+                  // Vérifier d'abord s'il existe déjà un quizz pour ce module
+                  const { data: existingQuiz } = await supabase
                     .from('quizzes')
-                    .upsert({
-                      module_id: savedMod.id,
-                      title: originalMod.quiz.title || `Quizz : ${savedMod.title}`,
-                      questions: originalMod.quiz.questions
-                    }, { onConflict: 'module_id' });
-                  if (quizError) throw quizError;
+                    .select('id')
+                    .eq('module_id', savedMod.id)
+                    .maybeSingle();
+
+                  if (existingQuiz) {
+                    // Update
+                    const { error: quizError } = await supabase
+                      .from('quizzes')
+                      .update({
+                        title: originalMod.quiz.title || `Quizz : ${savedMod.title}`,
+                        questions: originalMod.quiz.questions
+                      })
+                      .eq('id', existingQuiz.id);
+                    if (quizError) throw quizError;
+                  } else {
+                    // Insert
+                    const { error: quizError } = await supabase
+                      .from('quizzes')
+                      .insert({
+                        module_id: savedMod.id,
+                        title: originalMod.quiz.title || `Quizz : ${savedMod.title}`,
+                        questions: originalMod.quiz.questions
+                      });
+                    if (quizError) throw quizError;
+                  }
                 } else {
                   // Supprimer le quizz s'il existait mais a été retiré
                   await supabase
@@ -361,6 +392,7 @@ export default function EditCourse() {
       }
 
       setSuccess(true);
+      setHasUnsavedChanges(false);
       setTimeout(() => {
         navigate(`/courses/${id}`);
       }, 1500);
@@ -857,7 +889,7 @@ export default function EditCourse() {
                             className="flex items-center gap-1 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors bg-purple-50 hover:bg-purple-100/80 px-2.5 py-1.5 rounded-lg"
                           >
                             <Palette className="w-3.5 h-3.5" />
-                            {mod.long_summary || mod.youtube_url || (mod.download_files && mod.download_files.length > 0) ? (
+                            {mod.long_summary || mod.youtube_url || (mod.download_files && mod.download_files.length > 0) || mod.quiz ? (
                               "Contenu enrichi (Modifier)"
                             ) : (
                               "Enrichir le module"
@@ -875,6 +907,9 @@ export default function EditCourse() {
                               <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-md" title={`${mod.download_files.length} fichier(s)`}>
                                 DOC ({mod.download_files.length})
                               </span>
+                            )}
+                            {mod.quiz && (
+                              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md" title="Quizz configuré">QZ</span>
                             )}
                           </div>
                         </div>
@@ -897,6 +932,22 @@ export default function EditCourse() {
             </div>
           )}
 
+          {hasUnsavedChanges && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex items-start gap-3 text-amber-950 text-sm animate-in fade-in slide-in-from-top-2 duration-200 shadow-xs mb-4">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1">
+                <p className="font-bold text-amber-900">⚠️ Modifications en attente sur vos modules !</p>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Vous avez modifié le contenu ou enrichi certains modules (résumé, fichiers ou quiz). 
+                  Ces modifications sont locales et ne seront <strong>sauvegardées en base de données</strong> que lorsque vous aurez validé l'ensemble de la page avec le bouton ci-dessous.
+                </p>
+                <p className="text-xs text-amber-700/90 font-medium">
+                  Cliquez sur <strong className="text-amber-900">"Enregistrer les modifications"</strong> pour tout sauvegarder définitivement.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="pt-6 flex flex-col sm:flex-row items-center gap-4">
             <button
               type="button"
@@ -909,13 +960,19 @@ export default function EditCourse() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-950 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className={`flex-1 w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                hasUnsavedChanges 
+                  ? 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500 ring-2 ring-purple-100 shadow-purple-100 animate-pulse-subtle' 
+                  : 'bg-gray-900 hover:bg-gray-800 focus:ring-gray-950'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {submitting ? (
                 <>
                   <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
                   Mise à jour...
                 </>
+              ) : hasUnsavedChanges ? (
+                'Sauvegarder les modules et le cours'
               ) : (
                 'Enregistrer les modifications'
               )}
@@ -949,6 +1006,7 @@ export default function EditCourse() {
                   download_files: data.download_files,
                   quiz: data.quiz
                 } : m));
+                setHasUnsavedChanges(true);
               }
               setEnrichingModuleLocalId(null);
             }}

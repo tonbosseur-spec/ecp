@@ -21,9 +21,11 @@ import {
   Play,
   ExternalLink,
   RefreshCw,
-  Check
+  Check,
+  Lock
 } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
+import { dailyTips } from '../data/tips';
 
 const stripHtml = (html: string) => {
   if (!html) return '';
@@ -36,6 +38,7 @@ const stripHtml = (html: string) => {
 };
 
 export default function ClientHub() {
+  const [dailyTip, setDailyTip] = useState('');
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -54,8 +57,12 @@ export default function ClientHub() {
   const [allCompletedModuleIds, setAllCompletedModuleIds] = useState<string[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [togglingProgressId, setTogglingProgressId] = useState<string | null>(null);
+  const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
 
   useEffect(() => {
+    // Pick a random tip
+    setDailyTip(dailyTips[Math.floor(Math.random() * dailyTips.length)]);
+
     const fetchClientData = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -152,6 +159,19 @@ export default function ClientHub() {
       
       const fetchedModules = modulesData || [];
       setCourseModules(fetchedModules);
+      
+      // Fetch quiz status for these modules
+      if (fetchedModules.length > 0) {
+        const { data: quizzesData } = await supabase
+          .from('quizzes')
+          .select('module_id')
+          .in('module_id', fetchedModules.map(m => m.id));
+        const qModuleIds = (quizzesData || []).map((q: any) => q.module_id);
+        setQuizModuleIds(qModuleIds);
+      } else {
+        setQuizModuleIds([]);
+      }
+
       if (fetchedModules.length > 0) {
         setSelectedModuleId(fetchedModules[0].id);
       } else {
@@ -336,12 +356,12 @@ export default function ClientHub() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50 font-sans max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] overflow-y-auto h-screen">
       {/* Personalized Header */}
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+          <div className="flex justify-between items-center py-4 min-h-[4rem]">
+            <div className="flex items-start gap-3">
               {activeSection !== 'hub' && (
                 <button 
                   onClick={() => {
@@ -351,16 +371,23 @@ export default function ClientHub() {
                       setActiveSection('hub');
                     }
                   }}
-                  className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+                  className="p-2 -ml-2 mt-0.5 hover:bg-gray-100 rounded-full transition-colors text-gray-500 shrink-0"
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
               )}
-              <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-                Bonjour, {firstName} 👋
-              </h1>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight truncate">
+                  Bonjour, {firstName} 👋
+                </h1>
+                {dailyTip && (
+                  <p className="text-[11px] text-gray-500 mt-1 italic line-clamp-2 md:line-clamp-1 pr-2 leading-tight">
+                    💡 {dailyTip}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 shrink-0">
               <button 
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-red-600 transition-colors"
@@ -377,70 +404,135 @@ export default function ClientHub() {
         {/* Hub / Home View */}
         {activeSection === 'hub' && (
           <div className="animate-fade-in">
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-500 mb-6">Que souhaitez-vous faire aujourd'hui ?</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Aperçu de votre espace</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
               
-              <div className="grid grid-cols-2 gap-4">
-                {/* Mes formations et e-book */}
-                <button
-                  onClick={() => setActiveSection('inscriptions')}
-                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
-                >
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">📚</div>
-                  <span className="text-sm font-bold text-gray-800 leading-tight">Mes formations et e-book</span>
-                </button>
+              {/* Mes formations - 2 cols */}
+              <button 
+                onClick={() => setActiveSection('inscriptions')}
+                className="md:col-span-2 bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-800 rounded-[2rem] p-6 md:p-8 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/10 hover:-translate-y-1 transition-all duration-300"
+              >
+                <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500">
+                  <BookOpen className="w-40 h-40 text-white" />
+                </div>
+                <div className="relative z-10 flex flex-col h-full min-h-[160px] justify-between">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
+                      <BookOpen className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm text-xs font-bold text-white shadow-sm">
+                      {registrations.length} formation{registrations.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-white mb-2">Mes formations</h3>
+                    <p className="text-purple-100 text-sm font-medium">Reprenez votre apprentissage là où vous l'avez laissé.</p>
+                  </div>
+                </div>
+              </button>
 
-                {/* Mes formations d'intérêt */}
-                <button
-                  onClick={() => setActiveSection('interests')}
-                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
-                >
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">❤️</div>
-                  <span className="text-sm font-bold text-gray-800 leading-tight">Mes formations d'intérêt</span>
-                </button>
+              {/* Calendrier - 2 cols */}
+              <button 
+                onClick={() => setActiveSection('calendar')}
+                className="md:col-span-2 bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1 hover:border-blue-100 transition-all duration-300"
+              >
+                <div className="absolute top-0 right-0 p-8 opacity-[0.03] transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500">
+                  <Calendar className="w-40 h-40 text-blue-900" />
+                </div>
+                <div className="relative z-10 flex flex-col h-full min-h-[160px] justify-between">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 group-hover:bg-blue-100 transition-colors">
+                      <Calendar className="w-6 h-6" />
+                    </div>
+                    {calendarEvents.length > 0 && (
+                      <span className="bg-blue-50 px-3 py-1 rounded-full text-xs font-bold text-blue-600 border border-blue-100">
+                        {calendarEvents.length} événement{calendarEvents.length !== 1 ? 's' : ''} à venir
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-gray-900 mb-2">Calendrier</h3>
+                    <p className="text-gray-500 text-sm font-medium line-clamp-2">
+                      {calendarEvents.length > 0 
+                        ? `Prochain rendez-vous : ${new Date(calendarEvents[0].date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}` 
+                        : "Consultez vos sessions live et rendez-vous."}
+                    </p>
+                  </div>
+                </div>
+              </button>
 
-                {/* Mes suggestions */}
-                <button
-                  onClick={() => setActiveSection('proposals')}
-                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
-                >
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💡</div>
-                  <span className="text-sm font-bold text-gray-800 leading-tight">Mes suggestions</span>
-                </button>
+              {/* Messagerie - 1 col */}
+              <button 
+                onClick={() => setActiveSection('messages')}
+                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 hover:border-emerald-100 transition-all duration-300 min-h-[180px]"
+              >
+                <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 group-hover:bg-emerald-100 group-hover:scale-110 transition-all mb-6">
+                  <MessageCircle className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Messagerie</h3>
+                  <p className="text-gray-500 text-xs font-medium">Échangez avec l'équipe</p>
+                </div>
+              </button>
 
-                {/* Calendrier */}
-                <button
-                  onClick={() => setActiveSection('calendar')}
-                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
-                >
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">📅</div>
-                  <span className="text-sm font-bold text-gray-800 leading-tight">Calendrier</span>
-                </button>
+              {/* Suggestions - 1 col */}
+              <button 
+                onClick={() => setActiveSection('proposals')}
+                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-amber-900/5 hover:-translate-y-1 hover:border-amber-100 transition-all duration-300 min-h-[180px]"
+              >
+                <div className="flex justify-between w-full items-start mb-6">
+                  <div className="bg-amber-50 p-4 rounded-2xl text-amber-600 group-hover:bg-amber-100 group-hover:scale-110 transition-all">
+                    <Lightbulb className="w-7 h-7" />
+                  </div>
+                  {proposals.length > 0 && (
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-1 rounded-full border border-amber-200 shadow-sm">{proposals.length}</span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Suggestions</h3>
+                  <p className="text-gray-500 text-xs font-medium">Propositions pour vous</p>
+                </div>
+              </button>
 
-                {/* Messagerie */}
-                <button
-                  onClick={() => setActiveSection('messages')}
-                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
-                >
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💬</div>
-                  <span className="text-sm font-bold text-gray-800 leading-tight">Messagerie</span>
-                </button>
+              {/* Intérêts - 1 col */}
+              <button 
+                onClick={() => setActiveSection('interests')}
+                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-rose-900/5 hover:-translate-y-1 hover:border-rose-100 transition-all duration-300 min-h-[180px]"
+              >
+                <div className="bg-rose-50 p-4 rounded-2xl text-rose-600 group-hover:bg-rose-100 group-hover:scale-110 transition-all mb-6">
+                  <Heart className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Intérêts</h3>
+                  <p className="text-gray-500 text-xs font-medium">Formations suivies</p>
+                </div>
+              </button>
 
-                {/* Catalogue */}
-                <Link
-                  to="/client/marketplace"
-                  className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all aspect-square text-center group"
-                >
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">🛒</div>
-                  <span className="text-sm font-bold text-gray-800 leading-tight">Catalogue</span>
-                </Link>
-              </div>
+              {/* Catalogue - 1 col */}
+              <Link 
+                to="/client/marketplace"
+                className="md:col-span-1 relative overflow-hidden bg-gray-900 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-gray-900/20 hover:-translate-y-1 transition-all duration-300 min-h-[180px]"
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black opacity-80" />
+                <div className="relative z-10 flex justify-between w-full items-start mb-6">
+                  <div className="bg-white/10 p-4 rounded-2xl text-white group-hover:bg-white/20 group-hover:scale-110 transition-all">
+                    <BookOpen className="w-7 h-7" />
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-lg font-bold text-white mb-1">Catalogue</h3>
+                  <p className="text-gray-400 text-xs font-medium">Découvrir plus</p>
+                </div>
+              </Link>
+
             </div>
 
-            {/* Quick access or latest activity (Optional but adds value) */}
+            {/* Quick access or latest activity */}
             {registrations.length > 0 && !loading && (
               <div className="mt-8">
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Dernière formation consultée</h3>
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Dernière formation consultée</h3>
                 {registrations.slice(0, 1).map((reg) => (
                   <button
                     key={reg.id}
@@ -448,18 +540,20 @@ export default function ClientHub() {
                       setActiveSection('inscriptions');
                       setActiveCourseContentReg(reg);
                     }}
-                    className="w-full bg-indigo-600 p-5 rounded-[2rem] text-white flex items-center justify-between shadow-lg shadow-indigo-100 group"
+                    className="w-full bg-white border border-gray-100 p-5 md:p-6 rounded-[2rem] text-left flex flex-col sm:flex-row sm:items-center justify-between shadow-sm hover:shadow-md hover:border-purple-200 transition-all group gap-4"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                        <Play className="w-6 h-6 fill-white" />
+                    <div className="flex items-center gap-4 md:gap-5">
+                      <div className="w-14 h-14 shrink-0 bg-purple-50 rounded-2xl flex items-center justify-center group-hover:bg-purple-100 group-hover:scale-105 transition-all">
+                        <Play className="w-6 h-6 fill-purple-600 text-purple-600" />
                       </div>
-                      <div className="text-left">
-                        <p className="font-bold text-white leading-tight">{reg.courses.title}</p>
-                        <p className="text-xs text-indigo-100">Continuer l'apprentissage</p>
+                      <div>
+                        <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">Continuer l'apprentissage</p>
+                        <p className="font-bold text-gray-900 leading-tight md:text-lg">{reg.courses?.title}</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-6 h-6 text-indigo-200 group-hover:translate-x-1 transition-transform" />
+                    <div className="hidden sm:flex w-10 h-10 rounded-full bg-gray-50 items-center justify-center group-hover:bg-purple-50 transition-colors">
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all" />
+                    </div>
                   </button>
                 ))}
               </div>
@@ -482,9 +576,19 @@ export default function ClientHub() {
                     <ChevronLeft className="w-4 h-4" />
                     Mes formations
                   </button>
-                  <h2 className="text-lg font-extrabold text-gray-900 leading-tight">
-                    {activeCourseContentReg.courses.title}
-                  </h2>
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-lg font-extrabold text-gray-900 leading-tight">
+                      {activeCourseContentReg.courses.title}
+                    </h2>
+                    <button
+                      onClick={() => fetchCourseContent(activeCourseContentReg.course_id)}
+                      disabled={loadingContent}
+                      className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-700 transition-colors shrink-0"
+                      title="Actualiser les modules"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loadingContent ? 'animate-spin text-purple-600' : ''}`} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Progress Stats Summary */}
@@ -523,22 +627,42 @@ export default function ClientHub() {
                       const isCompleted = completedModuleIds.includes(m.id);
                       const isSelected = selectedModuleId === m.id;
                       
+                      // Check if locked
+                      let isLocked = false;
+                      for (let i = 0; i < index; i++) {
+                        const prevMod = courseModules[i];
+                        const prevHasQuiz = quizModuleIds.includes(prevMod.id);
+                        const prevCompleted = completedModuleIds.includes(prevMod.id);
+                        if (prevHasQuiz && !prevCompleted) {
+                          isLocked = true;
+                          break;
+                        }
+                      }
+                      
                       return (
                         <button
                           key={m.id}
-                          onClick={() => setSelectedModuleId(m.id)}
+                          onClick={() => !isLocked && setSelectedModuleId(m.id)}
+                          disabled={isLocked}
                           className={`w-full text-left p-3.5 rounded-xl transition-all flex items-start gap-3 border ${
-                            isSelected
-                              ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                              : 'bg-white text-gray-700 border-gray-100 hover:bg-gray-100 hover:border-gray-200'
+                            isLocked
+                              ? 'bg-gray-50 text-gray-400 border-gray-150 cursor-not-allowed opacity-60'
+                              : isSelected
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                                : 'bg-white text-gray-700 border-gray-100 hover:bg-gray-100 hover:border-gray-200'
                           }`}
+                          title={isLocked ? "Vous devez valider le quizz du module précédent pour débloquer ce module." : undefined}
                         >
                           <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-                            isCompleted 
-                              ? isSelected ? 'bg-white text-purple-600' : 'bg-green-100 text-green-600'
-                              : isSelected ? 'bg-purple-500 text-purple-100' : 'bg-gray-100 text-gray-400'
+                            isLocked
+                              ? 'bg-gray-100 text-gray-350'
+                              : isCompleted 
+                                ? isSelected ? 'bg-white text-purple-600' : 'bg-green-100 text-green-600'
+                                : isSelected ? 'bg-purple-500 text-purple-100' : 'bg-gray-100 text-gray-400'
                           }`}>
-                            {isCompleted ? (
+                            {isLocked ? (
+                              <Lock className="w-2.5 h-2.5 text-gray-400" />
+                            ) : isCompleted ? (
                               <Check className="w-3 h-3 stroke-[3]" />
                             ) : (
                               <span className="text-[10px] font-bold">{index + 1}</span>
@@ -546,11 +670,13 @@ export default function ClientHub() {
                           </div>
                           <div className="flex-grow min-w-0">
                             <p className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${
-                              isSelected ? 'text-purple-200' : 'text-gray-400'
+                              isLocked
+                                ? 'text-gray-400/70'
+                                : isSelected ? 'text-purple-200' : 'text-gray-400'
                             }`}>
-                              Module {index + 1}
+                              Module {index + 1} {isLocked && "(Bloqué)"}
                             </p>
-                            <p className="text-sm font-bold truncate leading-snug">
+                            <p className={`text-sm font-bold truncate leading-snug ${isLocked ? 'text-gray-400' : ''}`}>
                               {m.title}
                             </p>
                           </div>
@@ -608,7 +734,12 @@ export default function ClientHub() {
                           </h4>
                           {activeModule.long_summary ? (
                             <div 
-                              className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50/50 border border-gray-100 p-6 rounded-2xl [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline animate-fade-in"
+                              className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50/50 border border-gray-100 p-6 rounded-2xl animate-fade-in
+                                [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline
+                                [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-gray-950 [&_h1]:mt-5 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-gray-100 [&_h1]:pb-1
+                                [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:tracking-tight
+                                [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-gray-900 [&_h3]:mt-3.5 [&_h3]:mb-1.5
+                                [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-gray-800 [&_h4]:mt-3 [&_h4]:mb-1 [&_li]:list-none"
                               dangerouslySetInnerHTML={{ __html: activeModule.long_summary }}
                             />
                           ) : (

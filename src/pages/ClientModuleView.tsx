@@ -14,7 +14,10 @@ import {
   ChevronRight,
   ArrowLeft,
   WifiOff,
-  HelpCircle
+  HelpCircle,
+  RefreshCw,
+  Lock,
+  X
 } from 'lucide-react';
 import {
   getCourseFromCache,
@@ -34,133 +37,158 @@ export default function ClientModuleView() {
   const [allModules, setAllModules] = useState<any[]>([]);
   const [isCompleted, setIsCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [quiz, setQuiz] = useState<any | null>(null);
   const [isQuizOverlayOpen, setIsQuizOverlayOpen] = useState(false);
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
+  const [isFullscreenReading, setIsFullscreenReading] = useState(false);
+
+  const fetchModuleDetails = async (isManualRefresh = false) => {
+    try {
+      if (isManualRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      let session = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        session = data.session;
+      } catch (e) {
+        console.warn("Auth check failed offline, trying cached session if available:", e);
+      }
+
+      if (session) {
+        setUserId(session.user.id);
+      }
+
+      // Try online fetch first
+      try {
+        // Fetch course info
+        const { data: courseData, error: courseError } = await supabase
+          .from('courses')
+          .select('title')
+          .eq('id', courseId)
+          .single();
+
+        if (courseError) throw courseError;
+        setCourse(courseData);
+
+        // Fetch ALL modules for navigation & ordering
+        const { data: allMods, error: allModsError } = await supabase
+          .from('course_modules')
+          .select('id, title, order_index')
+          .eq('course_id', courseId)
+          .order('order_index', { ascending: true });
+
+        if (allModsError) throw allModsError;
+        setAllModules(allMods || []);
+
+        // Fetch quiz status for all modules of this course
+        let qModuleIds: string[] = [];
+        if (allMods && allMods.length > 0) {
+          const { data: quizzesData } = await supabase
+            .from('quizzes')
+            .select('module_id')
+            .in('module_id', allMods.map(m => m.id));
+          qModuleIds = (quizzesData || []).map((q: any) => q.module_id);
+        }
+        setQuizModuleIds(qModuleIds);
+
+        // Fetch specific module along with its files from module_files table
+        const { data: modData, error: modError } = await supabase
+          .from('course_modules')
+          .select('*, module_files(*)')
+          .eq('id', moduleId)
+          .single();
+
+        if (modError) throw modError;
+
+        // Fetch quiz if any
+        const { data: quizData } = await supabase
+          .from('quizzes')
+          .select('*')
+          .eq('module_id', moduleId)
+          .maybeSingle();
+        setQuiz(quizData);
+
+        const modDataWithQuiz = { ...modData, quiz: quizData };
+        setModule(modDataWithQuiz);
+
+        // Fetch user's completion status for all modules
+        let completedList: string[] = [];
+        if (session) {
+          const { data: progressData, error: progressError } = await supabase
+            .from('module_progress')
+            .select('module_id')
+            .eq('client_id', session.user.id);
+
+          if (!progressError && progressData) {
+            completedList = progressData.map(p => p.module_id);
+          }
+        }
+        setCompletedIds(completedList);
+        setIsCompleted(completedList.includes(moduleId!));
+        setIsOfflineMode(false);
+
+        // Cache the fetched data
+        await saveCourseToCache({ id: courseId, ...courseData });
+        if (modDataWithQuiz) {
+          await saveModulesToCache(courseId!, [modDataWithQuiz]);
+        }
+
+      } catch (networkErr) {
+        console.warn("Network request failed, falling back to local IndexedDB cache:", networkErr);
+        
+        // Try fetching from local cache
+        const cachedCourse = await getCourseFromCache(courseId!);
+        const cachedModule = await getSingleModuleFromCache(moduleId!);
+        const cachedAllModules = await getModulesFromCache(courseId!);
+        
+        if (cachedCourse && cachedModule) {
+          setCourse(cachedCourse);
+          setModule(cachedModule);
+          setQuiz(cachedModule.quiz || null);
+          
+          // Map simple navigation fields for all modules if cached
+          if (cachedAllModules && cachedAllModules.length > 0) {
+            setAllModules(cachedAllModules.map(m => ({
+              id: m.id,
+              title: m.title,
+              order_index: m.order_index
+            })));
+            
+            const qModuleIds = cachedAllModules.filter(m => m.quiz).map(m => m.id);
+            setQuizModuleIds(qModuleIds);
+          } else {
+            setAllModules([{ id: cachedModule.id, title: cachedModule.title, order_index: cachedModule.order_index }]);
+            setQuizModuleIds(cachedModule.quiz ? [cachedModule.id] : []);
+          }
+
+          // Determine if completed from cached course progress
+          const completedList = cachedCourse.completed_module_ids || [];
+          setCompletedIds(completedList);
+          setIsCompleted(completedList.includes(moduleId));
+          setIsOfflineMode(true);
+        } else {
+          // Throw the original error if there's no cache
+          throw networkErr;
+        }
+      }
+
+    } catch (err) {
+      console.error("Error loading module workspace:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchModuleDetails = async () => {
-      try {
-        setLoading(true);
-        let session = null;
-        try {
-          const { data } = await supabase.auth.getSession();
-          session = data.session;
-        } catch (e) {
-          console.warn("Auth check failed offline, trying cached session if available:", e);
-        }
-
-        if (session) {
-          setUserId(session.user.id);
-        }
-
-        // Try online fetch first
-        try {
-          // Fetch course info
-          const { data: courseData, error: courseError } = await supabase
-            .from('courses')
-            .select('title')
-            .eq('id', courseId)
-            .single();
-
-          if (courseError) throw courseError;
-          setCourse(courseData);
-
-          // Fetch ALL modules for navigation & ordering
-          const { data: allMods, error: allModsError } = await supabase
-            .from('course_modules')
-            .select('id, title, order_index')
-            .eq('course_id', courseId)
-            .order('order_index', { ascending: true });
-
-          if (allModsError) throw allModsError;
-          setAllModules(allMods || []);
-
-          // Fetch specific module along with its files from module_files table
-          const { data: modData, error: modError } = await supabase
-            .from('course_modules')
-            .select('*, module_files(*)')
-            .eq('id', moduleId)
-            .single();
-
-          if (modError) throw modError;
-
-          // Fetch quiz if any
-          const { data: quizData } = await supabase
-            .from('quizzes')
-            .select('*')
-            .eq('module_id', moduleId)
-            .maybeSingle();
-          setQuiz(quizData);
-
-          const modDataWithQuiz = { ...modData, quiz: quizData };
-          setModule(modDataWithQuiz);
-
-          // Fetch if this specific module is completed
-          let completed = false;
-          if (session) {
-            const { data: progress, error: progressError } = await supabase
-              .from('module_progress')
-              .select('*')
-              .eq('client_id', session.user.id)
-              .eq('module_id', moduleId);
-
-            if (!progressError && progress && progress.length > 0) {
-              completed = true;
-            }
-          }
-          setIsCompleted(completed);
-          setIsOfflineMode(false);
-
-          // Cache the fetched data
-          await saveCourseToCache({ id: courseId, ...courseData });
-          if (modDataWithQuiz) {
-            await saveModulesToCache(courseId!, [modDataWithQuiz]);
-          }
-
-        } catch (networkErr) {
-          console.warn("Network request failed, falling back to local IndexedDB cache:", networkErr);
-          
-          // Try fetching from local cache
-          const cachedCourse = await getCourseFromCache(courseId!);
-          const cachedModule = await getSingleModuleFromCache(moduleId!);
-          const cachedAllModules = await getModulesFromCache(courseId!);
-          
-          if (cachedCourse && cachedModule) {
-            setCourse(cachedCourse);
-            setModule(cachedModule);
-            setQuiz(cachedModule.quiz || null);
-            
-            // Map simple navigation fields for all modules if cached
-            if (cachedAllModules && cachedAllModules.length > 0) {
-              setAllModules(cachedAllModules.map(m => ({
-                id: m.id,
-                title: m.title,
-                order_index: m.order_index
-              })));
-            } else {
-              setAllModules([{ id: cachedModule.id, title: cachedModule.title, order_index: cachedModule.order_index }]);
-            }
-
-            // Determine if completed from cached course progress
-            const completedList = cachedCourse.completed_module_ids || [];
-            setIsCompleted(completedList.includes(moduleId));
-            setIsOfflineMode(true);
-          } else {
-            // Throw the original error if there's no cache
-            throw networkErr;
-          }
-        }
-
-      } catch (err) {
-        console.error("Error loading module workspace:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchModuleDetails();
   }, [courseId, moduleId, navigate]);
 
@@ -263,12 +291,66 @@ export default function ClientModuleView() {
   const currentIdx = allModules.findIndex(m => m.id === moduleId);
   const nextModule = currentIdx !== -1 && currentIdx < allModules.length - 1 ? allModules[currentIdx + 1] : null;
 
+  // Check if current module is locked
+  let isCurrentModuleLocked = false;
+  let lockingModuleTitle = '';
+  
+  if (currentIdx !== -1) {
+    for (let i = 0; i < currentIdx; i++) {
+      const prevMod = allModules[i];
+      const prevHasQuiz = quizModuleIds.includes(prevMod.id);
+      const prevCompleted = completedIds.includes(prevMod.id);
+      if (prevHasQuiz && !prevCompleted) {
+        isCurrentModuleLocked = true;
+        lockingModuleTitle = prevMod.title;
+        break;
+      }
+    }
+  }
+
+  if (isCurrentModuleLocked) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl animate-fade-in">
+          <div className="w-16 h-16 bg-red-950/40 border border-red-500/30 text-red-400 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <Lock className="w-8 h-8" />
+          </div>
+          
+          <h2 className="text-2xl font-black mb-3 text-white tracking-tight">Accès Verrouillé 🔒</h2>
+          <p className="text-gray-400 text-sm leading-relaxed mb-6">
+            Pour explorer ce module, vous devez d'abord valider le quiz du module précédent :
+          </p>
+          
+          <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl text-left mb-6 flex items-start gap-3">
+            <div className="shrink-0 w-6 h-6 rounded-full bg-purple-900/40 text-purple-400 flex items-center justify-center font-bold text-xs mt-0.5">
+              💡
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-0.5">Quiz requis</p>
+              <p className="text-sm font-bold text-slate-100">{lockingModuleTitle}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate(`/client/course/${courseId}`)}
+              className="w-full py-3 px-5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Retour au programme de la formation
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const embedUrl = getYoutubeEmbedUrl(module.youtube_url);
   // Support either the new module_files relation or old download_files JSON array
   const filesList = module.module_files && module.module_files.length > 0 ? module.module_files : (module.download_files || []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col overflow-x-hidden animate-fade-in">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col overflow-x-hidden animate-fade-in max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none]">
       {/* Immersive distraction-free status bar */}
       <nav className="bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-4 flex items-center justify-between shrink-0 gap-4">
         <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -292,6 +374,16 @@ export default function ClientModuleView() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => fetchModuleDetails(true)}
+            disabled={refreshing}
+            className={`p-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl transition-all ${
+              refreshing ? 'text-purple-400' : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Actualiser le module"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
           {quiz ? (
             isCompleted ? (
               <button
@@ -349,7 +441,7 @@ export default function ClientModuleView() {
       <div className="flex-grow flex flex-col lg:flex-row h-full">
         
         {/* Left Side: Video Player or Lesson Card (Immersive media) */}
-        <div className="flex-1 bg-slate-950 p-6 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-900">
+        <div className="w-full lg:w-[55%] xl:w-[60%] bg-slate-950 p-6 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-900 shrink-0">
           {embedUrl ? (
             <div className="w-full max-w-5xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-slate-800 relative">
               <iframe
@@ -375,8 +467,8 @@ export default function ClientModuleView() {
         </div>
 
         {/* Right Side: Scrollable Lesson Material and Resources */}
-        <div className="w-full lg:w-[450px] bg-slate-900 flex flex-col shrink-0">
-          <div className="flex-grow overflow-y-auto p-6 space-y-8 max-h-[calc(100vh-140px)]">
+        <div className="w-full lg:w-[45%] xl:w-[40%] bg-slate-900 flex flex-col shrink-0">
+          <div className="flex-grow overflow-y-auto max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] p-6 space-y-8 max-h-[calc(100vh-140px)]">
             
             {/* Title & Description card */}
             <div className="space-y-3">
@@ -422,12 +514,27 @@ export default function ClientModuleView() {
 
             {/* Lesson Core Text */}
             <div className="space-y-3 border-t border-slate-800 pt-6">
-              <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider block">Leçon / Fiche de cours</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider block">Leçon / Fiche de cours</span>
+                {module.long_summary && (
+                  <button
+                    onClick={() => setIsFullscreenReading(true)}
+                    className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
+                    title="Lire en plein écran"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               
               {module.long_summary ? (
                 <div 
                   className="prose prose-invert prose-xs text-slate-300 leading-relaxed bg-slate-950 p-5 rounded-2xl border border-slate-800/80 max-w-none 
-                    [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline"
+                    [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline
+                    [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-white [&_h1]:mt-5 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-slate-800 [&_h1]:pb-1
+                    [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:text-slate-200 [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:tracking-tight
+                    [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-slate-200 [&_h3]:mt-3.5 [&_h3]:mb-1.5
+                    [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-slate-300 [&_h4]:mt-3 [&_h4]:mb-1 [&_li]:list-none"
                   dangerouslySetInnerHTML={{ __html: module.long_summary }}
                 />
               ) : (
@@ -555,6 +662,32 @@ export default function ClientModuleView() {
             }
           }}
         />
+      )}
+
+      {isFullscreenReading && module.long_summary && (
+        <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col animate-fade-in">
+          <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900 shrink-0">
+            <h3 className="text-lg font-bold text-white truncate max-w-[80%]">{module.title}</h3>
+            <button
+              onClick={() => setIsFullscreenReading(false)}
+              className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full hover:bg-slate-700 transition-colors"
+              title="Fermer le mode plein écran"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] p-6 sm:p-10">
+            <div 
+              className="prose prose-invert prose-sm sm:prose-base text-slate-300 leading-relaxed max-w-4xl mx-auto
+                [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline
+                [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-white [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-slate-800 [&_h1]:pb-2
+                [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:text-slate-200 [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:tracking-tight
+                [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-slate-200 [&_h3]:mt-5 [&_h3]:mb-2
+                [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-slate-300 [&_h4]:mt-4 [&_h4]:mb-1 [&_li]:list-none"
+              dangerouslySetInnerHTML={{ __html: module.long_summary }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

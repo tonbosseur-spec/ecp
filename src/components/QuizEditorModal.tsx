@@ -30,21 +30,33 @@ export function QuizEditorModal({
 }: QuizEditorModalProps) {
   const [title, setTitle] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      setError(null);
       setTitle(initialQuiz?.title || `Quizz : ${moduleTitle || "Validation"}`);
-      setQuestions(
-        initialQuiz?.questions && initialQuiz.questions.length > 0
-          ? JSON.parse(JSON.stringify(initialQuiz.questions))
-          : [{ text: '', options: ['', '', '', ''], correct_index: 0 }]
-      );
+      
+      const loadedQuestions = initialQuiz?.questions && initialQuiz.questions.length > 0
+        ? JSON.parse(JSON.stringify(initialQuiz.questions))
+        : [{ text: '', options: ['', '', '', ''], correct_index: 0 }];
+      
+      // Assurer que chaque question chargée a exactement 4 options pour l'édition
+      loadedQuestions.forEach((q: Question) => {
+        if (!q.options) q.options = [];
+        while (q.options.length < 4) {
+          q.options.push('');
+        }
+      });
+      
+      setQuestions(loadedQuestions);
     }
   }, [isOpen, initialQuiz, moduleTitle]);
 
   if (!isOpen) return null;
 
   const handleAddQuestion = () => {
+    setError(null);
     setQuestions([
       ...questions,
       { text: '', options: ['', '', '', ''], correct_index: 0 }
@@ -52,20 +64,23 @@ export function QuizEditorModal({
   };
 
   const handleRemoveQuestion = (qIndex: number) => {
+    setError(null);
     if (questions.length === 1) {
-      alert("Un quizz doit contenir au moins une question.");
+      setError("Un quizz doit contenir au moins une question.");
       return;
     }
     setQuestions(questions.filter((_, idx) => idx !== qIndex));
   };
 
   const handleQuestionTextChange = (qIndex: number, text: string) => {
+    setError(null);
     setQuestions(
       questions.map((q, idx) => (idx === qIndex ? { ...q, text } : q))
     );
   };
 
   const handleOptionTextChange = (qIndex: number, oIndex: number, text: string) => {
+    setError(null);
     setQuestions(
       questions.map((q, idx) => {
         if (idx === qIndex) {
@@ -79,35 +94,57 @@ export function QuizEditorModal({
   };
 
   const handleSelectCorrectOption = (qIndex: number, oIndex: number) => {
+    setError(null);
     setQuestions(
       questions.map((q, idx) => (idx === qIndex ? { ...q, correct_index: oIndex } : q))
     );
   };
 
   const handleSave = () => {
+    setError(null);
     // Validation
     if (!title.trim()) {
-      alert("Veuillez donner un titre au quizz.");
+      setError("Veuillez donner un titre au quizz.");
       return;
     }
+
+    const cleanedQuestions = [];
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.text.trim()) {
-        alert(`La question ${i + 1} est vide.`);
+        setError(`La question ${i + 1} n'a pas d'intitulé.`);
         return;
       }
       
-      const emptyOptions = q.options.filter(opt => !opt.trim());
-      if (emptyOptions.length > 0) {
-        alert(`Certaines options de la question ${i + 1} sont vides. Veuillez remplir toutes les options.`);
+      const filledOptions = q.options.map(opt => opt.trim()).filter(opt => opt !== '');
+      if (filledOptions.length < 2) {
+        setError(`La question ${i + 1} doit avoir au moins 2 options de réponses remplies.`);
         return;
       }
+      
+      const correctOptionText = q.options[q.correct_index];
+      if (!correctOptionText || !correctOptionText.trim()) {
+        setError(`Veuillez sélectionner l'une des options remplies comme bonne réponse pour la question ${i + 1}.`);
+        return;
+      }
+      
+      const newCorrectIdx = filledOptions.indexOf(correctOptionText.trim());
+      if (newCorrectIdx === -1) {
+        setError(`La bonne réponse sélectionnée pour la question ${i + 1} n'est pas valide ou est vide.`);
+        return;
+      }
+      
+      cleanedQuestions.push({
+        text: q.text.trim(),
+        options: filledOptions,
+        correct_index: newCorrectIdx
+      });
     }
 
     onSave({
       title: title.trim(),
-      questions
+      questions: cleanedQuestions
     });
     onClose();
   };
@@ -140,6 +177,16 @@ export function QuizEditorModal({
 
         {/* Scrollable Questions Area */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+          
+          {/* Error Banner */}
+          {error && (
+            <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-start gap-3 text-rose-800 text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-250">
+              <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+              <div className="flex-1 leading-snug">
+                {error}
+              </div>
+            </div>
+          )}
           
           {/* Quiz Title Input Card */}
           <div className="bg-white rounded-2xl p-5 border border-gray-150 shadow-xs space-y-3">
@@ -196,8 +243,9 @@ export function QuizEditorModal({
                 {/* Options List */}
                 <div className="space-y-2.5">
                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Options de réponses <span className="text-[10px] text-gray-400 normal-case font-normal">(Sélectionnez la bonne réponse en cochant l'icône)</span>
+                    Options de réponses <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-sm normal-case font-bold ml-1">Remplissez au moins 2 options. Les cases vides seront ignorées.</span>
                   </label>
+                  <p className="text-[11px] text-gray-400">Cliquez sur le rond vert de l'option pour désigner la bonne réponse.</p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {question.options.map((option, oIndex) => {
@@ -258,22 +306,27 @@ export function QuizEditorModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-gray-100 shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-100 hover:shadow-emerald-200 transition-all"
-          >
-            <Check className="w-4 h-4" />
-            Enregistrer ce Quizz
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 py-4 bg-slate-50 border-t border-gray-100 shrink-0">
+          <div className="text-[11px] text-gray-500 font-medium max-w-sm">
+            💡 <strong>Étape 1 sur 3</strong> : Enregistrez le quizz ici, puis enregistrez le module, et enfin le cours en bas de la page principale pour sauvegarder en base.
+          </div>
+          <div className="flex items-center gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-100 hover:shadow-emerald-200 transition-all"
+            >
+              <Check className="w-4 h-4" />
+              Enregistrer ce Quizz
+            </button>
+          </div>
         </div>
 
       </div>

@@ -219,17 +219,21 @@ export default function CreateCourse() {
           download_files: mod.download_files || []
         }));
 
+        console.log("Inserting course modules (create payload):", modulesToInsert);
+
         const { data: insertedModules, error: modulesError } = await supabase
           .from('course_modules')
           .insert(modulesToInsert)
           .select();
+
+        console.log("Supabase insert response:", { insertedModules, modulesError });
 
         if (modulesError) throw modulesError;
 
         if (insertedModules) {
           const filesToInsert: any[] = [];
           for (const savedMod of insertedModules) {
-            const originalMod = modules.find(m => m.title === savedMod.title);
+            const originalMod = modules[savedMod.order_index];
             if (originalMod) {
               // Insérer le quiz si configuré
               if (originalMod.quiz) {
@@ -781,7 +785,7 @@ export default function CreateCourse() {
                             className="flex items-center gap-1 text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors bg-purple-50 hover:bg-purple-100/80 px-2.5 py-1.5 rounded-lg"
                           >
                             <Palette className="w-3.5 h-3.5" />
-                            {mod.long_summary || mod.youtube_url || (mod.download_files && mod.download_files.length > 0) ? (
+                            {mod.long_summary || mod.youtube_url || (mod.download_files && mod.download_files.length > 0) || mod.quiz ? (
                               "Contenu enrichi (Modifier)"
                             ) : (
                               "Enrichir le module"
@@ -799,6 +803,9 @@ export default function CreateCourse() {
                               <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-md" title={`${mod.download_files.length} fichier(s)`}>
                                 DOC ({mod.download_files.length})
                               </span>
+                            )}
+                            {mod.quiz && (
+                              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md" title="Quizz configuré">QZ</span>
                             )}
                           </div>
                         </div>

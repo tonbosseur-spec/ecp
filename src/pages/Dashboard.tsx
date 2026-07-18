@@ -685,7 +685,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`p-4 sm:p-6 mx-auto pb-24 relative ${(activeTab === 'messages' || activeTab === 'students') ? 'max-w-5xl' : 'max-w-md'}`}>
+    <div className={`p-4 sm:p-6 mx-auto pb-24 relative md:max-w-none md:px-8 w-full ${(activeTab === 'messages' || activeTab === 'students') ? 'max-w-5xl' : 'max-w-md'}`}>
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium animate-in slide-in-from-top-4 fade-in duration-300">
           <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -823,7 +823,7 @@ export default function Dashboard() {
           )}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredCourses.map((course, index) => {
             const isEbook = course.product_type === 'ebook';
             
@@ -934,7 +934,7 @@ export default function Dashboard() {
       )}
 
       {activeTab === 'payments' && (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {loadingPayments ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
@@ -1046,7 +1046,8 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500">Aucune proposition ou demande d'intérêt dans cette catégorie.</p>
             </div>
           ) : (
-            proposals.map((proposal, index) => {
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {proposals.map((proposal, index) => {
               const clientName = proposal.client_profiles 
                 ? `${proposal.client_profiles.first_name || ''} ${proposal.client_profiles.last_name || ''}`.trim() || 'Client sans nom'
                 : 'Client inconnu';
@@ -1227,7 +1228,8 @@ export default function Dashboard() {
                   </div>
                 </div>
               );
-            })
+            })}
+            </div>
           )}
         </div>
       )}

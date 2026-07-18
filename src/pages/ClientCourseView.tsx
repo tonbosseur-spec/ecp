@@ -14,7 +14,9 @@ import {
   Award,
   Video,
   CheckCircle2,
-  WifiOff
+  WifiOff,
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import { 
   getCourseFromCache, 
@@ -31,95 +33,120 @@ export default function ClientCourseView() {
   const [modules, setModules] = useState<any[]>([]);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
+
+  const checkAuthAndFetchData = async (isManualRefresh = false) => {
+    try {
+      if (isManualRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      let session = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        session = data.session;
+      } catch (e) {
+        console.warn("Auth check failed offline, trying cached session if available:", e);
+      }
+
+      if (session) {
+        setUserId(session.user.id);
+      }
+
+      // Try online fetch first
+      try {
+        const { data: courseData, error: courseError } = await supabase
+          .from('courses')
+          .select('*, trainers(*)')
+          .eq('id', courseId)
+          .single();
+
+        if (courseError) throw courseError;
+
+        const { data: modulesData, error: modulesError } = await supabase
+          .from('course_modules')
+          .select('*, module_files(*)')
+          .eq('course_id', courseId)
+          .order('order_index', { ascending: true });
+
+        if (modulesError) throw modulesError;
+
+        const fetchedModules = modulesData || [];
+        
+        // Fetch quiz status for all modules of this course
+        let qModuleIds: string[] = [];
+        if (fetchedModules.length > 0) {
+          const { data: quizzesData } = await supabase
+            .from('quizzes')
+            .select('module_id')
+            .in('module_id', fetchedModules.map(m => m.id));
+          qModuleIds = (quizzesData || []).map((q: any) => q.module_id);
+        }
+        setQuizModuleIds(qModuleIds);
+
+        let completed: string[] = [];
+        if (session) {
+          const { data: progressData, error: progressError } = await supabase
+            .from('module_progress')
+            .select('module_id')
+            .eq('client_id', session.user.id);
+
+          if (!progressError && progressData) {
+            completed = progressData.map(p => p.module_id);
+          }
+        }
+
+        // Set state
+        setCourse(courseData);
+        setModules(fetchedModules);
+        setCompletedIds(completed);
+        setIsOfflineMode(false);
+
+        // Save to Cache
+        const courseToSave = {
+          ...courseData,
+          completed_module_ids: completed
+        };
+        await saveCourseToCache(courseToSave);
+        if (fetchedModules.length > 0) {
+          await saveModulesToCache(courseId!, fetchedModules);
+        }
+
+      } catch (networkErr) {
+        console.warn("Network request failed, falling back to local IndexedDB cache:", networkErr);
+        
+        // Try fetching from local cache
+        const cachedCourse = await getCourseFromCache(courseId!);
+        const cachedModules = await getModulesFromCache(courseId!);
+        
+        if (cachedCourse) {
+          setCourse(cachedCourse);
+          setModules(cachedModules || []);
+          setCompletedIds(cachedCourse.completed_module_ids || []);
+          setIsOfflineMode(true);
+          
+          if (cachedModules && cachedModules.length > 0) {
+            const qModuleIds = cachedModules.filter(m => m.quiz).map(m => m.id);
+            setQuizModuleIds(qModuleIds);
+          }
+        } else {
+          // Throw the original error if there's no cache
+          throw networkErr;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching course view:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const checkAuthAndFetchData = async () => {
-      try {
-        setLoading(true);
-        let session = null;
-        try {
-          const { data } = await supabase.auth.getSession();
-          session = data.session;
-        } catch (e) {
-          console.warn("Auth check failed offline, trying cached session if available:", e);
-        }
-
-        if (session) {
-          setUserId(session.user.id);
-        }
-
-        // Try online fetch first
-        try {
-          const { data: courseData, error: courseError } = await supabase
-            .from('courses')
-            .select('*, trainers(*)')
-            .eq('id', courseId)
-            .single();
-
-          if (courseError) throw courseError;
-
-          const { data: modulesData, error: modulesError } = await supabase
-            .from('course_modules')
-            .select('*, module_files(*)')
-            .eq('course_id', courseId)
-            .order('order_index', { ascending: true });
-
-          if (modulesError) throw modulesError;
-
-          let completed: string[] = [];
-          if (session) {
-            const { data: progressData, error: progressError } = await supabase
-              .from('module_progress')
-              .select('module_id')
-              .eq('client_id', session.user.id);
-
-            if (!progressError && progressData) {
-              completed = progressData.map(p => p.module_id);
-            }
-          }
-
-          // Set state
-          setCourse(courseData);
-          setModules(modulesData || []);
-          setCompletedIds(completed);
-          setIsOfflineMode(false);
-
-          // Save to Cache
-          const courseToSave = {
-            ...courseData,
-            completed_module_ids: completed
-          };
-          await saveCourseToCache(courseToSave);
-          if (modulesData && modulesData.length > 0) {
-            await saveModulesToCache(courseId!, modulesData);
-          }
-
-        } catch (networkErr) {
-          console.warn("Network request failed, falling back to local IndexedDB cache:", networkErr);
-          
-          // Try fetching from local cache
-          const cachedCourse = await getCourseFromCache(courseId!);
-          const cachedModules = await getModulesFromCache(courseId!);
-          
-          if (cachedCourse) {
-            setCourse(cachedCourse);
-            setModules(cachedModules || []);
-            setCompletedIds(cachedCourse.completed_module_ids || []);
-            setIsOfflineMode(true);
-          } else {
-            // Throw the original error if there's no cache
-            throw networkErr;
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching course view:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     checkAuthAndFetchData();
   }, [courseId, navigate]);
 
@@ -174,6 +201,16 @@ export default function ClientCourseView() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => checkAuthAndFetchData(true)}
+              disabled={refreshing}
+              className={`p-2 bg-slate-50 border border-gray-150 hover:bg-slate-100 rounded-xl transition-all ${
+                refreshing ? 'text-purple-600' : 'text-gray-500 hover:text-gray-800'
+              }`}
+              title="Actualiser le contenu de la formation"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
             <span className="hidden sm:inline-flex text-xs font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-xl">
               {completedCount} / {totalCount} Modules validés
             </span>
@@ -262,28 +299,53 @@ export default function ClientCourseView() {
                 const isCompleted = completedIds.includes(m.id);
                 const fileCount = m.module_files?.length || 0;
                 
+                // Determine if this module is locked (if any previous module has a quiz and is not completed)
+                let isLocked = false;
+                for (let i = 0; i < index; i++) {
+                  const prevMod = modules[i];
+                  const prevHasQuiz = quizModuleIds.includes(prevMod.id);
+                  const prevCompleted = completedIds.includes(prevMod.id);
+                  if (prevHasQuiz && !prevCompleted) {
+                    isLocked = true;
+                    break;
+                  }
+                }
+                
                 return (
                   <div 
                     key={m.id}
-                    className={`bg-white rounded-2xl p-6 border transition-all flex flex-col justify-between h-full hover:shadow-md hover:scale-[1.01] ${
-                      isCompleted 
-                        ? 'border-green-100 bg-green-50/10' 
-                        : 'border-gray-100 hover:border-purple-100'
+                    className={`bg-white rounded-2xl p-6 border transition-all flex flex-col justify-between h-full ${
+                      isLocked
+                        ? 'opacity-65 bg-gray-50/50 border-gray-150'
+                        : isCompleted 
+                          ? 'border-green-100 bg-green-50/10 hover:shadow-md hover:scale-[1.01]' 
+                          : 'border-gray-100 hover:border-purple-100 hover:shadow-md hover:scale-[1.01]'
                     }`}
                   >
                     <div>
                       {/* Top indicator & Status */}
                       <div className="flex items-center justify-between mb-4">
-                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                          Module {index + 1}
-                        </span>
+                        {isLocked ? (
+                          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                            <Lock className="w-3 h-3" />
+                            Module {index + 1}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            Module {index + 1}
+                          </span>
+                        )}
                         
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                          isCompleted 
-                            ? 'bg-green-100 text-green-600' 
-                            : 'bg-gray-100 text-gray-400'
+                          isLocked
+                            ? 'bg-gray-100 text-gray-300'
+                            : isCompleted 
+                              ? 'bg-green-100 text-green-600' 
+                              : 'bg-gray-100 text-gray-400'
                         }`}>
-                          {isCompleted ? (
+                          {isLocked ? (
+                            <Lock className="w-3 h-3" />
+                          ) : isCompleted ? (
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           ) : (
                             <span className="text-[10px] font-bold">{index + 1}</span>
@@ -292,10 +354,14 @@ export default function ClientCourseView() {
                       </div>
 
                       {/* Title & Description */}
-                      <h4 className="text-base font-black text-gray-900 mb-2 leading-snug group-hover:text-purple-700 transition-colors">
+                      <h4 className={`text-base font-black mb-2 leading-snug transition-colors ${
+                        isLocked ? 'text-gray-400' : 'text-gray-900 group-hover:text-purple-700'
+                      }`}>
                         {m.title}
                       </h4>
-                      <p className="text-gray-500 text-xs leading-relaxed line-clamp-3 mb-4">
+                      <p className={`text-xs leading-relaxed line-clamp-3 mb-4 ${
+                        isLocked ? 'text-gray-400/80' : 'text-gray-500'
+                      }`}>
                         {m.description || "Aucune description rapide disponible pour ce module."}
                       </p>
                     </div>
@@ -317,17 +383,28 @@ export default function ClientCourseView() {
                         )}
                       </div>
 
-                      <Link
-                        to={`/client/course/${courseId}/module/${m.id}`}
-                        className={`flex items-center justify-center gap-1.5 w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                          isCompleted
-                            ? 'bg-green-100 hover:bg-green-200 text-green-800'
-                            : 'bg-purple-600 hover:bg-purple-700 text-white'
-                        }`}
-                      >
-                        {isCompleted ? "Revoir le module" : "Suivre le module"}
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
+                      {isLocked ? (
+                        <button
+                          disabled
+                          className="flex items-center justify-center gap-1.5 w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                          title="Vous devez valider le quizz du module précédent pour débloquer ce module."
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          Bloqué (Quizz requis)
+                        </button>
+                      ) : (
+                        <Link
+                          to={`/client/course/${courseId}/module/${m.id}`}
+                          className={`flex items-center justify-center gap-1.5 w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                            isCompleted
+                              ? 'bg-green-100 hover:bg-green-200 text-green-800'
+                              : 'bg-purple-600 hover:bg-purple-700 text-white'
+                          }`}
+                        >
+                          {isCompleted ? "Revoir le module" : "Suivre le module"}
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      )}
                     </div>
                   </div>
                 );

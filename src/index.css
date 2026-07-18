@@ -26,6 +26,16 @@
   --color-indigo-950: #052e16;
 }
 
+@layer base {
+  *::-webkit-scrollbar {
+    display: none !important;
+  }
+  * {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+}
+
 @layer utilities {
   .pattern-dots {
     background-color: #f8fafc;
@@ -34,5 +44,13 @@
   }
   .pattern-waves {
     background: linear-gradient(120deg, #f8fafc 0%, var(--theme-primary-light, #f1f5f9) 100%);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

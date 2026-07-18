@@ -74,7 +74,7 @@ export default function AdminHub() {
     return (
       <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-900 mb-4 px-2">{title}</h3>
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {courseList.map((course, index) => (
             <div key={`${course.id}-${index}`} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
               <div className="flex justify-between items-start mb-4">
@@ -139,8 +139,8 @@ export default function AdminHub() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 font-sans pb-24">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 font-sans pb-24 w-full">
+      <div className="max-w-3xl md:max-w-none w-full mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-gray-900 text-white rounded-xl flex items-center justify-center">
             <Store className="w-5 h-5" />

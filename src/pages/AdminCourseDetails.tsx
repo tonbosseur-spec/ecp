@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send, Archive, ArchiveRestore } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ShareCourseButton from '../components/ShareCourseButton';
 
@@ -13,6 +13,7 @@ interface Course {
   date_time: string;
   is_active: boolean;
   product_type?: string;
+  is_archived?: boolean;
 }
 
 interface Registration {
@@ -48,7 +49,7 @@ export default function AdminCourseDetails() {
       setLoading(true);
       
       const [courseResponse, registrationsResponse, modulesResponse] = await Promise.all([
-        supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active, product_type').eq('id', id).single(),
+        supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active, product_type, is_archived').eq('id', id).single(),
         supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, registered_at').eq('course_id', id).order('registered_at', { ascending: false }),
         supabase.from('course_modules').select('id, title').eq('course_id', id)
       ]);
@@ -185,6 +186,25 @@ export default function AdminCourseDetails() {
     }
   };
 
+  const toggleArchive = async () => {
+    if (!course) return;
+    
+    try {
+      const newStatus = !course.is_archived;
+      
+      const { error: updateError } = await supabase
+        .from('courses')
+        .update({ is_archived: newStatus })
+        .eq('id', course.id);
+
+      if (updateError) throw updateError;
+      
+      setCourse({ ...course, is_archived: newStatus });
+    } catch (err: any) {
+      alert("Erreur lors de la modification du statut d'archivage : " + err.message);
+    }
+  };
+
   const exportToGoogleContacts = () => {
     if (!course || registrations.length === 0) return;
     
@@ -242,55 +262,88 @@ export default function AdminCourseDetails() {
 
   return (
     <div className="p-4 sm:p-6 max-w-lg mx-auto pb-24">
-      {/* Header & Back Button */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/dashboard')}
-            className="p-2 -ml-2 text-gray-500 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center gap-2">
-            <h1 className="text-xl font-bold text-gray-900 truncate tracking-tight">{course.title}</h1>
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold self-start sm:self-auto ${
-              course.product_type === 'ebook' 
-                ? 'bg-purple-50 text-purple-700 border border-purple-100' 
-                : 'bg-blue-50 text-blue-700 border border-blue-100'
-            }`}>
-              {course.product_type === 'ebook' ? 'E-book' : 'Formation'}
-            </span>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
-          <button
-            onClick={toggleActive}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-lg transition-colors shadow-sm ${
-              course.is_active 
-                ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100' 
-                : 'text-gray-700 bg-gray-50 border-gray-200 hover:bg-gray-100'
-            }`}
-          >
-            <Power className="w-4 h-4" />
-            {course.is_active ? 'Active' : 'Inactive'}
-          </button>
-          <ShareCourseButton courseId={course.id} courseTitle={course.title} className="py-2" />
-          <button
-            onClick={() => navigate(`/edit-course/${course.id}`)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <Edit className="w-4 h-4" />
-            Modifier
-          </button>
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors shadow-sm"
-          >
-            <Trash2 className="w-4 h-4" />
-            Supprimer
-          </button>
-        </div>
+      {/* Back Button Row */}
+      <div className="mb-4">
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className="p-2 -ml-2 text-gray-500 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100 flex items-center gap-1.5 text-sm font-medium"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Retour</span>
+        </button>
+      </div>
+
+      {/* Title & Badge Column - Centered */}
+      <div className="flex flex-col items-center text-center gap-2 mb-4">
+        <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight max-w-md">
+          {course.title}
+        </h1>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+          course.product_type === 'ebook' 
+            ? 'bg-purple-100 text-purple-800 border border-purple-200' 
+            : 'bg-blue-100 text-blue-800 border border-blue-200'
+        }`}>
+          {course.product_type === 'ebook' ? 'E-book' : 'Formation'}
+        </span>
+      </div>
+
+      {/* Actions Row - Just below the title and centered */}
+      <div className="flex flex-wrap items-center justify-center gap-2 mb-8 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm max-w-md mx-auto">
+        {/* Active Button */}
+        <button
+          onClick={toggleActive}
+          className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-xs font-bold border rounded-xl transition-all shadow-sm shrink-0 ${
+            course.is_active 
+              ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100' 
+              : 'text-gray-500 bg-gray-50 border-gray-200 hover:bg-gray-100'
+          }`}
+          title={course.is_active ? 'Désactiver' : 'Activer'}
+        >
+          <Power className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">{course.is_active ? 'Active' : 'Inactive'}</span>
+        </button>
+
+        {/* Share Button */}
+        <ShareCourseButton 
+          courseId={course.id} 
+          courseTitle={course.title} 
+          className="text-xs font-bold text-white bg-blue-600 border border-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-sm shrink-0 p-2 sm:px-3 sm:py-2" 
+          mobileIconOnly={true}
+        />
+
+        {/* Archive Button */}
+        <button
+          onClick={toggleArchive}
+          className={`flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-xs font-bold border rounded-xl transition-all shadow-sm shrink-0 ${
+            course.is_archived 
+              ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100' 
+              : 'text-gray-500 bg-white border-gray-200 hover:bg-gray-50'
+          }`}
+          title={course.is_archived ? 'Désarchiver' : 'Archiver'}
+        >
+          {course.is_archived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+          <span className="hidden sm:inline">{course.is_archived ? 'Archivée' : 'Archiver'}</span>
+        </button>
+
+        {/* Edit Button */}
+        <button
+          onClick={() => navigate(`/edit-course/${course.id}`)}
+          className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-sm shrink-0"
+          title="Modifier"
+        >
+          <Edit className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Modifier</span>
+        </button>
+
+        {/* Delete Button */}
+        <button
+          onClick={handleDelete}
+          className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-xs font-bold text-red-600 bg-white border border-red-100 rounded-xl hover:bg-red-50 transition-all shadow-sm shrink-0"
+          title="Supprimer"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Supprimer</span>
+        </button>
       </div>
 
       {/* KPIs */}

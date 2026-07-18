@@ -5,9 +5,10 @@ interface ShareCourseButtonProps {
   courseId: string;
   courseTitle: string;
   className?: string;
+  mobileIconOnly?: boolean;
 }
 
-export default function ShareCourseButton({ courseId, courseTitle, className = '' }: ShareCourseButtonProps) {
+export default function ShareCourseButton({ courseId, courseTitle, className = '', mobileIconOnly = false }: ShareCourseButtonProps) {
   const [copied, setCopied] = useState(false);
   
   const handleShare = async () => {
@@ -38,17 +39,18 @@ export default function ShareCourseButton({ courseId, courseTitle, className = '
     <button
       type="button"
       onClick={handleShare}
-      className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm active:scale-95 ${className}`}
+      className={`flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm active:scale-95 ${className}`}
+      title={copied ? "Lien copié !" : "Partager la formation"}
     >
       {copied ? (
         <>
-          <Check className="w-5 h-5" />
-          Lien copié !
+          <Check className="w-4 h-4 shrink-0" />
+          <span className={mobileIconOnly ? "hidden sm:inline" : ""}>Lien copié !</span>
         </>
       ) : (
         <>
-          <Share2 className="w-5 h-5" />
-          Partager le lien
+          <Share2 className="w-4 h-4 shrink-0" />
+          <span className={mobileIconOnly ? "hidden sm:inline" : ""}>Partager le lien</span>
         </>
       )}
     </button>
