@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Exceller chez Pierre</string>
+    <string name="title_activity_main">Exceller chez Pierre</string>
+    <string name="package_name">com.excellerchezpierre.app</string>
+    <string name="custom_url_scheme">com.excellerchezpierre.app</string>
+</resources>
