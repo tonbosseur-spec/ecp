@@ -76,6 +76,8 @@ jobs:
       - name: Build Android APK
         working-directory: android
         run: |
+          mkdir -p gradle/wrapper
+          curl -sSLo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.3/gradle/wrapper/gradle-wrapper.jar
           chmod +x gradlew
           ./gradlew assembleDebug
 
