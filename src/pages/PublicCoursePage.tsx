@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -942,7 +943,7 @@ END:VCALENDAR`;
                           Guide de préparation
                         </h3>
                         <p className="text-sm text-gray-300 mb-4">
-                          {course.guide_text || 'Nous avons préparé un guide pour vous aider à bien démarrer. Téléchargez-le et lisez-le avant la session.'}
+                          {parseCourseQuizSettings(course.guide_text).guideText || 'Nous avons préparé un guide pour vous aider à bien démarrer. Téléchargez-le et lisez-le avant la session.'}
                         </p>
                         <a 
                           href={course.guide_url} 

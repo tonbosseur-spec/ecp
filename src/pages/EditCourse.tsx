@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
 import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette } from 'lucide-react';
 import { NativeImageUploader } from '../components/NativeImageUploader';
 import { RichTextEditorModal } from '../components/RichTextEditorModal';
@@ -65,6 +66,8 @@ export default function EditCourse() {
   const [googleMeetLink, setGoogleMeetLink] = useState('');
   const [guideUrl, setGuideUrl] = useState('');
   const [guideText, setGuideText] = useState('');
+  const [quizTitle, setQuizTitle] = useState('');
+  const [quizDescription, setQuizDescription] = useState('');
   const [youtubeVideoUrl, setYoutubeVideoUrl] = useState('');
 
   // Modules
@@ -133,7 +136,10 @@ export default function EditCourse() {
         setWhatsappLink(courseData.whatsapp_link || '');
         setGoogleMeetLink(courseData.google_meet_link || '');
         setGuideUrl(courseData.guide_url || '');
-        setGuideText(courseData.guide_text || '');
+        const parsedQuizSettings = parseCourseQuizSettings(courseData.guide_text);
+        setGuideText(parsedQuizSettings.guideText || '');
+        setQuizTitle(parsedQuizSettings.quizTitle || '');
+        setQuizDescription(parsedQuizSettings.quizDescription || '');
         setYoutubeVideoUrl(courseData.youtube_video_url || '');
 
         if (courseData.course_modules && courseData.course_modules.length > 0) {
@@ -262,7 +268,11 @@ export default function EditCourse() {
         updateData.whatsapp_link = whatsappLink || null;
         updateData.google_meet_link = googleMeetLink || null;
         updateData.guide_url = guideUrl || null;
-        updateData.guide_text = guideText || null;
+        updateData.guide_text = encodeCourseQuizSettings(null, {
+          quizTitle: quizTitle.trim() || null,
+          quizDescription: quizDescription.trim() || null,
+          guideText: guideText.trim() || null
+        });
         updateData.youtube_video_url = youtubeVideoUrl || null;
         updateData.template_id = templateId || null;
         updateData.download_file_url = null;
@@ -829,6 +839,50 @@ export default function EditCourse() {
                     placeholder="URL Vidéo YouTube"
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Section: Personnalisation Quizz Public */}
+          {productType !== 'ebook' && (
+            <div className="space-y-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <h2 className="text-lg font-semibold text-gray-900">Page Publique du Challenge Quizz</h2>
+                <span className="text-xs bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full font-bold">
+                  Lead Magnet
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Titre spécifique pour le quizz
+                </label>
+                <input
+                  type="text"
+                  value={quizTitle}
+                  onChange={e => setQuizTitle(e.target.value)}
+                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
+                  placeholder={`Titre par défaut : ${title || 'Titre de la formation'}`}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Laissez vide pour utiliser le titre par défaut de la formation.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Description spécifique pour le quizz
+                </label>
+                <textarea
+                  rows={3}
+                  value={quizDescription}
+                  onChange={e => setQuizDescription(e.target.value)}
+                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm resize-none"
+                  placeholder="Laissez vide pour utiliser la description par défaut de la formation..."
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Laissez vide pour utiliser la description par défaut de la formation.
+                </p>
               </div>
             </div>
           )}

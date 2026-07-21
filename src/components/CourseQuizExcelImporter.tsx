@@ -221,7 +221,7 @@ export function CourseQuizExcelImporter({ courseId, onImportComplete }: CourseQu
 
       await Promise.all(upsertPromises);
 
-      const totalQuestions = Object.values(parsedData).reduce((acc, val) => acc + val.length, 0);
+      const totalQuestions = Object.values(parsedData).reduce((acc: number, val: any) => acc + (val as any[]).length, 0);
       const totalModules = moduleIds.length;
       
       setSuccess(`🎉 ${totalQuestions} question(s) importée(s) avec succès réparties sur ${totalModules} module(s) !`);
@@ -311,7 +311,7 @@ export function CourseQuizExcelImporter({ courseId, onImportComplete }: CourseQu
                       <div className="text-sm font-medium text-slate-900 line-clamp-1" title={module?.title}>{module?.title}</div>
                     </div>
                     <div className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md">
-                      {questions.length} Q
+                      {(questions as any[]).length} Q
                     </div>
                   </div>
                 );

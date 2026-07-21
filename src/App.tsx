@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import CreateCourse from './pages/CreateCourse';
 import ManageTrainers from './pages/ManageTrainers';
 import PublicCoursePage from './pages/PublicCoursePage';
+import PublicQuizChallenge from './pages/PublicQuizChallenge';
 import AdminCourseDetails from './pages/AdminCourseDetails';
 import EditCourse from './pages/EditCourse';
 import ClientRegister from './pages/ClientRegister';
@@ -86,6 +87,7 @@ export default function App() {
       <Route path="/download" element={<DownloadAppPage />} />
       <Route path="/quiz-demo" element={<QuizDemo />} />
       <Route path="/course/:id" element={<PublicCoursePage />} />
+      <Route path="/challenge/:courseId" element={<PublicQuizChallenge />} />
       
       <Route path="/client/register" element={<ClientRegister />} />
       <Route 

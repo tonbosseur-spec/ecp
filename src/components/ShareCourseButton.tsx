@@ -21,8 +21,19 @@ export default function ShareCourseButton({ courseId, courseTitle, className = '
           text: `Découvrez la formation : ${courseTitle}`,
           url: shareUrl,
         });
-      } catch (error) {
-        console.error('Erreur lors du partage natif:', error);
+      } catch (error: any) {
+        if (error?.name === 'AbortError' || error?.message?.toLowerCase().includes('cancel')) {
+          // User intentionally canceled the native share dialog
+          return;
+        }
+        // Fallback to clipboard if native share fails for another reason
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch (copyErr) {
+          console.error('Erreur lors de la copie:', copyErr);
+        }
       }
     } else {
       try {
