@@ -6,6 +6,9 @@ import ShareCourseButton from '../components/ShareCourseButton';
 import { NativeImageUploader } from '../components/NativeImageUploader';
 import { RichTextEditorModal } from '../components/RichTextEditorModal';
 import { EnrichModuleModal } from '../components/EnrichModuleModal';
+import PromoCodeManager from '../components/PromoCodeManager';
+import { PromoCode, getDefaultPromoCodesForCourse } from '../lib/promoUtils';
+import { encodeCourseQuizSettings } from '../lib/quizUtils';
 
 interface Trainer {
   id: string;
@@ -68,6 +71,7 @@ export default function CreateCourse() {
   const [guideUrl, setGuideUrl] = useState('');
   const [guideText, setGuideText] = useState('');
   const [youtubeVideoUrl, setYoutubeVideoUrl] = useState('');
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(getDefaultPromoCodesForCourse());
 
   // Modules
   const [modules, setModules] = useState<ModuleInput[]>([]);
@@ -192,31 +196,39 @@ export default function CreateCourse() {
         uploadedFileUrl = publicUrl;
       }
 
+      const encodedGuide = encodeCourseQuizSettings(null, {
+        guideText: guideText.trim() || null,
+        promoCodes: promoCodes
+      });
+
       // 1. Insert Course
+      const courseInsertPayload: any = {
+        title,
+        initials: initials || null,
+        description,
+        price_fcfa: parseInt(priceFcfa, 10),
+        date_time: productType === 'formation' 
+          ? (isDateTbd || !dateTime ? null : new Date(dateTime).toISOString()) 
+          : new Date().toISOString(),
+        is_date_tbd: productType === 'formation' ? isDateTbd : false,
+        trainer_id: trainerId,
+        max_seats: maxSeats ? parseInt(maxSeats, 10) : null,
+        is_active: isActive,
+        whatsapp_link: whatsappLink || null,
+        google_meet_link: googleMeetLink || null,
+        guide_url: guideUrl || null,
+        guide_text: encodedGuide,
+        youtube_video_url: youtubeVideoUrl || null,
+        cover_image_url: coverImageUrl,
+        product_type: productType,
+        download_file_url: uploadedFileUrl,
+        template_id: templateId || null,
+        promo_codes: promoCodes
+      };
+
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .insert([{
-          title,
-          initials: initials || null,
-          description,
-          price_fcfa: parseInt(priceFcfa, 10),
-          date_time: productType === 'formation' 
-            ? (isDateTbd || !dateTime ? null : new Date(dateTime).toISOString()) 
-            : new Date().toISOString(),
-          is_date_tbd: productType === 'formation' ? isDateTbd : false,
-          trainer_id: trainerId,
-          max_seats: maxSeats ? parseInt(maxSeats, 10) : null,
-          is_active: isActive,
-          whatsapp_link: whatsappLink || null,
-          google_meet_link: googleMeetLink || null,
-          guide_url: guideUrl || null,
-          guide_text: guideText || null,
-          youtube_video_url: youtubeVideoUrl || null,
-          cover_image_url: coverImageUrl,
-          product_type: productType,
-          download_file_url: uploadedFileUrl,
-          template_id: templateId || null,
-        }])
+        .insert([courseInsertPayload])
         .select()
         .single();
 
@@ -630,6 +642,13 @@ export default function CreateCourse() {
               </div>
             </div>
           )}
+
+          {/* Section: Codes Promotionnels Automatiques */}
+          <PromoCodeManager
+            promoCodes={promoCodes}
+            onChange={setPromoCodes}
+            basePriceFcfa={parseInt(priceFcfa, 10) || 0}
+          />
 
           {/* Section: Liens & Médias / E-book */}
           <div className="space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">

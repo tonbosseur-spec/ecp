@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
-import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, HelpCircle, ExternalLink, Zap } from 'lucide-react';
+import { getQuizClassForScore, QUIZ_CLASSES, extractCoursePromoCodes, PromoCode } from '../lib/promoUtils';
+import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, HelpCircle, ExternalLink, Zap, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
@@ -173,16 +174,36 @@ export default function PublicQuizChallenge() {
       if (ans === questions[idx].correct_index) correctCount++;
     });
     
-    const scorePercentage = (correctCount / questions.length) * 100;
+    const scorePercentage = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
     const elapsed = startTime ? Math.max(1, Math.round((Date.now() - startTime) / 1000)) : timeTakenSeconds;
     setTimeTakenSeconds(elapsed);
+
+    // Get promo code for user's quiz class
+    const quizClass = getQuizClassForScore(scorePercentage);
+    const coursePromoCodes = extractCoursePromoCodes(course);
+    const unlockedPromo = coursePromoCodes.find(p => p.min_score === quizClass.minScore && p.max_score === quizClass.maxScore) || {
+      code: quizClass.defaultCode,
+      discount_type: 'percentage' as const,
+      discount_value: quizClass.defaultDiscount,
+      min_score: quizClass.minScore,
+      max_score: quizClass.maxScore,
+      class_name: quizClass.name
+    };
+
+    if (courseId) {
+      try {
+        localStorage.setItem(`promo_${courseId}`, unlockedPromo.code);
+      } catch (e) {
+        // ignore
+      }
+    }
     
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     
     if (currentSession) {
       await saveResult(currentSession.user.id, scorePercentage, elapsed, currentSession.user.email);
       setStep('results');
-      if (scorePercentage >= 80) triggerConfetti();
+      if (scorePercentage >= 60) triggerConfetti();
     } else {
       setStep('auth');
     }
@@ -190,11 +211,18 @@ export default function PublicQuizChallenge() {
 
   const saveResult = async (userId: string, score: number, durationSec: number, userEmail?: string) => {
     try {
+      const quizClass = getQuizClassForScore(score);
+      const coursePromoCodes = extractCoursePromoCodes(course);
+      const unlockedPromo = coursePromoCodes.find(p => p.min_score === quizClass.minScore && p.max_score === quizClass.maxScore) || {
+        code: quizClass.defaultCode,
+        discount_value: quizClass.defaultDiscount
+      };
+
       await supabase.from('course_proposals').insert({
         client_id: userId,
         course_id: courseId,
-        custom_title: `Résultat Quizz : ${course?.title}`,
-        description: `Email: ${userEmail || email || 'Non renseigné'} | Score : ${Math.round(score)}% | Temps : ${formatDuration(durationSec)} - Code Promo : ${score >= 80 ? "EXPERT50" : "BOOST20"}`,
+        custom_title: `Résultat Quizz (${quizClass.title}) : ${course?.title}`,
+        description: `Email: ${userEmail || email || 'Non renseigné'} | Score : ${Math.round(score)}% (${quizClass.name} - ${quizClass.title}) | Temps : ${formatDuration(durationSec)} | Code Promo : ${unlockedPromo.code} (-${unlockedPromo.discount_value}${unlockedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})`,
         status: 'quiz_lead',
         price: 0
       });
@@ -621,229 +649,280 @@ export default function PublicQuizChallenge() {
           </div>
         )}
 
-        {step === 'results' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-8 w-full max-w-3xl mx-auto"
-          >
-            {/* Card Écran de Résumé des Performances */}
-            <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 shadow-[0_10px_40px_rgb(0,0,0,0.04)] border border-slate-100">
-              <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-5 mb-6 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
-                    <Sparkles className="w-5 h-5 text-indigo-600" />
+        {step === 'results' && (() => {
+          const userClass = getQuizClassForScore(scorePercentage);
+          const coursePromoCodes = extractCoursePromoCodes(course);
+          const unlockedPromo = coursePromoCodes.find(p => p.min_score === userClass.minScore && p.max_score === userClass.maxScore) || {
+            code: userClass.defaultCode,
+            discount_type: 'percentage' as const,
+            discount_value: userClass.defaultDiscount,
+            min_score: userClass.minScore,
+            max_score: userClass.maxScore,
+            class_name: userClass.name
+          };
+
+          return (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8 w-full max-w-3xl mx-auto"
+            >
+              {/* Card Écran de Résumé des Performances */}
+              <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 shadow-[0_10px_40px_rgb(0,0,0,0.04)] border border-slate-100">
+                <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-5 mb-6 gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+                      <Sparkles className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900">Résumé de vos Performances</h3>
+                      <p className="text-xs text-slate-500">Bilan synthétique de votre session de challenge</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900">Résumé de vos Performances</h3>
-                    <p className="text-xs text-slate-500">Bilan synthétique de votre session de challenge</p>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-100 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    Quizz Terminé
+                  </span>
+                </div>
+
+                {/* Grid 3 Stat Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  {/* Stat 1: Score Final */}
+                  <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Score Final</span>
+                      <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                        <Trophy className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
+                        {correctCount} <span className="text-slate-400 text-lg font-medium">/ {questions.length}</span>
+                      </div>
+                      <p className="text-xs font-bold text-indigo-600">
+                        {Math.round(scorePercentage)}% de bonnes réponses
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Stat 2: Temps Mis */}
+                  <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Temps Réalisé</span>
+                      <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
+                        {formatDuration(timeTakenSeconds)}
+                      </div>
+                      <p className="text-xs font-bold text-purple-600">
+                        ~{questions.length > 0 ? Math.round(timeTakenSeconds / questions.length) : 0}s par question
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Stat 3: Statut / Code Promo */}
+                  <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Niveau Atteint</span>
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${userClass.badgeBg} ${userClass.badgeColor}`}>
+                        <Award className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div>
+                      <div className={`text-xl sm:text-2xl font-black leading-tight mb-1 ${userClass.badgeColor}`}>
+                        {userClass.title}
+                      </div>
+                      <p className="text-xs font-bold text-slate-600">
+                        Réduction -{unlockedPromo.discount_value}{unlockedPromo.discount_type === 'fixed' ? ' FCFA' : '%'} Débloquée
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-100 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  Quizz Terminé
-                </span>
+
+                {/* Échelle visuelle des 5 Classes */}
+                <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-amber-500" />
+                      Échelle des 5 Niveaux de Compétence
+                    </h4>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Votre Niveau : <strong className={userClass.badgeColor}>{userClass.name}</strong>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                    {QUIZ_CLASSES.map((qc) => {
+                      const isActive = qc.level === userClass.level;
+                      const promoForTier = coursePromoCodes.find(p => p.min_score === qc.minScore && p.max_score === qc.maxScore) || {
+                        code: qc.defaultCode,
+                        discount_type: 'percentage' as const,
+                        discount_value: qc.defaultDiscount
+                      };
+
+                      return (
+                        <div 
+                          key={qc.level}
+                          className={`p-2.5 rounded-xl border text-center transition-all ${
+                            isActive 
+                              ? `${qc.badgeBg} ${qc.badgeBorder} shadow-xs ring-2 ring-indigo-500/30 scale-[1.02]`
+                              : 'bg-white border-slate-200 opacity-60'
+                          }`}
+                        >
+                          <div className={`text-[10px] font-extrabold uppercase ${isActive ? qc.badgeColor : 'text-slate-400'}`}>
+                            {qc.name}
+                          </div>
+                          <div className="text-xs font-bold text-slate-900 mt-0.5 truncate" title={qc.title}>
+                            {qc.title.replace('Niveau ', '')}
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            {qc.minScore}-{qc.maxScore}%
+                          </div>
+                          <div className={`text-[11px] font-black mt-1 px-1.5 py-0.5 rounded ${isActive ? 'bg-white text-indigo-700 shadow-2xs font-mono' : 'text-slate-400'}`}>
+                            -{promoForTier.discount_value}{promoForTier.discount_type === 'fixed' ? ' FCFA' : '%'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
-              {/* Grid 3 Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Stat 1: Score Final */}
-                <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Score Final</span>
-                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                      <Trophy className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
-                      {correctCount} <span className="text-slate-400 text-lg font-medium">/ {questions.length}</span>
-                    </div>
-                    <p className="text-xs font-bold text-indigo-600">
-                      {Math.round(scorePercentage)}% de bonnes réponses
-                    </p>
+              {/* Banner Result & Promo Code */}
+              <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-[0_10px_40px_rgb(0,0,0,0.04)] border border-slate-100 text-center relative overflow-hidden">
+                <div className={`absolute top-0 left-0 w-full h-1.5 ${userClass.level >= 4 ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r from-indigo-400 to-purple-500'}`}></div>
+                
+                <div className="mb-6 flex justify-center">
+                  <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-inner ${userClass.badgeBg}`}>
+                    <Trophy className={`w-10 h-10 ${userClass.badgeColor}`} />
                   </div>
                 </div>
 
-                {/* Stat 2: Temps Mis */}
-                <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Temps Réalisé</span>
-                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
-                      {formatDuration(timeTakenSeconds)}
-                    </div>
-                    <p className="text-xs font-bold text-purple-600">
-                      ~{questions.length > 0 ? Math.round(timeTakenSeconds / questions.length) : 0}s par question
-                    </p>
-                  </div>
+                <div className="inline-flex items-center justify-center gap-3 px-5 py-2 rounded-full mb-6 font-bold text-sm bg-slate-50 border border-slate-200/80 shadow-2xs">
+                  <span className="flex items-center gap-1.5 text-indigo-700">
+                    <Trophy className="w-4 h-4 text-indigo-500" />
+                    Score : {correctCount} / {questions.length} ({Math.round(scorePercentage)}%)
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="flex items-center gap-1.5 text-purple-700">
+                    <Clock className="w-4 h-4 text-purple-500" />
+                    Temps : {formatDuration(timeTakenSeconds)}
+                  </span>
                 </div>
 
-                {/* Stat 3: Statut / Code Promo */}
-                <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Niveau Validé</span>
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isExpert ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                      <Award className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className={`text-2xl sm:text-3xl font-black leading-none mb-1 ${isExpert ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {isExpert ? 'Expert' : 'Fort Potentiel'}
-                    </div>
-                    <p className="text-xs font-bold text-slate-600">
-                      {isExpert ? 'Code -50% Débloqué' : 'Code -20% Débloqué'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+                <h2 className="text-3xl font-black text-slate-900 mb-4">
+                  {userClass.title} <span className={userClass.badgeColor}>({userClass.name})</span>
+                </h2>
 
-            {/* Banner Result */}
-            <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-[0_10px_40px_rgb(0,0,0,0.04)] border border-slate-100 text-center relative overflow-hidden">
-              <div className={`absolute top-0 left-0 w-full h-1.5 ${isExpert ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r from-amber-400 to-orange-500'}`}></div>
-              
-              <div className="mb-6 flex justify-center">
-                <div className={`w-20 h-20 rounded-full flex items-center justify-center shadow-inner ${isExpert ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-                  {isExpert ? (
-                    <Trophy className="w-10 h-10 text-emerald-500" />
+                <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto mb-8">
+                  {userClass.description} Grâce à votre performance, vous débloquez automatiquement une réduction de <strong>{unlockedPromo.discount_value}{unlockedPromo.discount_type === 'fixed' ? ' FCFA' : '%'}</strong> sur la formation !
+                </p>
+
+                {/* Code Promo Box */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 max-w-md mx-auto mb-8 shadow-inner space-y-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center justify-center gap-1.5">
+                    <Ticket className="w-4 h-4 text-indigo-500" />
+                    Votre Code Promo Privilège
+                  </p>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="bg-white border-2 border-indigo-200 border-dashed rounded-xl px-6 py-3 font-mono font-black text-2xl text-indigo-700 tracking-wider shadow-2xs">
+                      {unlockedPromo.code}
+                    </div>
+                    <button 
+                      onClick={() => handleCopyPromo(unlockedPromo.code)}
+                      className="p-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-colors cursor-pointer"
+                      title="Copier le code"
+                    >
+                      {copiedCode ? <Check className="w-6 h-6 text-emerald-600" /> : <Copy className="w-6 h-6" />}
+                    </button>
+                  </div>
+                  {copiedCode ? (
+                    <p className="text-xs font-medium text-emerald-600">Code copié dans le presse-papier !</p>
                   ) : (
-                    <Target className="w-10 h-10 text-amber-500" />
+                    <p className="text-[11px] text-slate-400">Ce code s'appliquera automatiquement sur la formation</p>
                   )}
                 </div>
+
+                <Link
+                  to={`/course/${courseId}?promo=${unlockedPromo.code}`}
+                  className="inline-flex items-center justify-center gap-2 px-8 py-4 text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl text-lg font-bold transition-all shadow-xl shadow-indigo-600/20 group cursor-pointer"
+                >
+                  Profiter de ma réduction (-{unlockedPromo.discount_value}{unlockedPromo.discount_type === 'fixed' ? ' FCFA' : '%'}) & Inscrire
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </div>
 
-              <div className="inline-flex items-center justify-center gap-3 px-5 py-2 rounded-full mb-6 font-bold text-sm bg-slate-50 border border-slate-200/80 shadow-2xs">
-                <span className="flex items-center gap-1.5 text-indigo-700">
-                  <Trophy className="w-4 h-4 text-indigo-500" />
-                  Score : {correctCount} / {questions.length} ({Math.round(scorePercentage)}%)
-                </span>
-                <span className="text-slate-300">•</span>
-                <span className="flex items-center gap-1.5 text-purple-700">
-                  <Clock className="w-4 h-4 text-purple-500" />
-                  Temps : {formatDuration(timeTakenSeconds)}
-                </span>
-              </div>
+              {/* Answers Review */}
+              <div className="bg-white rounded-[2rem] p-6 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+                <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                  Voir la correction détaillée de vos réponses
+                </h3>
+                
+                <div className="space-y-4">
+                  {questions.map((q, idx) => {
+                    const userAnswer = answers[idx];
+                    const isCorrect = userAnswer === q.correct_index;
+                    const isExpanded = expandedExplanations.includes(idx);
 
-              <h2 className="text-3xl font-black text-slate-900 mb-6">
-                {isExpert ? (
-                  <>🏆 Félicitations ! <span className="text-emerald-600">Niveau Expert Décelé</span></>
-                ) : (
-                  <>🎯 Beau parcours ! <span className="text-amber-600">Fort Potentiel à Développer</span></>
-                )}
-              </h2>
-
-              <p className="text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto mb-10">
-                {isExpert ? (
-                  "Impressionnant ! Vous possédez une excellente maîtrise des fondamentaux. Cependant, pour passer de bon à INCONTOURNABLE sur vos projets de recherche et maîtriser l'analyse avancée sans aucune faute, perfectionnez votre expertise. Pour vous récompenser, nous vous offrons 50% de réduction immédiate !"
-                ) : (
-                  "Vous avez de bonnes intuitions, mais plusieurs lacunes théoriques ou pratiques vous ralentissent encore. Ne laissez pas les statistiques et l'analyse de données bloquer votre carrière ou votre mémoire. Bénéficiez de 20% de réduction spéciale pour suivre notre programme guidé étape par étape !"
-                )}
-              </p>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 max-w-md mx-auto mb-8 shadow-inner">
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Votre code privilège</p>
-                <div className="flex items-center justify-center gap-3">
-                  <div className="bg-white border-2 border-slate-300 border-dashed rounded-xl px-6 py-3 font-mono font-bold text-2xl text-slate-900 tracking-wider">
-                    {isExpert ? 'EXPERT50' : 'BOOST20'}
-                  </div>
-                  <button 
-                    onClick={() => handleCopyPromo(isExpert ? 'EXPERT50' : 'BOOST20')}
-                    className="p-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-colors"
-                    title="Copier le code"
-                  >
-                    {copiedCode ? <Check className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
-                  </button>
-                </div>
-                {copiedCode && <p className="text-xs font-medium text-emerald-600 mt-3">Code copié dans le presse-papier !</p>}
-              </div>
-
-              <Link
-                to={`/course/${courseId}`}
-                className={`inline-flex items-center justify-center gap-2 px-8 py-4 text-white rounded-2xl text-lg font-bold transition-all shadow-xl group ${
-                  isExpert 
-                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' 
-                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
-                }`}
-              >
-                {isExpert ? 'Profiter de mes 50% de réduction & Rejoindre l\'Académie' : 'Profiter de mes 20% de réduction & Débuter la formation'}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
-
-            {/* Answers Review */}
-            <div className="bg-white rounded-[2rem] p-6 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-              <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                Voir la correction détaillée de vos réponses
-              </h3>
-              
-              <div className="space-y-4">
-                {questions.map((q, idx) => {
-                  const userAnswer = answers[idx];
-                  const isCorrect = userAnswer === q.correct_index;
-                  const isExpanded = expandedExplanations.includes(idx);
-                  const letters = ['A', 'B', 'C', 'D'];
-
-                  return (
-                    <div key={idx} className={`border rounded-2xl overflow-hidden transition-colors ${isCorrect ? 'border-slate-200' : 'border-amber-200'}`}>
-                      <button 
-                        onClick={() => toggleExplanation(idx)}
-                        className={`w-full flex items-center justify-between p-5 text-left transition-colors ${isCorrect ? 'hover:bg-slate-50' : 'bg-amber-50/30 hover:bg-amber-50/60'}`}
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className={`mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                            {isCorrect ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                    return (
+                      <div key={idx} className={`border rounded-2xl overflow-hidden transition-colors ${isCorrect ? 'border-slate-200' : 'border-amber-200'}`}>
+                        <button 
+                          onClick={() => toggleExplanation(idx)}
+                          className={`w-full flex items-center justify-between p-5 text-left transition-colors ${isCorrect ? 'hover:bg-slate-50' : 'bg-amber-50/30 hover:bg-amber-50/60'}`}
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className={`mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+                              {isCorrect ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-900 text-base">{q.text}</p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {isCorrect ? 'Bonne réponse !' : `Votre réponse: ${q.options[userAnswer] ?? 'Non répondue'}`}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-slate-900 leading-snug">{q.text}</p>
-                            {!isCorrect && !isExpanded && (
-                              <p className="text-sm font-medium text-red-500 mt-1">Vous avez répondu incorrectement.</p>
+                          <div className="text-slate-400 ml-4 shrink-0">
+                            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="p-5 bg-slate-50 border-t border-slate-100 text-sm space-y-3">
+                            <p className="font-semibold text-slate-800">Options de réponse :</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {q.options.map((opt, oIdx) => (
+                                <div 
+                                  key={oIdx} 
+                                  className={`p-3 rounded-xl border text-xs font-medium ${
+                                    oIdx === q.correct_index 
+                                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-bold' 
+                                      : oIdx === userAnswer 
+                                        ? 'bg-red-50 border-red-300 text-red-900' 
+                                        : 'bg-white border-slate-200 text-slate-600'
+                                  }`}
+                                >
+                                  {opt} {oIdx === q.correct_index && '✓ (Correcte)'}
+                                </div>
+                              ))}
+                            </div>
+                            {q.explanation && (
+                              <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-indigo-950 text-xs leading-relaxed mt-2">
+                                <strong>Explication :</strong> {q.explanation}
+                              </div>
                             )}
                           </div>
-                        </div>
-                        <div className="shrink-0 ml-4 text-slate-400">
-                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                        </div>
-                      </button>
-
-                      {isExpanded && (
-                        <div className="p-5 border-t border-slate-100 bg-slate-50/50 space-y-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="p-4 rounded-xl border border-red-100 bg-red-50/50">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 block mb-1">Votre réponse</span>
-                              <span className="text-sm font-medium text-slate-700">
-                                {letters[userAnswer]} - {q.options[userAnswer] || "Aucune (Temps écoulé)"}
-                              </span>
-                            </div>
-                            <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/50">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block mb-1">Bonne réponse</span>
-                              <span className="text-sm font-medium text-slate-700">
-                                {letters[q.correct_index]} - {q.options[q.correct_index]}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {q.explanation && (
-                            <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 block mb-1 flex items-center gap-1.5">
-                                <Award className="w-3.5 h-3.5" /> Explication Pédagogique
-                              </span>
-                              <p className="text-sm text-slate-700 leading-relaxed">{q.explanation}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          );
+        })()}
       </main>
 
       {/* Footer Public Quiz */}

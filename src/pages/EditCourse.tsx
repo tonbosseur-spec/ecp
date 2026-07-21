@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
+import { PromoCode, getDefaultPromoCodesForCourse, extractCoursePromoCodes } from '../lib/promoUtils';
+import PromoCodeManager from '../components/PromoCodeManager';
 import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIcon, MessageCircle, FileText, User, ArrowLeft, Palette } from 'lucide-react';
 import { NativeImageUploader } from '../components/NativeImageUploader';
 import { RichTextEditorModal } from '../components/RichTextEditorModal';
@@ -69,6 +71,7 @@ export default function EditCourse() {
   const [quizTitle, setQuizTitle] = useState('');
   const [quizDescription, setQuizDescription] = useState('');
   const [youtubeVideoUrl, setYoutubeVideoUrl] = useState('');
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
 
   // Modules
   const [modules, setModules] = useState<ModuleInput[]>([]);
@@ -140,6 +143,7 @@ export default function EditCourse() {
         setGuideText(parsedQuizSettings.guideText || '');
         setQuizTitle(parsedQuizSettings.quizTitle || '');
         setQuizDescription(parsedQuizSettings.quizDescription || '');
+        setPromoCodes(extractCoursePromoCodes(courseData));
         setYoutubeVideoUrl(courseData.youtube_video_url || '');
 
         if (courseData.course_modules && courseData.course_modules.length > 0) {
@@ -271,8 +275,10 @@ export default function EditCourse() {
         updateData.guide_text = encodeCourseQuizSettings(null, {
           quizTitle: quizTitle.trim() || null,
           quizDescription: quizDescription.trim() || null,
-          guideText: guideText.trim() || null
+          guideText: guideText.trim() || null,
+          promoCodes: promoCodes
         });
+        updateData.promo_codes = promoCodes;
         updateData.youtube_video_url = youtubeVideoUrl || null;
         updateData.template_id = templateId || null;
         updateData.download_file_url = null;
@@ -767,6 +773,13 @@ export default function EditCourse() {
               </div>
             </div>
           )}
+
+          {/* Section: Codes Promotionnels Automatiques */}
+          <PromoCodeManager
+            promoCodes={promoCodes}
+            onChange={setPromoCodes}
+            basePriceFcfa={parseInt(priceFcfa, 10) || 0}
+          />
 
           {/* Section: Liens & Médias */}
           {productType !== 'ebook' && (
