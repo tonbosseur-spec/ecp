@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
-import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, HelpCircle } from 'lucide-react';
+import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, HelpCircle, ExternalLink, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
@@ -13,6 +13,16 @@ interface Question {
   correct_index: number;
   explanation?: string;
   module_title?: string;
+}
+
+function formatDuration(seconds: number): string {
+  if (!seconds || seconds <= 0) return "0 sec";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins === 0) {
+    return `${secs} sec`;
+  }
+  return `${mins} min ${secs < 10 ? '0' : ''}${secs} sec`;
 }
 
 function formatDescriptionHtml(text: string | null | undefined): string {
@@ -49,6 +59,8 @@ export default function PublicQuizChallenge() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [timeTakenSeconds, setTimeTakenSeconds] = useState<number>(0);
   
   // Results state
   const [copiedCode, setCopiedCode] = useState(false);
@@ -122,6 +134,18 @@ export default function PublicQuizChallenge() {
     setCurrentIdx(0);
     setAnswers([]);
     setSelectedIndex(null);
+    setStartTime(Date.now());
+    setTimeTakenSeconds(0);
+  };
+
+  const handlePreviousQuestion = () => {
+    if (currentIdx > 0) {
+      const prevIdx = currentIdx - 1;
+      setCurrentIdx(prevIdx);
+      setSelectedIndex(answers[prevIdx] !== undefined ? answers[prevIdx] : null);
+    } else {
+      setStep('landing');
+    }
   };
 
   const handleSelectOption = (optionIndex: number) => {
@@ -150,11 +174,13 @@ export default function PublicQuizChallenge() {
     });
     
     const scorePercentage = (correctCount / questions.length) * 100;
+    const elapsed = startTime ? Math.max(1, Math.round((Date.now() - startTime) / 1000)) : timeTakenSeconds;
+    setTimeTakenSeconds(elapsed);
     
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     
     if (currentSession) {
-      await saveResult(currentSession.user.id, scorePercentage, currentSession.user.email);
+      await saveResult(currentSession.user.id, scorePercentage, elapsed, currentSession.user.email);
       setStep('results');
       if (scorePercentage >= 80) triggerConfetti();
     } else {
@@ -162,13 +188,13 @@ export default function PublicQuizChallenge() {
     }
   };
 
-  const saveResult = async (userId: string, score: number, userEmail?: string) => {
+  const saveResult = async (userId: string, score: number, durationSec: number, userEmail?: string) => {
     try {
       await supabase.from('course_proposals').insert({
         client_id: userId,
         course_id: courseId,
         custom_title: `Résultat Quizz : ${course?.title}`,
-        description: `Email: ${userEmail || email || 'Non renseigné'} | Score : ${Math.round(score)}% - Code Promo : ${score >= 80 ? "EXPERT50" : "BOOST20"}`,
+        description: `Email: ${userEmail || email || 'Non renseigné'} | Score : ${Math.round(score)}% | Temps : ${formatDuration(durationSec)} - Code Promo : ${score >= 80 ? "EXPERT50" : "BOOST20"}`,
         status: 'quiz_lead',
         price: 0
       });
@@ -208,7 +234,7 @@ export default function PublicQuizChallenge() {
         });
         const scorePercentage = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
         
-        await saveResult(authRes.data.session.user.id, scorePercentage, authRes.data.session.user.email);
+        await saveResult(authRes.data.session.user.id, scorePercentage, timeTakenSeconds, authRes.data.session.user.email);
         setStep('results');
         if (scorePercentage >= 80) triggerConfetti();
       }
@@ -281,7 +307,7 @@ export default function PublicQuizChallenge() {
   const displayDescription = quizSettings.quizDescription || course?.description || "Testez vos connaissances en situation réelle, découvrez votre niveau exact et débloquez un code promo exclusif pour la formation complète.";
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100 flex flex-col justify-between">
       {/* Navigation Bar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
@@ -297,7 +323,7 @@ export default function PublicQuizChallenge() {
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 pb-24">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 pb-20 flex-grow w-full">
         {step === 'landing' && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -322,6 +348,22 @@ export default function PublicQuizChallenge() {
                   {displayTitle}
                 </span>
               </h1>
+
+              {/* Bouton pour lancer le quizz juste sous le titre */}
+              {questions.length > 0 && (
+                <div className="mb-8">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleStart}
+                    className="inline-flex items-center justify-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl text-base sm:text-lg font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg shadow-indigo-600/20 group cursor-pointer"
+                  >
+                    <Play className="w-5 h-5 fill-current" />
+                    Lancer le Challenge
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </motion.button>
+                </div>
+              )}
               
               {/* Rich Text Description */}
               <div 
@@ -397,6 +439,24 @@ export default function PublicQuizChallenge() {
 
         {step === 'quiz' && (
           <div className="w-full max-w-2xl mx-auto">
+            {/* Navigation & Bouton Retour */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={handlePreviousQuestion}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200/80 shadow-xs transition-all cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4 text-indigo-600 stroke-[2.5]" />
+                {currentIdx > 0 ? "Question précédente" : "Retour au sommaire"}
+              </button>
+
+              <button
+                onClick={() => setStep('landing')}
+                className="text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                Quitter le quizz
+              </button>
+            </div>
+
             {/* Animated Progress Bar & Header */}
             <div className="mb-8 bg-white/90 backdrop-blur-md p-5 rounded-3xl border border-slate-200/80 shadow-xs">
               <div className="flex items-center justify-between mb-3 text-sm font-bold text-slate-600">
@@ -562,9 +622,89 @@ export default function PublicQuizChallenge() {
         )}
 
         {step === 'results' && (
-          <div className="animate-fade-in space-y-12 w-full max-w-3xl mx-auto">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8 w-full max-w-3xl mx-auto"
+          >
+            {/* Card Écran de Résumé des Performances */}
+            <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 shadow-[0_10px_40px_rgb(0,0,0,0.04)] border border-slate-100">
+              <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-5 mb-6 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900">Résumé de vos Performances</h3>
+                    <p className="text-xs text-slate-500">Bilan synthétique de votre session de challenge</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-100 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  Quizz Terminé
+                </span>
+              </div>
+
+              {/* Grid 3 Stat Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Stat 1: Score Final */}
+                <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Score Final</span>
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
+                      {correctCount} <span className="text-slate-400 text-lg font-medium">/ {questions.length}</span>
+                    </div>
+                    <p className="text-xs font-bold text-indigo-600">
+                      {Math.round(scorePercentage)}% de bonnes réponses
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stat 2: Temps Mis */}
+                <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Temps Réalisé</span>
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none mb-1">
+                      {formatDuration(timeTakenSeconds)}
+                    </div>
+                    <p className="text-xs font-bold text-purple-600">
+                      ~{questions.length > 0 ? Math.round(timeTakenSeconds / questions.length) : 0}s par question
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stat 3: Statut / Code Promo */}
+                <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Niveau Validé</span>
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isExpert ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                      <Award className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className={`text-2xl sm:text-3xl font-black leading-none mb-1 ${isExpert ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {isExpert ? 'Expert' : 'Fort Potentiel'}
+                    </div>
+                    <p className="text-xs font-bold text-slate-600">
+                      {isExpert ? 'Code -50% Débloqué' : 'Code -20% Débloqué'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Banner Result */}
-            <div className="bg-white rounded-[2rem] p-8 sm:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center relative overflow-hidden">
+            <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-[0_10px_40px_rgb(0,0,0,0.04)] border border-slate-100 text-center relative overflow-hidden">
               <div className={`absolute top-0 left-0 w-full h-1.5 ${isExpert ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' : 'bg-gradient-to-r from-amber-400 to-orange-500'}`}></div>
               
               <div className="mb-6 flex justify-center">
@@ -577,8 +717,16 @@ export default function PublicQuizChallenge() {
                 </div>
               </div>
 
-              <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full mb-6 font-bold text-sm bg-slate-50 border border-slate-200">
-                Score : {correctCount} / {questions.length} ({Math.round(scorePercentage)}%)
+              <div className="inline-flex items-center justify-center gap-3 px-5 py-2 rounded-full mb-6 font-bold text-sm bg-slate-50 border border-slate-200/80 shadow-2xs">
+                <span className="flex items-center gap-1.5 text-indigo-700">
+                  <Trophy className="w-4 h-4 text-indigo-500" />
+                  Score : {correctCount} / {questions.length} ({Math.round(scorePercentage)}%)
+                </span>
+                <span className="text-slate-300">•</span>
+                <span className="flex items-center gap-1.5 text-purple-700">
+                  <Clock className="w-4 h-4 text-purple-500" />
+                  Temps : {formatDuration(timeTakenSeconds)}
+                </span>
               </div>
 
               <h2 className="text-3xl font-black text-slate-900 mb-6">
@@ -694,9 +842,122 @@ export default function PublicQuizChallenge() {
                 })}
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </main>
+
+      {/* Footer Public Quiz */}
+      <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 mt-auto">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-12 border-b border-slate-800">
+            
+            {/* Branding & Description */}
+            <div className="md:col-span-6 space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                  <Trophy className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-black text-white tracking-tight">
+                  Challenge Quizz
+                </span>
+              </div>
+              
+              <p className="text-sm text-slate-400 leading-relaxed max-w-md">
+                {course?.title ? (
+                  <>
+                    Évaluez vos compétences gratuitement en lien avec la formation <strong className="text-white font-semibold">{course.title}</strong> et débloquez votre bourse d'apprentissage exclusive.
+                  </>
+                ) : (
+                  "Testez vos connaissances en situation réelle, découvrez votre niveau exact et obtenez un avantage exclusif pour votre parcours d'apprentissage."
+                )}
+              </p>
+
+              {course?.trainers && (
+                <div className="pt-2 flex items-center gap-3">
+                  {course.trainers.photo_url ? (
+                    <img 
+                      src={course.trainers.photo_url} 
+                      alt={course.trainers.name} 
+                      className="w-10 h-10 rounded-full object-cover border border-slate-700"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-800 text-indigo-400 border border-slate-700 flex items-center justify-center font-bold text-xs">
+                      {course.trainers.name ? course.trainers.name.substring(0, 2).toUpperCase() : 'TR'}
+                    </div>
+                  )}
+                  <div className="text-xs">
+                    <span className="text-slate-500 block font-medium">Formateur référent</span>
+                    <span className="text-white font-bold">{course.trainers.name}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Links */}
+            <div className="md:col-span-3 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Accès Rapide</h4>
+              <ul className="space-y-2.5 text-sm font-medium">
+                {courseId && (
+                  <li>
+                    <Link 
+                      to={`/course/${courseId}`} 
+                      className="text-slate-300 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Voir la formation</span>
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  <Link 
+                    to="/client/login" 
+                    className="text-slate-300 hover:text-white transition-colors flex items-center gap-2"
+                  >
+                    <User className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Espace Membre</span>
+                  </Link>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="text-slate-300 hover:text-white transition-colors flex items-center gap-2 cursor-pointer text-left"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+                    <span>Haut de page</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Trust Badge */}
+            <div className="md:col-span-3 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Engagement & Qualité</h4>
+              <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/60 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Test 100% Gratuit</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Score instantané et corrigés pédagogiques détaillés pour consolider vos acquis.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Bottom Legal / Copyright */}
+          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium">
+            <p>© {new Date().getFullYear()} Exceller chez Pierre. Tous droits réservés.</p>
+            <div className="flex items-center gap-6">
+              {courseId && (
+                <Link to={`/course/${courseId}`} className="hover:text-slate-300 transition-colors">Formation</Link>
+              )}
+              <span className="text-slate-700">•</span>
+              <Link to="/" className="hover:text-slate-300 transition-colors">Catalogue de formations</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
