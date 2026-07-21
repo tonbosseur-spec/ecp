@@ -200,6 +200,17 @@ export default function EditCourse() {
     }
 
     try {
+      if (!title.trim()) {
+        setError('Le titre est requis.');
+        setSubmitting(false);
+        return;
+      }
+      if (productType === 'formation' && !isDateTbd && !dateTime) {
+        setError('Veuillez spécifier une date ou cocher "Date à déterminer".');
+        setSubmitting(false);
+        return;
+      }
+
       let uploadedFileUrl = downloadFileUrl;
 
       // If it's an ebook and a new file was uploaded, upload it to storage
@@ -244,7 +255,7 @@ export default function EditCourse() {
         updateData.youtube_video_url = null;
         updateData.template_id = null;
       } else {
-        updateData.date_time = isDateTbd ? null : new Date(dateTime).toISOString();
+        updateData.date_time = (isDateTbd || !dateTime) ? null : new Date(dateTime).toISOString();
         updateData.is_date_tbd = isDateTbd;
         updateData.max_seats = maxSeats ? parseInt(maxSeats, 10) : null;
         updateData.whatsapp_link = whatsappLink || null;
@@ -573,7 +584,6 @@ export default function EditCourse() {
                     </label>
                   </div>
                   <input
-                    required={!isDateTbd}
                     disabled={isDateTbd}
                     type="datetime-local"
                     value={dateTime}

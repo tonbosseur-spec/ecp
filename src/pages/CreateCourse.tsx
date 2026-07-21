@@ -157,6 +157,22 @@ export default function CreateCourse() {
     }
 
     try {
+      if (!title.trim()) {
+        setError('Le titre est requis.');
+        setSubmitting(false);
+        return;
+      }
+      if (!priceFcfa) {
+        setError('Le prix est requis.');
+        setSubmitting(false);
+        return;
+      }
+      if (productType === 'formation' && !isDateTbd && !dateTime) {
+        setError('Veuillez spécifier une date ou cocher "Date à déterminer".');
+        setSubmitting(false);
+        return;
+      }
+
       let uploadedFileUrl = null;
 
       if (productType === 'ebook' && downloadFile) {
@@ -185,7 +201,7 @@ export default function CreateCourse() {
           description,
           price_fcfa: parseInt(priceFcfa, 10),
           date_time: productType === 'formation' 
-            ? (isDateTbd ? null : new Date(dateTime).toISOString()) 
+            ? (isDateTbd || !dateTime ? null : new Date(dateTime).toISOString()) 
             : new Date().toISOString(),
           is_date_tbd: productType === 'formation' ? isDateTbd : false,
           trainer_id: trainerId,
@@ -512,7 +528,6 @@ export default function CreateCourse() {
                     </label>
                   </div>
                   <input
-                    required={!isDateTbd}
                     disabled={isDateTbd}
                     type="datetime-local"
                     value={dateTime}

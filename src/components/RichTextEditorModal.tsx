@@ -17,7 +17,9 @@ import {
   Heading1,
   Heading2,
   Heading3,
-  ChevronDown
+  ChevronDown,
+  Link as LinkIcon,
+  Minus
 } from 'lucide-react';
 
 interface RichTextEditorModalProps {
@@ -100,6 +102,13 @@ export function RichTextEditorModal({
   const handleClearFormatting = () => {
     if (window.confirm('Voulez-vous effacer toutes les mises en forme de la description ?')) {
       handleCommand('removeFormat');
+    }
+  };
+
+  const handleAddLink = () => {
+    const url = window.prompt('Entrez l\'URL du lien :', 'https://');
+    if (url && url !== 'https://') {
+      handleCommand('createLink', url);
     }
   };
 
@@ -331,6 +340,26 @@ export function RichTextEditorModal({
             title="Liste ordonnée"
           >
             <ListOrdered className="w-4 h-4" />
+          </button>
+
+          <div className="h-6 w-[1px] bg-gray-200 mx-1"></div>
+
+          {/* Additional Options */}
+          <button
+            type="button"
+            onClick={handleAddLink}
+            className="p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-200/80 rounded-lg transition-colors"
+            title="Insérer un lien"
+          >
+            <LinkIcon className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCommand('insertHorizontalRule')}
+            className="p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-200/80 rounded-lg transition-colors"
+            title="Ligne horizontale"
+          >
+            <Minus className="w-4 h-4" />
           </button>
 
           <div className="flex-grow"></div>

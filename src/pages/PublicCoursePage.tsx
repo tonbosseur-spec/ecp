@@ -63,13 +63,13 @@ export default function PublicCoursePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full');
   const [countryCode, setCountryCode] = useState('+237');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [transactionId, setTransactionId] = useState('');
-  const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({
     show: false,
@@ -1113,6 +1113,54 @@ END:VCALENDAR`;
                         />
                       </div>
                     </div>
+
+                    {course.product_type !== 'ebook' && course.price_fcfa > 0 && (
+                      <div className="bg-gray-800/30 border border-gray-700/50 p-4 rounded-2xl space-y-3">
+                        <label className="block text-sm font-bold text-gray-300 mb-2">Option de paiement</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMode('full')}
+                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                              paymentMode === 'full' 
+                                ? 'bg-white text-gray-900 border-white shadow-lg shadow-white/5' 
+                                : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMode === 'full' ? 'border-gray-900' : 'border-gray-600'}`}>
+                                {paymentMode === 'full' && <div className="w-2 h-2 bg-gray-900 rounded-full" />}
+                              </div>
+                              <span className="text-sm font-bold">Paiement complet</span>
+                            </div>
+                            <span className="text-sm font-black">{course.price_fcfa.toLocaleString('fr-FR')} FCFA</span>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMode('installments')}
+                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                              paymentMode === 'installments' 
+                                ? 'bg-white text-gray-900 border-white shadow-lg shadow-white/5' 
+                                : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMode === 'installments' ? 'border-gray-900' : 'border-gray-600'}`}>
+                                {paymentMode === 'installments' && <div className="w-2 h-2 bg-gray-900 rounded-full" />}
+                              </div>
+                              <span className="text-sm font-bold">Paiement en 2 tranches</span>
+                            </div>
+                            <span className="text-sm font-black">2 x {(course.price_fcfa / 2).toLocaleString('fr-FR')} FCFA</span>
+                          </button>
+                        </div>
+                        {paymentMode === 'installments' && (
+                          <p className="text-[10px] text-emerald-400 font-medium px-1">
+                            ℹ️ Vous réglez 50% aujourd'hui pour valider votre place, et le reste plus tard.
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {course.price_fcfa > 0 && (
                       <div className="pt-2">

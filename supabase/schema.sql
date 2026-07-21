@@ -248,4 +248,16 @@ CREATE POLICY "Admins have full access to all messages" ON messages
     USING (is_admin())
     WITH CHECK (is_admin());
 
+-- 12. Storage Policies (Bucket course-image)
+-- Ces politiques doivent être appliquées manuellement si le bucket n'est pas créé via SQL
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('course-image', 'course-image', true);
+
+-- Politique pour permettre la lecture publique des images
+-- CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'course-image');
+
+-- Politique pour permettre aux administrateurs de télécharger des images
+-- CREATE POLICY "Admin Upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'course-image' AND is_admin());
+-- CREATE POLICY "Admin Update" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'course-image' AND is_admin());
+-- CREATE POLICY "Admin Delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'course-image' AND is_admin());
+
 

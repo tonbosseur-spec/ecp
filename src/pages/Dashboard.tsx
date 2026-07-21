@@ -22,7 +22,9 @@ import {
   Award,
   TrendingUp,
   Archive,
-  ArchiveRestore
+  ArchiveRestore,
+  ArrowRight,
+  Clock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AdminChat } from '../components/AdminChat';
@@ -52,7 +54,7 @@ interface PendingPayment {
 }
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'formations' | 'payments' | 'proposals' | 'messages' | 'students'>('formations');
+  const [activeTab, setActiveTab] = useState<'formations' | 'payments' | 'proposals' | 'messages' | 'students' | 'calendar'>('formations');
   
   const [courses, setCourses] = useState<Course[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -70,6 +72,10 @@ export default function Dashboard() {
   const [toast, setToast] = useState<string | null>(null);
   const [expandedProposalIds, setExpandedProposalIds] = useState<Record<string, boolean>>({});
   const [proposalFilter, setProposalFilter] = useState<'pending' | 'all'>('pending');
+
+  // Calendar states
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
   // Students Dashboard States
   const [studentsData, setStudentsData] = useState<any[]>([]);
@@ -710,6 +716,16 @@ export default function Dashboard() {
           Catalogue
         </button>
         <button
+          onClick={() => setActiveTab('calendar')}
+          className={`flex-1 py-3 px-2 text-center text-xs sm:text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'calendar' 
+              ? 'border-gray-900 text-gray-900' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          Calendrier
+        </button>
+        <button
           onClick={() => setActiveTab('payments')}
           className={`flex-1 py-3 px-2 text-center text-xs sm:text-sm font-medium border-b-2 transition-colors relative ${
             activeTab === 'payments' 
@@ -763,174 +779,328 @@ export default function Dashboard() {
       {activeTab === 'formations' && (
         <>
           <div className="mb-6 space-y-3">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
-            placeholder="Rechercher une formation..."
-          />
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >
-            Tout
-          </button>
-          <button
-            onClick={() => setFilter('upcoming')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'upcoming' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >
-            À venir
-          </button>
-          <button
-            onClick={() => setFilter('past')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'past' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >
-            Passées
-          </button>
-          <button
-            onClick={() => setFilter('archived')}
-            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'archived' ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >
-            Archivées
-          </button>
-        </div>
-      </div>
-
-      {filteredCourses.length === 0 ? (
-        <div className="bg-white border border-gray-200 border-dashed rounded-2xl p-8 text-center flex flex-col items-center">
-          <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-            <Calendar className="w-6 h-6 text-gray-400" />
-          </div>
-          <h3 className="text-base font-semibold text-gray-900 mb-2">Aucune formation trouvée</h3>
-          <p className="text-sm text-gray-500 mb-6 max-w-[200px]">
-            {courses.length === 0 ? "Vous n'avez pas encore créé de formation. Lancez-vous !" : "Aucune formation ne correspond à vos critères."}
-          </p>
-          {courses.length === 0 && (
-            <Link
-              to="/courses/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
-            >
-              <PlusCircle className="w-4 h-4" />
-              Créer ma première formation
-            </Link>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredCourses.map((course, index) => {
-            const isEbook = course.product_type === 'ebook';
-            
-            const formattedDate = (course.is_date_tbd || !course.date_time)
-              ? "Date à déterminer"
-              : new Intl.DateTimeFormat('fr-FR', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }).format(new Date(course.date_time));
-            
-            const registrationCount = course.registrations?.[0]?.count || 0;
-
-            return (
-              <div key={`${course.id}-${index}`} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-1 h-full ${isEbook ? 'bg-purple-600' : 'bg-gray-900'}`}></div>
-                
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                      isEbook 
-                        ? 'bg-purple-50 text-purple-700 border border-purple-100' 
-                        : 'bg-blue-50 text-blue-700 border border-blue-100'
-                    }`}>
-                      {isEbook ? 'E-book' : 'Formation'}
-                    </span>
-                    {course.is_archived && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-widest">
-                        Archivé
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">{course.title}</h3>
-                
-                <div className="flex flex-col gap-2.5 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    {isEbook ? (
-                      <>
-                        <BookOpen className="w-4 h-4 text-purple-400" />
-                        <span>Fichier numérique PDF (Téléchargement immédiat)</span>
-                      </>
-                    ) : (
-                      <>
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>{formattedDate}</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    {isEbook ? (
-                      <span>{registrationCount} vente{registrationCount !== 1 ? 's' : ''}</span>
-                    ) : (
-                      <span>{registrationCount} inscrit{registrationCount !== 1 ? 's' : ''}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
-                  <span className="font-medium text-gray-900">
-                    {course.price_fcfa.toLocaleString('fr-FR')} FCFA
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleArchive(course.id, course.is_archived)}
-                      className={`p-2 transition-colors ${course.is_archived ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}
-                      title={course.is_archived ? "Désarchiver" : "Archiver"}
-                    >
-                      {course.is_archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(course.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      title={isEbook ? "Supprimer l'e-book" : "Supprimer la formation"}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDuplicate(course.id)}
-                      disabled={duplicatingId === course.id}
-                      className="p-2 text-gray-400 hover:text-gray-900 transition-colors disabled:opacity-50"
-                      title={isEbook ? "Dupliquer l'e-book" : "Dupliquer la formation"}
-                    >
-                      {duplicatingId === course.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-gray-900" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                    <Link
-                      to={`/courses/${course.id}`}
-                      className="text-sm font-medium text-gray-900 hover:text-gray-600 transition-colors"
-                    >
-                      Gérer
-                    </Link>
-                  </div>
-                </div>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
               </div>
-            );
-          })}
-        </div>
-      )}
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm"
+                placeholder="Rechercher une formation..."
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                Tout
+              </button>
+              <button
+                onClick={() => setFilter('upcoming')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'upcoming' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                À venir
+              </button>
+              <button
+                onClick={() => setFilter('past')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'past' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                Passées
+              </button>
+              <button
+                onClick={() => setFilter('archived')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${filter === 'archived' ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                Archivées
+              </button>
+            </div>
+          </div>
+
+          {filteredCourses.length === 0 ? (
+            <div className="bg-white border border-gray-200 border-dashed rounded-2xl p-8 text-center flex flex-col items-center">
+              <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                <Calendar className="w-6 h-6 text-gray-400" />
+              </div>
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Aucune formation trouvée</h3>
+              <p className="text-sm text-gray-500 mb-6 max-w-[200px]">
+                {courses.length === 0 ? "Vous n'avez pas encore créé de formation. Lancez-vous !" : "Aucune formation ne correspond à vos critères."}
+              </p>
+              {courses.length === 0 && (
+                <Link
+                  to="/courses/new"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-800 transition-colors"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Créer ma première formation
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredCourses.map((course, index) => {
+                const isEbook = course.product_type === 'ebook';
+                
+                const formattedDate = (course.is_date_tbd || !course.date_time)
+                  ? "Date à déterminer"
+                  : new Intl.DateTimeFormat('fr-FR', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }).format(new Date(course.date_time));
+                
+                const registrationCount = course.registrations?.[0]?.count || 0;
+
+                return (
+                  <div key={`${course.id}-${index}`} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${isEbook ? 'bg-purple-600' : 'bg-gray-900'}`}></div>
+                    
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          isEbook 
+                            ? 'bg-purple-50 text-purple-700 border border-purple-100' 
+                            : 'bg-blue-50 text-blue-700 border border-blue-100'
+                        }`}>
+                          {isEbook ? 'E-book' : 'Formation'}
+                        </span>
+                        {course.is_archived && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-widest">
+                            Archivé
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">{course.title}</h3>
+                    
+                    <div className="flex flex-col gap-2.5 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        {isEbook ? (
+                          <>
+                            <BookOpen className="w-4 h-4 text-purple-400" />
+                            <span>Fichier numérique PDF (Téléchargement immédiat)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <span>{formattedDate}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        {isEbook ? (
+                          <span>{registrationCount} vente{registrationCount !== 1 ? 's' : ''}</span>
+                        ) : (
+                          <span>{registrationCount} inscrit{registrationCount !== 1 ? 's' : ''}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                      <span className="font-medium text-gray-900">
+                        {course.price_fcfa.toLocaleString('fr-FR')} FCFA
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleArchive(course.id, course.is_archived)}
+                          className={`p-2 transition-colors ${course.is_archived ? 'text-amber-500 hover:text-amber-600' : 'text-gray-400 hover:text-amber-500'}`}
+                          title={course.is_archived ? "Désarchiver" : "Archiver"}
+                        >
+                          {course.is_archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(course.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                          title={isEbook ? "Supprimer l'e-book" : "Supprimer la formation"}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDuplicate(course.id)}
+                          disabled={duplicatingId === course.id}
+                          className="p-2 text-gray-400 hover:text-gray-900 transition-colors disabled:opacity-50"
+                          title={isEbook ? "Dupliquer l'e-book" : "Dupliquer la formation"}
+                        >
+                          {duplicatingId === course.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-900" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                        <Link
+                          to={`/courses/${course.id}`}
+                          className="text-sm font-medium text-gray-900 hover:text-gray-600 transition-colors"
+                        >
+                          Gérer
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
+      )}
+
+      {activeTab === 'calendar' && (
+        <div className="animate-fade-in space-y-6">
+          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-4 sm:p-6 lg:p-8">
+            {/* Calendar Navigation */}
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-bold text-gray-900 capitalize">
+                {new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(currentDate)}
+              </h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+                >
+                  <ChevronDown className="w-5 h-5 rotate-90" />
+                </button>
+                <button
+                  onClick={() => setCurrentDate(new Date())}
+                  className="px-3 py-1 text-xs font-bold text-gray-600 hover:text-gray-900 transition-colors uppercase tracking-widest"
+                >
+                  Aujourd'hui
+                </button>
+                <button
+                  onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
+                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+                >
+                  <ChevronDown className="w-5 h-5 -rotate-90" />
+                </button>
+              </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-px bg-gray-100 rounded-2xl overflow-hidden border border-gray-100">
+              {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
+                <div key={day} className="bg-gray-50 py-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  {day}
+                </div>
+              ))}
+              
+              {(() => {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
+                
+                const cells = [];
+                for (let i = 0; i < firstDayIndex; i++) {
+                  cells.push(<div key={`empty-${i}`} className="bg-white min-h-[80px] sm:min-h-[100px]" />);
+                }
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                  const date = new Date(year, month, day);
+                  const isToday = new Date().toDateString() === date.toDateString();
+                  const isSelected = selectedDate?.toDateString() === date.toDateString();
+                  
+                  const dayEvents = courses.filter(course => {
+                    if (course.is_date_tbd || !course.date_time) return false;
+                    const d = new Date(course.date_time);
+                    return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year;
+                  });
+
+                  cells.push(
+                    <div 
+                      key={day} 
+                      onClick={() => setSelectedDate(date)}
+                      className={`bg-white min-h-[80px] sm:min-h-[100px] p-2 transition-all cursor-pointer hover:bg-gray-50 relative group ${isSelected ? 'ring-2 ring-inset ring-gray-900 z-10' : ''}`}
+                    >
+                      <span className={`text-xs font-bold ${isToday ? 'w-6 h-6 bg-gray-900 text-white rounded-full flex items-center justify-center' : 'text-gray-900'}`}>
+                        {day}
+                      </span>
+                      
+                      <div className="mt-1 space-y-1">
+                        {dayEvents.map(event => (
+                          <div 
+                            key={event.id}
+                            className={`text-[8px] sm:text-[10px] p-1 rounded-md border truncate font-medium ${
+                              event.product_type === 'ebook' 
+                                ? 'bg-purple-50 text-purple-700 border-purple-100' 
+                                : 'bg-blue-50 text-blue-700 border-blue-100'
+                            }`}
+                            title={event.title}
+                          >
+                            {event.title}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return cells;
+              })()}
+            </div>
+          </div>
+
+          {/* Selected Date Details */}
+          <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm p-6 lg:p-8">
+            <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-400" />
+              {selectedDate ? (
+                new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(selectedDate)
+              ) : "Sélectionnez une date"}
+            </h4>
+
+            {(() => {
+              const selectedDayEvents = selectedDate ? courses.filter(course => {
+                if (course.is_date_tbd || !course.date_time) return false;
+                const d = new Date(course.date_time);
+                return d.toDateString() === selectedDate.toDateString();
+              }) : [];
+
+              if (selectedDayEvents.length === 0) {
+                return (
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                    <p className="text-sm text-gray-500 italic">Aucune formation planifiée pour ce jour.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedDayEvents.map(course => (
+                    <div key={course.id} className="p-4 rounded-2xl border border-gray-100 bg-white shadow-sm flex items-center justify-between group hover:border-gray-300 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                          course.product_type === 'ebook' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
+                        }`}>
+                          <Clock className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h5 className="font-bold text-gray-900 text-sm line-clamp-1">{course.title}</h5>
+                          <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {new Date(course.date_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            <span className="mx-1">•</span>
+                            <Users className="w-3.5 h-3.5" />
+                            {course.registrations?.[0]?.count || 0} inscrits
+                          </p>
+                        </div>
+                      </div>
+                      <Link
+                        to={`/courses/${course.id}`}
+                        className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-900 transition-all"
+                      >
+                        <ArrowRight className="w-5 h-5" />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       )}
 
       {activeTab === 'payments' && (
