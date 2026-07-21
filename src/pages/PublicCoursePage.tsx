@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
-import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock } from 'lucide-react';
-import { motion } from 'motion/react';
+import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
+import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock, Ticket, Tag, Sparkles, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 const testimonials = [
   {
@@ -91,6 +92,70 @@ export default function PublicCoursePage() {
   // Auth requirement modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalReason, setAuthModalReason] = useState('');
+
+  // Promo Code State
+  const [searchParams] = useSearchParams();
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuccessMsg, setPromoSuccessMsg] = useState<string | null>(null);
+
+  // Auto-check promo code when course loaded or searchParams changed
+  useEffect(() => {
+    if (!course) return;
+    const urlPromo = searchParams.get('promo');
+    const storedPromo = id ? localStorage.getItem(`promo_${id}`) : null;
+    const codeToTest = (urlPromo || storedPromo || '').trim().toUpperCase();
+
+    if (codeToTest) {
+      applyCode(codeToTest, false);
+    }
+  }, [course, searchParams]);
+
+  const applyCode = (code: string, isManual: boolean = true) => {
+    if (!course) return;
+    setPromoError(null);
+    setPromoSuccessMsg(null);
+
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) {
+      setPromoError("Veuillez saisir un code promo.");
+      return;
+    }
+
+    const availablePromos = extractCoursePromoCodes(course);
+    const match = availablePromos.find(p => p.code.trim().toUpperCase() === cleanCode);
+
+    if (match) {
+      setAppliedPromo(match);
+      setPromoInput(cleanCode);
+      const discountLabel = match.discount_type === 'fixed' 
+        ? `${match.discount_value.toLocaleString('fr-FR')} FCFA` 
+        : `${match.discount_value}%`;
+      setPromoSuccessMsg(`Code "${match.code}" appliqué avec succès (-${discountLabel}) !`);
+      if (id) {
+        try { localStorage.setItem(`promo_${id}`, cleanCode); } catch (e) {}
+      }
+    } else {
+      if (isManual) {
+        setPromoError(`Le code "${cleanCode}" est invalide ou non applicable à cette formation.`);
+      }
+    }
+  };
+
+  const removePromo = () => {
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoError(null);
+    setPromoSuccessMsg(null);
+    if (id) {
+      try { localStorage.removeItem(`promo_${id}`); } catch (e) {}
+    }
+  };
+
+  const basePrice = course?.price_fcfa || 0;
+  const discountCalculation = appliedPromo ? calculateDiscountedPrice(basePrice, appliedPromo) : { finalPrice: basePrice, savings: 0 };
+  const effectivePrice = discountCalculation.finalPrice;
 
   // Accordion State
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
@@ -264,7 +329,7 @@ END:VCALENDAR`;
     setFormError(null);
 
     // If it's a paid product, open the payment modal. Otherwise, submit immediately.
-    if (course && course.price_fcfa > 0) {
+    if (course && effectivePrice > 0) {
       setShowPaymentModal(true);
     } else {
       await submitRegistration(true);
@@ -313,8 +378,8 @@ END:VCALENDAR`;
       // Create initial payment record if not free
       if (!isFree && registration) {
         const initialAmount = paymentMode === 'full' 
-          ? course.price_fcfa 
-          : Math.floor(course.price_fcfa * 0.5);
+          ? effectivePrice 
+          : Math.floor(effectivePrice * 0.5);
 
         await supabase.from('payments').insert([{
           registration_id: registration.id,
@@ -328,7 +393,7 @@ END:VCALENDAR`;
 
         // If installments, create the second tranche (placeholder)
         if (paymentMode === 'installments') {
-          const secondAmount = course.price_fcfa - initialAmount;
+          const secondAmount = effectivePrice - initialAmount;
           const nextMonth = new Date();
           nextMonth.setMonth(nextMonth.getMonth() + 1);
           
@@ -647,20 +712,127 @@ END:VCALENDAR`;
             </div>
           )}
 
-          <div className="flex flex-col items-center justify-center gap-2 mb-10">
+          <div className="flex flex-col items-center justify-center gap-2 mb-6">
             <span className="text-sm theme-text uppercase tracking-widest font-bold">
               {course.product_type === 'ebook' ? "Prix de l'e-book" : "Tarif d'inscription"}
             </span>
-            {course.price_fcfa === 0 ? (
+            {basePrice === 0 ? (
               <span className="text-4xl sm:text-5xl font-black theme-text animate-pulse">
                 Gratuit !
               </span>
+            ) : appliedPromo ? (
+              <div className="text-center space-y-1">
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-2xl font-bold text-gray-400 line-through">
+                    {basePrice.toLocaleString('fr-FR')} FCFA
+                  </span>
+                  <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Code {appliedPromo.code} (-{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})
+                  </span>
+                </div>
+                <div className="text-4xl sm:text-5xl font-black text-emerald-600">
+                  {effectivePrice.toLocaleString('fr-FR')} <span className="text-xl text-emerald-700 font-medium">FCFA</span>
+                </div>
+              </div>
             ) : (
               <span className="text-4xl sm:text-5xl font-black text-gray-900">
-                {course.price_fcfa.toLocaleString('fr-FR')} <span className="text-xl text-gray-500 font-medium">FCFA</span>
+                {basePrice.toLocaleString('fr-FR')} <span className="text-xl text-gray-500 font-medium">FCFA</span>
               </span>
             )}
           </div>
+
+          {/* Interactive Promo Code Box */}
+          {basePrice > 0 && (
+            <div className="w-full max-w-md mx-auto mb-8 bg-slate-50 border border-slate-200/90 rounded-2xl p-4 shadow-2xs text-left">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Ticket className="w-4 h-4 text-indigo-600" />
+                  Code Promotionnel Privilège
+                </span>
+                {appliedPromo && (
+                  <button 
+                    onClick={removePromo} 
+                    className="text-xs text-red-600 font-bold hover:underline cursor-pointer"
+                  >
+                    Retirer le code
+                  </button>
+                )}
+              </div>
+
+              {appliedPromo ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-extrabold text-emerald-950 font-mono">
+                        {appliedPromo.code}
+                      </p>
+                      <p className="text-[11px] text-emerald-700 font-medium">
+                        Réduction de -{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-black text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+                    -{discountCalculation.savings.toLocaleString('fr-FR')} FCFA
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoInput}
+                      onChange={(e) => setPromoInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          applyCode(promoInput, true);
+                        }
+                      }}
+                      placeholder="Ex: EXPERT50, BOOST20..."
+                      className="flex-1 px-3.5 py-2.5 text-xs font-mono font-bold uppercase bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:normal-case placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => applyCode(promoInput, true)}
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors shrink-0 shadow-2xs cursor-pointer"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    {promoError && (
+                      <motion.div
+                        key="promo-error"
+                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="p-2.5 bg-red-50 border border-red-200/80 rounded-xl text-[11px] font-semibold text-red-700 flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                        <span>{promoError}</span>
+                      </motion.div>
+                    )}
+                    {promoSuccessMsg && (
+                      <motion.div
+                        key="promo-success"
+                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>{promoSuccessMsg}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          )}
 
           {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
             <button 
@@ -1115,9 +1287,17 @@ END:VCALENDAR`;
                       </div>
                     </div>
 
-                    {course.product_type !== 'ebook' && course.price_fcfa > 0 && (
+                    {course.product_type !== 'ebook' && effectivePrice > 0 && (
                       <div className="bg-gray-800/30 border border-gray-700/50 p-4 rounded-2xl space-y-3">
-                        <label className="block text-sm font-bold text-gray-300 mb-2">Option de paiement</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-sm font-bold text-gray-300">Option de paiement</label>
+                          {appliedPromo && (
+                            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                              <Ticket className="w-3.5 h-3.5" />
+                              Code {appliedPromo.code} inclus
+                            </span>
+                          )}
+                        </div>
                         <div className="grid grid-cols-1 gap-2">
                           <button
                             type="button"
@@ -1134,7 +1314,7 @@ END:VCALENDAR`;
                               </div>
                               <span className="text-sm font-bold">Paiement complet</span>
                             </div>
-                            <span className="text-sm font-black">{course.price_fcfa.toLocaleString('fr-FR')} FCFA</span>
+                            <span className="text-sm font-black">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
                           </button>
                           
                           <button
@@ -1152,7 +1332,7 @@ END:VCALENDAR`;
                               </div>
                               <span className="text-sm font-bold">Paiement en 2 tranches</span>
                             </div>
-                            <span className="text-sm font-black">2 x {(course.price_fcfa / 2).toLocaleString('fr-FR')} FCFA</span>
+                            <span className="text-sm font-black">2 x {Math.floor(effectivePrice / 2).toLocaleString('fr-FR')} FCFA</span>
                           </button>
                         </div>
                         {paymentMode === 'installments' && (
@@ -1163,10 +1343,10 @@ END:VCALENDAR`;
                       </div>
                     )}
 
-                    {course.price_fcfa > 0 && (
+                    {effectivePrice > 0 && (
                       <div className="pt-2">
                         <p className="text-xs text-gray-400">
-                          ℹ️ Le règlement de <strong>{course.price_fcfa.toLocaleString('fr-FR')} FCFA</strong> s'effectue par transfert Mobile Money au <strong>+237 650989019</strong>.
+                          ℹ️ Le règlement de <strong>{effectivePrice.toLocaleString('fr-FR')} FCFA</strong> s'effectue par transfert Mobile Money au <strong>+237 650989019</strong>.
                         </p>
                       </div>
                     )}
@@ -1363,7 +1543,15 @@ END:VCALENDAR`;
               
               {/* Payment Mode Choice */}
               <div className="space-y-3">
-                <label className="block text-sm font-bold text-gray-900">Option de paiement :</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-bold text-gray-900">Option de paiement :</label>
+                  {appliedPromo && (
+                    <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <Ticket className="w-3.5 h-3.5" />
+                      Code {appliedPromo.code} (-{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -1376,7 +1564,7 @@ END:VCALENDAR`;
                   >
                     <CheckCircle2 className={`w-5 h-5 mb-1 ${paymentMode === 'full' ? 'text-emerald-600' : 'text-gray-300'}`} />
                     <span className="text-xs font-bold text-gray-900">Totalité</span>
-                    <span className="text-[10px] text-gray-500">{course?.price_fcfa?.toLocaleString('fr-FR')} FCFA</span>
+                    <span className="text-[10px] text-gray-600 font-bold">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
                   </button>
                   <button
                     type="button"
@@ -1389,7 +1577,7 @@ END:VCALENDAR`;
                   >
                     <Clock className={`w-5 h-5 mb-1 ${paymentMode === 'installments' ? 'text-emerald-600' : 'text-gray-300'}`} />
                     <span className="text-xs font-bold text-gray-900">2 Tranches</span>
-                    <span className="text-[10px] text-gray-500">{Math.floor(course?.price_fcfa * 0.5).toLocaleString('fr-FR')} FCFA x 2</span>
+                    <span className="text-[10px] text-gray-600 font-bold">{Math.floor(effectivePrice * 0.5).toLocaleString('fr-FR')} FCFA x 2</span>
                   </button>
                 </div>
               </div>
@@ -1397,9 +1585,9 @@ END:VCALENDAR`;
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">
                   {paymentMode === 'full' ? (
-                    <>Pour débloquer votre accès à <strong>{course?.title}</strong>, veuillez effectuer un transfert manuel de <strong>{course?.price_fcfa?.toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
+                    <>Pour débloquer votre accès à <strong>{course?.title}</strong>, veuillez effectuer un transfert manuel de <strong>{effectivePrice.toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
                   ) : (
-                    <>Pour valider votre inscription (1ère tranche de 50%), veuillez effectuer un transfert manuel de <strong>{Math.floor(course?.price_fcfa * 0.5).toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
+                    <>Pour valider votre inscription (1ère tranche de 50%), veuillez effectuer un transfert manuel de <strong>{Math.floor(effectivePrice * 0.5).toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
                   )}
                 </p>
               </div>
