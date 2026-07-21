@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function AdminHub() {
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<any[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'formations' | 'paiements'>('formations');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -15,29 +18,29 @@ export default function AdminHub() {
   const fetchData = async () => {
     try {
       // Fetch courses and their registrations
-      const { data, error } = await supabase
+      const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
         .select(`
           *,
           registrations (
-            id,
-            client_id,
-            participant_name,
-            participant_email,
-            participant_phone,
-            client_profiles (
-              id,
-              first_name,
-              last_name,
-              phone
-            )
+            *,
+            client_profiles (*)
           )
         `)
         .order('date_time', { ascending: false });
 
-      if (error) throw error;
-      
-      setCourses(data || []);
+      if (coursesError) throw coursesError;
+      setCourses(coursesData || []);
+
+      // Fetch pending payments
+      const { data: payData, error: payError } = await supabase
+        .from('payments')
+        .select('*, registrations(participant_name, participant_email, courses(title))')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (payError) throw payError;
+      setPendingPayments(payData || []);
     } catch (err) {
       console.error('Erreur chargement Hub Admin:', err);
     } finally {
@@ -46,6 +49,53 @@ export default function AdminHub() {
   };
 
   const marketplaceUrl = `${window.location.origin}/client/marketplace`;
+
+  const handleApprovePayment = async (paymentId: string, registrationId: string) => {
+    try {
+      setActionLoading(paymentId);
+      
+      // Update payment status
+      const { error: payError } = await supabase
+        .from('payments')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', paymentId);
+
+      if (payError) throw payError;
+
+      // Also update registration status to 'approved' if it was pending
+      const { error: regError } = await supabase
+        .from('registrations')
+        .update({ payment_status: 'approved' })
+        .eq('id', registrationId);
+
+      if (regError) throw regError;
+
+      await fetchData();
+    } catch (err) {
+      console.error('Erreur approbation:', err);
+      alert('Erreur lors de la validation du paiement');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectPayment = async (paymentId: string) => {
+    if (!window.confirm('Voulez-vous vraiment rejeter ce paiement ?')) return;
+    try {
+      setActionLoading(paymentId);
+      const { error } = await supabase
+        .from('payments')
+        .update({ status: 'failed' })
+        .eq('id', paymentId);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (err) {
+      console.error('Erreur rejet:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const copyLink = async () => {
     try {
@@ -151,8 +201,36 @@ export default function AdminHub() {
           </div>
         </div>
 
-        {/* Share Section */}
-        <div className="bg-white border border-gray-100 rounded-3xl p-6 sm:p-8 shadow-sm mb-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 mb-8">
+          <button
+            onClick={() => setActiveTab('formations')}
+            className={`px-6 py-3 font-bold text-sm transition-all relative ${
+              activeTab === 'formations' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Catalogue & Inscriptions
+            {activeTab === 'formations' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>}
+          </button>
+          <button
+            onClick={() => setActiveTab('paiements')}
+            className={`px-6 py-3 font-bold text-sm transition-all relative flex items-center gap-2 ${
+              activeTab === 'paiements' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Paiements à valider
+            {pendingPayments.length > 0 && (
+              <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full border border-amber-200">
+                {pendingPayments.length}
+              </span>
+            )}
+            {activeTab === 'paiements' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>}
+          </button>
+        </div>
+
+        {/* Share Section (only on formations tab) */}
+        {activeTab === 'formations' && (
+          <div className="bg-white border border-gray-100 rounded-3xl p-6 sm:p-8 shadow-sm mb-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 animate-fade-in">
           <div className="flex-1">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Partager votre Marketplace</h2>
             <p className="text-sm text-gray-500 mb-4 max-w-md">
@@ -181,9 +259,92 @@ export default function AdminHub() {
             </a>
           </div>
         </div>
+      )}
 
-        {/* Courses Section */}
-        {courses.length === 0 ? (
+        {/* Content Section */}
+        {activeTab === 'paiements' ? (
+          <div className="animate-fade-in space-y-6">
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <CreditCard className="w-6 h-6 text-emerald-600" />
+                Validations de paiements
+              </h2>
+              <button 
+                onClick={fetchData}
+                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+
+            {pendingPayments.length === 0 ? (
+              <div className="bg-white border border-gray-100 rounded-3xl p-12 text-center shadow-sm">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-gray-300" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Tout est à jour !</h3>
+                <p className="text-gray-500">Aucun paiement en attente de validation.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {pendingPayments.map((payment) => (
+                  <div key={payment.id} className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          payment.payment_type === 'full' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {payment.payment_type === 'full' ? 'Paiement complet' : `Tranche ${payment.tranche_number}`}
+                        </span>
+                        <span className="text-gray-300">•</span>
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Reçu le {new Date(payment.created_at).toLocaleDateString('fr-FR')} à {new Date(payment.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-gray-900 text-lg">{payment.registrations?.courses?.title}</h4>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1 text-sm text-gray-500 font-medium">
+                        <span className="text-gray-900 font-bold">{payment.registrations?.participant_name}</span>
+                        <span>{payment.registrations?.participant_email}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-row md:flex-col items-center md:items-end justify-between gap-4 border-t md:border-t-0 pt-4 md:pt-0">
+                      <div className="text-right">
+                        <p className="text-xl font-black text-gray-900">{payment.amount.toLocaleString('fr-FR')} FCFA</p>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase">Montant à valider</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleRejectPayment(payment.id)}
+                          disabled={actionLoading === payment.id}
+                          className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                          title="Rejeter"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleApprovePayment(payment.id, payment.registration_id)}
+                          disabled={actionLoading === payment.id}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-sm shadow-emerald-100"
+                        >
+                          {actionLoading === payment.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Check className="w-5 h-5" />
+                              <span>Valider</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : courses.length === 0 ? (
           <div className="bg-white border border-gray-100 rounded-3xl p-10 text-center shadow-sm">
             <p className="text-gray-500">Aucune formation trouvée.</p>
           </div>

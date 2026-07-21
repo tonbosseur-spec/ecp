@@ -42,8 +42,9 @@ export default function ClientHub() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages'>('hub');
+  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments'>('hub');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -108,6 +109,16 @@ export default function ClientHub() {
           // Filter out registrations where course is null (just in case)
           setRegistrations(regData.filter(r => r.courses));
         }
+
+        // Fetch payments
+        const { data: payData, error: payError } = await supabase
+          .from('payments')
+          .select('*, registrations(courses(title))')
+          .eq('user_id', userId)
+          .order('due_date', { ascending: true });
+
+        if (payError) throw payError;
+        setPayments(payData || []);
 
         // Fetch client's completed module progress
         const { data: progressData, error: progressError } = await supabase
@@ -509,6 +520,27 @@ export default function ClientHub() {
                 </div>
               </button>
 
+              {/* Paiements - 1 col */}
+              <button 
+                onClick={() => setActiveSection('payments')}
+                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 hover:border-emerald-100 transition-all duration-300 min-h-[180px]"
+              >
+                <div className="flex justify-between w-full items-start mb-6">
+                  <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 group-hover:bg-emerald-100 group-hover:scale-110 transition-all">
+                    <FileText className="w-7 h-7" />
+                  </div>
+                  {payments.filter(p => p.status === 'pending').length > 0 && (
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-1 rounded-full border border-amber-200 shadow-sm">
+                      {payments.filter(p => p.status === 'pending').length}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Paiements</h3>
+                  <p className="text-gray-500 text-xs font-medium">Suivi de vos tranches</p>
+                </div>
+              </button>
+
               {/* Catalogue - 1 col */}
               <Link 
                 to="/client/marketplace"
@@ -558,6 +590,102 @@ export default function ClientHub() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Section Content */}
+        {activeSection === 'payments' && (
+          <div className="animate-fade-in space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Suivi de vos paiements</h2>
+              <a 
+                href="https://wa.me/237698389030" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-all"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Contacter l'admin
+              </a>
+            </div>
+
+            {payments.filter(p => p.status === 'pending' && new Date(p.due_date) < new Date()).length === 0 && (
+              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shrink-0">
+                  <Check className="w-5 h-5" />
+                </div>
+                <p className="text-sm text-emerald-800 font-medium">
+                  Félicitations ! Vous n'avez aucun paiement en retard.
+                </p>
+              </div>
+            )}
+
+            {payments.length === 0 ? (
+              <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm">
+                <p className="text-gray-500 italic">Aucun historique de paiement pour le moment.</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {payments.map((payment) => (
+                  <div key={payment.id} className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                        payment.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'
+                      }`}>
+                        {payment.status === 'paid' ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-900">{payment.registrations?.courses?.title || 'Formation'}</h4>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                          <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <Info className="w-3.5 h-3.5" />
+                            {payment.payment_type === 'full' ? 'Paiement complet' : `Tranche ${payment.tranche_number}`}
+                          </p>
+                          <p className="text-xs text-gray-500 flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            Échéance : {new Date(payment.due_date).toLocaleDateString('fr-FR')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2">
+                      <p className="text-lg font-black text-gray-900">{payment.amount.toLocaleString('fr-FR')} FCFA</p>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          payment.status === 'paid' 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {payment.status === 'paid' ? 'Payé' : 'À régler'}
+                        </span>
+                        {payment.status === 'pending' && (
+                          <a 
+                            href={`https://wa.me/237698389030?text=Bonjour,%20je%20souhaite%20régler%20la%20tranche%20pour%20${encodeURIComponent(payment.registrations?.courses?.title)}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="p-1.5 bg-[#25D366] text-white rounded-lg hover:opacity-90 transition-all"
+                            title="Régler via WhatsApp"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="p-6 bg-blue-50 border border-blue-100 rounded-[2rem]">
+              <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
+                <Info className="w-5 h-5" />
+                Comment régler vos tranches ?
+              </h4>
+              <p className="text-sm text-blue-800 leading-relaxed">
+                Pour chaque tranche à régler, effectuez le transfert Mobile Money au <strong>+237 650 989 019</strong> (Pierre Valdeze Mbom Mbom). 
+                Une fois le transfert effectué, contactez l'administrateur via WhatsApp avec l'ID de transaction pour qu'il valide votre paiement manuellement.
+              </p>
+            </div>
           </div>
         )}
 

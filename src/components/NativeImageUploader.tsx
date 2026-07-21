@@ -14,7 +14,7 @@ export function NativeImageUploader({
   onUploadSuccess,
   label = "Sélectionner une photo",
   previewUrl = "",
-  bucketName = "course-images",
+  bucketName = "course-image",
 }: NativeImageUploaderProps) {
   const { takeOrSelectPhoto, isNative } = useNativeFeatures();
   const [loading, setLoading] = useState(false);

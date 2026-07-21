@@ -11,7 +11,13 @@ import {
   AlignCenter, 
   AlignRight, 
   Trash2, 
-  Check 
+  Check,
+  Type,
+  Highlighter,
+  Heading1,
+  Heading2,
+  Heading3,
+  ChevronDown
 } from 'lucide-react';
 
 interface RichTextEditorModalProps {
@@ -31,6 +37,17 @@ const COLORS = [
   { name: 'Violet', value: '#7C3AED' },
   { name: 'Orange', value: '#EA580C' },
   { name: 'Rose', value: '#DB2777' },
+  { name: 'Word Blue', value: '#2B579A' },
+  { name: 'Or', value: '#D4AF37' },
+];
+
+const HIGHLIGHTS = [
+  { name: 'Jaune', value: '#FEF08A' },
+  { name: 'Vert', value: '#BBF7D0' },
+  { name: 'Bleu', value: '#BFDBFE' },
+  { name: 'Rose', value: '#FBCFE8' },
+  { name: 'Orange', value: '#FED7AA' },
+  { name: 'Transparent', value: 'transparent' },
 ];
 
 export function RichTextEditorModal({ 
@@ -42,6 +59,8 @@ export function RichTextEditorModal({
 }: RichTextEditorModalProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showFormatDropdown, setShowFormatDropdown] = useState(false);
   const [currentColor, setCurrentColor] = useState('#111827');
 
   // Load initial content when modal opens
@@ -64,12 +83,18 @@ export function RichTextEditorModal({
     if (editorRef.current) {
       editorRef.current.focus();
     }
+    setShowFormatDropdown(false);
   };
 
   const handleColorSelect = (colorValue: string) => {
     setCurrentColor(colorValue);
     handleCommand('foreColor', colorValue);
     setShowColorPicker(false);
+  };
+
+  const handleHighlightSelect = (colorValue: string) => {
+    handleCommand('hiliteColor', colorValue);
+    setShowHighlightPicker(false);
   };
 
   const handleClearFormatting = () => {
@@ -93,13 +118,13 @@ export function RichTextEditorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
           <div>
             <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Utilisez les outils pour mettre en forme votre texte</p>
+            <p className="text-xs text-gray-500 mt-0.5">Mise en forme avancée pour votre cours</p>
           </div>
           <button 
             type="button" 
@@ -112,7 +137,61 @@ export function RichTextEditorModal({
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-1 px-4 py-2 bg-gray-50 border-b border-gray-100 select-none">
-          {/* Text Style Commands */}
+          
+          {/* Format Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowFormatDropdown(!showFormatDropdown)}
+              className="px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-200/80 rounded-lg transition-colors flex items-center gap-1.5"
+              title="Style de texte"
+            >
+              <Type className="w-4 h-4 text-emerald-600" />
+              <span>Style</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            
+            {showFormatDropdown && (
+              <div className="absolute left-0 top-full mt-1.5 p-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 w-48 flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => handleCommand('formatBlock', '<h1>')}
+                  className="px-3 py-2 text-left text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                >
+                  <Heading1 className="w-4 h-4" />
+                  <span className="font-bold">Grand Titre</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCommand('formatBlock', '<h2>')}
+                  className="px-3 py-2 text-left text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                >
+                  <Heading2 className="w-4 h-4" />
+                  <span className="font-semibold">Sous-titre</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCommand('formatBlock', '<h3>')}
+                  className="px-3 py-2 text-left text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                >
+                  <Heading3 className="w-4 h-4" />
+                  <span className="font-medium">Petit titre</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCommand('formatBlock', '<p>')}
+                  className="px-3 py-2 text-left text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                >
+                  <Type className="w-4 h-4" />
+                  <span>Paragraphe normal</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="h-6 w-[1px] bg-gray-200 mx-1"></div>
+
+          {/* Basic Formatting */}
           <button
             type="button"
             onClick={() => handleCommand('bold')}
@@ -144,7 +223,10 @@ export function RichTextEditorModal({
           <div className="relative">
             <button
               type="button"
-              onClick={() => setShowColorPicker(!showColorPicker)}
+              onClick={() => {
+                setShowColorPicker(!showColorPicker);
+                setShowHighlightPicker(false);
+              }}
               className="p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-200/80 rounded-lg transition-colors flex items-center gap-1"
               title="Couleur du texte"
             >
@@ -152,7 +234,7 @@ export function RichTextEditorModal({
             </button>
             
             {showColorPicker && (
-              <div className="absolute left-0 top-full mt-1.5 p-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 grid grid-cols-4 gap-1.5 w-36">
+              <div className="absolute left-0 top-full mt-1.5 p-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 grid grid-cols-5 gap-1.5 w-44">
                 {COLORS.map((c) => (
                   <button
                     key={c.value}
@@ -165,6 +247,38 @@ export function RichTextEditorModal({
                     {currentColor === c.value && (
                       <span className="absolute inset-0 flex items-center justify-center text-white text-[10px]">✓</span>
                     )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Highlight Picker */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowHighlightPicker(!showHighlightPicker);
+                setShowColorPicker(false);
+              }}
+              className="p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-200/80 rounded-lg transition-colors flex items-center gap-1"
+              title="Surlignage"
+            >
+              <Highlighter className="w-4 h-4" />
+            </button>
+            
+            {showHighlightPicker && (
+              <div className="absolute left-0 top-full mt-1.5 p-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 grid grid-cols-3 gap-1.5 w-32">
+                {HIGHLIGHTS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => handleHighlightSelect(c.value)}
+                    className="w-full h-8 rounded-lg border border-gray-100 hover:opacity-80 transition-opacity relative"
+                    style={{ backgroundColor: c.value }}
+                    title={c.name}
+                  >
+                    {c.value === 'transparent' && <span className="text-[10px] text-gray-400">Aucun</span>}
                   </button>
                 ))}
               </div>
@@ -233,14 +347,17 @@ export function RichTextEditorModal({
         </div>
 
         {/* Editing Area */}
-        <div className="flex-1 overflow-y-auto p-6 bg-white min-h-[250px] md:min-h-[350px]">
+        <div className="flex-1 overflow-y-auto p-8 bg-white min-h-[300px] md:min-h-[450px]">
           <div
             id="rich-text-editor-area"
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
-            className="outline-none min-h-full text-sm text-gray-800 leading-relaxed prose max-w-none focus:prose-indigo
-              [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline"
+            className="outline-none min-h-full text-sm text-gray-800 leading-relaxed prose max-w-none focus:prose-emerald
+              [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline
+              [&_h1]:text-2xl [&_h1]:font-black [&_h1]:mb-4 [&_h1]:text-gray-900
+              [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800
+              [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:text-gray-800"
             placeholder="Écrivez votre description ici..."
             style={{ minHeight: '100%' }}
           />
@@ -258,7 +375,7 @@ export function RichTextEditorModal({
           <button
             type="button"
             onClick={handleSave}
-            className="flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold shadow-xs transition-colors"
+            className="flex items-center gap-1.5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-xs transition-colors"
           >
             <Check className="w-4 h-4" />
             Valider la description

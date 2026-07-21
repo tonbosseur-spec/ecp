@@ -149,7 +149,7 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
       const fileName = `native_uploads/${Date.now()}_${Math.floor(Math.random() * 100000)}.${fileExt}`;
       
       const { data, error: uploadError } = await supabase.storage
-        .from('course-images')
+        .from('course-image')
         .upload(fileName, compressedBlob, {
           contentType: 'image/jpeg',
           upsert: true,
@@ -158,7 +158,7 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('course-images')
+        .from('course-image')
         .getPublicUrl(fileName);
 
       return { url: publicUrl, error: null };

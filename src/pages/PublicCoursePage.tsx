@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle } from 'lucide-react';
+import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const testimonials = [
@@ -69,6 +69,7 @@ export default function PublicCoursePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [transactionId, setTransactionId] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({
     show: false,
@@ -291,7 +292,7 @@ END:VCALENDAR`;
         }
       }
 
-      const { error } = await supabase
+      const { data: registration, error: regError } = await supabase
         .from('registrations')
         .insert([{
           course_id: id,
@@ -300,10 +301,47 @@ END:VCALENDAR`;
           participant_email: email,
           participant_phone: countryCode + phone.replace(/\s+/g, ''),
           transaction_id: isFree ? 'GRATUIT' : transactionId,
-          payment_status: isFree ? 'approved' : 'pending'
+          payment_status: isFree ? 'approved' : 'pending',
+          payment_mode: isFree ? 'full' : paymentMode
+        }])
+        .select()
+        .single();
+
+      if (regError) throw regError;
+
+      // Create initial payment record if not free
+      if (!isFree && registration) {
+        const initialAmount = paymentMode === 'full' 
+          ? course.price_fcfa 
+          : Math.floor(course.price_fcfa * 0.5);
+
+        await supabase.from('payments').insert([{
+          registration_id: registration.id,
+          user_id: clientId,
+          amount: initialAmount,
+          status: 'pending',
+          payment_type: paymentMode === 'full' ? 'full' : 'installment',
+          tranche_number: 1,
+          due_date: new Date().toISOString()
         }]);
 
-      if (error) throw error;
+        // If installments, create the second tranche (placeholder)
+        if (paymentMode === 'installments') {
+          const secondAmount = course.price_fcfa - initialAmount;
+          const nextMonth = new Date();
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          
+          await supabase.from('payments').insert([{
+            registration_id: registration.id,
+            user_id: clientId,
+            amount: secondAmount,
+            status: 'pending',
+            payment_type: 'installment',
+            tranche_number: 2,
+            due_date: nextMonth.toISOString()
+          }]);
+        }
+      }
       
       const isPreRegistration = course.is_date_tbd || !course.date_time;
       const successMessage = isPreRegistration
@@ -574,7 +612,11 @@ END:VCALENDAR`;
             course.description.includes('<') && course.description.includes('>') ? (
               <div 
                 className="text-gray-600 text-base sm:text-lg leading-relaxed mb-6 max-w-2xl mx-auto prose max-w-none text-left sm:text-center
-                  [&>ul]:list-disc [&>ul]:inline-block [&>ul]:text-left [&>ol]:list-decimal [&>ol]:inline-block [&>ol]:text-left [&_strong]:font-bold [&_em]:italic [&_u]:underline"
+                  [&>ul]:list-disc [&>ul]:inline-block [&>ul]:text-left [&>ol]:list-decimal [&>ol]:inline-block [&>ol]:text-left 
+                  [&_strong]:font-bold [&_em]:italic [&_u]:underline
+                  [&_h1]:text-2xl [&_h1]:font-black [&_h1]:mb-4 [&_h1]:text-gray-900
+                  [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800
+                  [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:text-gray-800"
                 dangerouslySetInnerHTML={{ __html: course.description }}
               />
             ) : (
@@ -1269,9 +1311,47 @@ END:VCALENDAR`;
             </div>
             
             <form onSubmit={(e) => { e.preventDefault(); submitRegistration(false); }} className="p-6 space-y-5">
+              
+              {/* Payment Mode Choice */}
+              <div className="space-y-3">
+                <label className="block text-sm font-bold text-gray-900">Option de paiement :</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('full')}
+                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${
+                      paymentMode === 'full' 
+                        ? 'border-emerald-600 bg-emerald-50' 
+                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                    }`}
+                  >
+                    <CheckCircle2 className={`w-5 h-5 mb-1 ${paymentMode === 'full' ? 'text-emerald-600' : 'text-gray-300'}`} />
+                    <span className="text-xs font-bold text-gray-900">Totalité</span>
+                    <span className="text-[10px] text-gray-500">{course?.price_fcfa?.toLocaleString('fr-FR')} FCFA</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('installments')}
+                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${
+                      paymentMode === 'installments' 
+                        ? 'border-emerald-600 bg-emerald-50' 
+                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                    }`}
+                  >
+                    <Clock className={`w-5 h-5 mb-1 ${paymentMode === 'installments' ? 'text-emerald-600' : 'text-gray-300'}`} />
+                    <span className="text-xs font-bold text-gray-900">2 Tranches</span>
+                    <span className="text-[10px] text-gray-500">{Math.floor(course?.price_fcfa * 0.5).toLocaleString('fr-FR')} FCFA x 2</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">
-                  Pour débloquer votre accès à <strong>{course?.title}</strong>, veuillez effectuer un transfert manuel de <strong>{course?.price_fcfa?.toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.
+                  {paymentMode === 'full' ? (
+                    <>Pour débloquer votre accès à <strong>{course?.title}</strong>, veuillez effectuer un transfert manuel de <strong>{course?.price_fcfa?.toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
+                  ) : (
+                    <>Pour valider votre inscription (1ère tranche de 50%), veuillez effectuer un transfert manuel de <strong>{Math.floor(course?.price_fcfa * 0.5).toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
+                  )}
                 </p>
               </div>
 
