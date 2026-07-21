@@ -17,7 +17,9 @@ import {
   HelpCircle,
   RefreshCw,
   Lock,
-  X
+  X,
+  Sun,
+  Moon
 } from 'lucide-react';
 import {
   getCourseFromCache,
@@ -46,6 +48,13 @@ export default function ClientModuleView() {
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
   const [isFullscreenReading, setIsFullscreenReading] = useState(false);
+  const [isLightMode, setIsLightMode] = useState(() => {
+    return localStorage.getItem('clientLightMode') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('clientLightMode', String(isLightMode));
+  }, [isLightMode]);
 
   const fetchModuleDetails = async (isManualRefresh = false) => {
     try {
@@ -349,25 +358,45 @@ export default function ClientModuleView() {
   // Support either the new module_files relation or old download_files JSON array
   const filesList = module.module_files && module.module_files.length > 0 ? module.module_files : (module.download_files || []);
 
+  const theme = {
+    bgApp: isLightMode ? 'bg-slate-50' : 'bg-slate-950',
+    textMain: isLightMode ? 'text-slate-900' : 'text-slate-100',
+    bgNav: isLightMode ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800',
+    btnGhost: isLightMode ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' : 'bg-slate-800 hover:bg-slate-750 text-purple-400 hover:text-purple-300',
+    divider: isLightMode ? 'bg-slate-200' : 'bg-slate-800',
+    title: isLightMode ? 'text-slate-900' : 'text-white',
+    btnActionGhost: isLightMode ? 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 hover:text-slate-700' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200',
+    bgLeftPanel: isLightMode ? 'bg-slate-100 border-slate-200' : 'bg-slate-950 border-slate-900',
+    bgRightPanel: isLightMode ? 'bg-white' : 'bg-slate-900',
+    textDesc: isLightMode ? 'text-slate-600' : 'text-slate-400',
+    bgCard: isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800/80',
+    bgFile: isLightMode ? 'bg-white hover:bg-slate-50 border-slate-200 hover:border-purple-300' : 'bg-slate-950 hover:bg-slate-800 border-slate-850 hover:border-purple-900',
+    fileText: isLightMode ? 'text-slate-700 group-hover:text-purple-600' : 'text-slate-200 group-hover:text-purple-400',
+    bgFooter: isLightMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-950 border-slate-800',
+    prose: isLightMode 
+      ? 'prose-slate text-slate-700 [&_h1]:text-slate-900 [&_h1]:border-slate-200 [&_h2]:text-slate-800 [&_h3]:text-slate-800 [&_h4]:text-slate-700'
+      : 'prose-invert text-slate-300 [&_h1]:text-white [&_h1]:border-slate-800 [&_h2]:text-slate-200 [&_h3]:text-slate-200 [&_h4]:text-slate-300'
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col overflow-x-hidden animate-fade-in max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none]">
+    <div className={`min-h-screen ${theme.bgApp} ${theme.textMain} flex flex-col overflow-x-hidden animate-fade-in max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none]`}>
       {/* Immersive distraction-free status bar */}
-      <nav className="bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-4 flex items-center justify-between shrink-0 gap-4">
+      <nav className={`${theme.bgNav} border-b px-4 sm:px-6 py-4 flex items-center justify-between shrink-0 gap-4 transition-colors`}>
         <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <Link
             to={`/client/course/${courseId}`}
-            className="flex items-center gap-1 text-xs font-bold text-purple-400 hover:text-purple-300 bg-slate-800 hover:bg-slate-750 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shrink-0"
+            className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shrink-0 ${theme.btnGhost}`}
           >
             <ChevronLeft className="w-4 h-4" />
             <span className="hidden md:inline">Quitter le plein écran</span>
             <span className="md:hidden">Quitter</span>
           </Link>
-          <div className="h-4 w-[1px] bg-slate-800 shrink-0"></div>
+          <div className={`h-4 w-[1px] ${theme.divider} shrink-0`}></div>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest block mb-0.5 truncate">
+            <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest block mb-0.5 truncate">
               {course.title}
             </span>
-            <h2 className="text-xs sm:text-sm font-black text-white truncate" title={`Module ${currentIdx + 1} : ${module.title}`}>
+            <h2 className={`text-xs sm:text-sm font-black ${theme.title} truncate`} title={`Module ${currentIdx + 1} : ${module.title}`}>
               Module {currentIdx + 1} : {module.title}
             </h2>
           </div>
@@ -375,11 +404,16 @@ export default function ClientModuleView() {
 
         <div className="flex items-center gap-3 shrink-0">
           <button
+            onClick={() => setIsLightMode(!isLightMode)}
+            className={`p-2 border rounded-xl transition-all ${theme.btnActionGhost}`}
+            title={isLightMode ? "Passer au mode sombre" : "Passer au mode clair"}
+          >
+            {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
+          <button
             onClick={() => fetchModuleDetails(true)}
             disabled={refreshing}
-            className={`p-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl transition-all ${
-              refreshing ? 'text-purple-400' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className={`p-2 border rounded-xl transition-all ${theme.btnActionGhost} ${refreshing ? (isLightMode ? 'text-purple-600' : 'text-purple-400') : ''}`}
             title="Actualiser le module"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
@@ -388,7 +422,7 @@ export default function ClientModuleView() {
             isCompleted ? (
               <button
                 onClick={() => setIsQuizOverlayOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/35 rounded-xl text-xs font-extrabold shadow-sm hover:bg-emerald-500/20 transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/35 rounded-xl text-xs font-extrabold shadow-sm hover:bg-emerald-500/20 transition-all"
               >
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
                 Quizz Réussi 🎉
@@ -408,7 +442,7 @@ export default function ClientModuleView() {
               disabled={toggling}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 isCompleted
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  ? 'bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/30'
                   : 'bg-purple-600 hover:bg-purple-700 text-white shadow-md'
               }`}
             >
@@ -438,11 +472,11 @@ export default function ClientModuleView() {
       )}
 
       {/* Main Workspace split */}
-      <div className="flex-grow flex flex-col lg:flex-row h-full">
+      <div className={`flex-grow flex ${embedUrl ? 'flex-col lg:flex-row' : 'flex-col'} h-full transition-colors`}>
         
-        {/* Left Side: Video Player or Lesson Card (Immersive media) */}
-        <div className="w-full lg:w-[55%] xl:w-[60%] bg-slate-950 p-6 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-900 shrink-0">
-          {embedUrl ? (
+        {/* Left Side: Video Player ONLY if embedUrl exists */}
+        {embedUrl && (
+          <div className={`w-full lg:w-[55%] xl:w-[60%] ${theme.bgLeftPanel} p-6 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r shrink-0 transition-colors`}>
             <div className="w-full max-w-5xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-slate-800 relative">
               <iframe
                 src={embedUrl}
@@ -453,31 +487,21 @@ export default function ClientModuleView() {
                 className="w-full h-full absolute inset-0"
               />
             </div>
-          ) : (
-            <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 text-center flex flex-col items-center justify-center space-y-4 shadow-xl">
-              <div className="w-16 h-16 bg-purple-500/10 text-purple-400 rounded-2xl flex items-center justify-center">
-                <Play className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Ce module n'inclut pas de vidéo</h3>
-              <p className="text-gray-400 text-sm max-w-md">
-                Le contenu de cette leçon est disponible sous forme de texte, de résumé et de supports de cours téléchargeables ci-contre.
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Right Side: Scrollable Lesson Material and Resources */}
-        <div className="w-full lg:w-[45%] xl:w-[40%] bg-slate-900 flex flex-col shrink-0">
-          <div className="flex-grow overflow-y-auto max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] p-6 space-y-8 max-h-[calc(100vh-140px)]">
+        <div className={`w-full ${embedUrl ? 'lg:w-[45%] xl:w-[40%]' : 'max-w-4xl mx-auto'} ${theme.bgRightPanel} flex flex-col shrink-0 transition-colors shadow-2xl`}>
+          <div className="flex-grow overflow-y-auto max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] p-6 sm:p-10 space-y-8 max-h-[calc(100vh-140px)]">
             
             {/* Title & Description card */}
             <div className="space-y-3">
-              <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider">Descriptif</span>
-              <h3 className="text-lg font-black text-white leading-tight">
+              <span className="text-[10px] font-black uppercase text-purple-500 tracking-wider">Descriptif</span>
+              <h3 className={`text-xl sm:text-2xl font-black ${theme.title} leading-tight`}>
                 {module.title}
               </h3>
               {module.description && (
-                <p className="text-slate-400 text-xs leading-relaxed">
+                <p className={`${theme.textDesc} text-sm leading-relaxed`}>
                   {module.description}
                 </p>
               )}
@@ -487,8 +511,8 @@ export default function ClientModuleView() {
             {quiz && (
               <div className={`p-4 rounded-2xl border text-xs leading-relaxed flex flex-col gap-2.5 ${
                 isCompleted 
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-300' 
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
               }`}>
                 <div className="flex items-center gap-2">
                   <HelpCircle className="w-4 h-4 shrink-0" />
@@ -496,7 +520,7 @@ export default function ClientModuleView() {
                     {isCompleted ? "Évaluation Validée" : "Évaluation Requise"}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-300">
+                <p className="text-[11px] font-medium">
                   {isCompleted 
                     ? "Félicitations ! Vous avez validé l'évaluation de ce module à plus de 70%." 
                     : "Ce module dispose d'un quizz de validation. Vous devez obtenir au moins 70% de réussite pour débloquer le module suivant."}
@@ -513,13 +537,13 @@ export default function ClientModuleView() {
             )}
 
             {/* Lesson Core Text */}
-            <div className="space-y-3 border-t border-slate-800 pt-6">
+            <div className={`space-y-3 border-t ${theme.divider} pt-6`}>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider block">Leçon / Fiche de cours</span>
+                <span className="text-[10px] font-black uppercase text-purple-500 tracking-wider block">Leçon / Fiche de cours</span>
                 {module.long_summary && (
                   <button
                     onClick={() => setIsFullscreenReading(true)}
-                    className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
+                    className={`p-1.5 rounded-lg transition-colors ${theme.btnActionGhost}`}
                     title="Lire en plein écran"
                   >
                     <Maximize2 className="w-4 h-4" />
@@ -529,29 +553,29 @@ export default function ClientModuleView() {
               
               {module.long_summary ? (
                 <div 
-                  className="prose prose-invert prose-xs text-slate-300 leading-relaxed bg-slate-950 p-5 rounded-2xl border border-slate-800/80 max-w-none 
+                  className={`prose prose-sm sm:prose-base leading-relaxed ${theme.bgCard} p-6 rounded-2xl border max-w-none transition-colors
                     [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline
-                    [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-white [&_h1]:mt-5 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-slate-800 [&_h1]:pb-1
-                    [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:text-slate-200 [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:tracking-tight
-                    [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-slate-200 [&_h3]:mt-3.5 [&_h3]:mb-1.5
-                    [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-slate-300 [&_h4]:mt-3 [&_h4]:mb-1 [&_li]:list-none"
+                    [&_h1]:text-2xl [&_h1]:font-black [&_h1]:mt-5 [&_h1]:mb-3 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:pb-1
+                    [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:tracking-tight
+                    [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mt-3.5 [&_h3]:mb-1.5
+                    [&_h4]:text-base [&_h4]:font-bold [&_h4]:mt-3 [&_h4]:mb-1 [&_li]:list-none ${theme.prose}`}
                   dangerouslySetInnerHTML={{ __html: module.long_summary }}
                 />
               ) : (
-                <p className="text-slate-500 italic text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <p className={`${theme.textDesc} italic text-sm ${theme.bgCard} p-6 rounded-xl border`}>
                   Aucune fiche récapitulative n'a été rédigée pour ce module.
                 </p>
               )}
             </div>
 
             {/* Downloadable files */}
-            <div className="space-y-3 border-t border-slate-800 pt-6">
-              <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider block">
+            <div className={`space-y-3 border-t ${theme.divider} pt-6`}>
+              <span className="text-[10px] font-black uppercase text-purple-500 tracking-wider block">
                 Fichiers & supports ({filesList.length})
               </span>
 
               {filesList.length === 0 ? (
-                <p className="text-slate-500 italic text-xs">Aucun fichier à télécharger.</p>
+                <p className={`${theme.textDesc} italic text-xs`}>Aucun fichier à télécharger.</p>
               ) : (
                 <div className="space-y-2.5">
                   {filesList.map((file: any, fIdx: number) => (
@@ -560,18 +584,18 @@ export default function ClientModuleView() {
                       href={file.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 bg-slate-950 hover:bg-slate-800 border border-slate-850 hover:border-purple-900 rounded-xl transition-all shadow-xs group"
+                      className={`flex items-center gap-3 p-4 border rounded-xl transition-all shadow-sm group ${theme.bgFile}`}
                     >
-                      <div className="w-8 h-8 bg-purple-500/10 text-purple-400 rounded-lg flex items-center justify-center shrink-0">
-                        <FileText className="w-4 h-4" />
+                      <div className="w-10 h-10 bg-purple-500/10 text-purple-500 rounded-lg flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-200 truncate group-hover:text-purple-400 transition-colors">
+                        <p className={`text-sm font-bold truncate transition-colors ${theme.fileText}`}>
                           {file.name || "Support de cours"}
                         </p>
-                        <span className="text-[9px] text-slate-500 font-medium">Cliquez pour ouvrir ou télécharger</span>
+                        <span className="text-[10px] text-slate-500 font-medium">Cliquez pour ouvrir ou télécharger</span>
                       </div>
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-600 group-hover:text-purple-400 shrink-0" />
+                      <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-purple-500 shrink-0" />
                     </a>
                   ))}
                 </div>
@@ -581,10 +605,10 @@ export default function ClientModuleView() {
           </div>
 
           {/* Footer Action of Right panel (e.g. Next module navigation) */}
-          <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0">
+          <div className={`p-4 ${theme.bgFooter} border-t flex items-center justify-between gap-3 shrink-0 transition-colors`}>
             <Link
               to={`/client/course/${courseId}`}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-400 hover:text-white"
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold ${theme.btnActionGhost} rounded-xl`}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Liste
@@ -594,7 +618,7 @@ export default function ClientModuleView() {
               <button
                 type="button"
                 disabled
-                className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 text-slate-500 border border-slate-750 rounded-xl text-xs font-bold cursor-not-allowed shadow-inner"
+                className={`flex items-center gap-1.5 px-4 py-2 border rounded-xl text-xs font-bold cursor-not-allowed shadow-inner ${isLightMode ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-slate-800 text-slate-500 border-slate-750'}`}
                 title="Vous devez valider le quizz de ce module pour passer au module suivant."
               >
                 Bloqué 🔒 (Quizz requis)
@@ -665,12 +689,12 @@ export default function ClientModuleView() {
       )}
 
       {isFullscreenReading && module.long_summary && (
-        <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col animate-fade-in">
-          <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900 shrink-0">
-            <h3 className="text-lg font-bold text-white truncate max-w-[80%]">{module.title}</h3>
+        <div className={`fixed inset-0 z-50 ${theme.bgApp} flex flex-col animate-fade-in transition-colors`}>
+          <div className={`flex items-center justify-between p-4 border-b ${theme.bgNav} shrink-0`}>
+            <h3 className={`text-lg font-bold ${theme.title} truncate max-w-[80%]`}>{module.title}</h3>
             <button
               onClick={() => setIsFullscreenReading(false)}
-              className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full hover:bg-slate-700 transition-colors"
+              className={`p-2 rounded-full transition-colors ${theme.btnActionGhost}`}
               title="Fermer le mode plein écran"
             >
               <X className="w-5 h-5" />
@@ -678,12 +702,12 @@ export default function ClientModuleView() {
           </div>
           <div className="flex-1 overflow-y-auto max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] p-6 sm:p-10">
             <div 
-              className="prose prose-invert prose-sm sm:prose-base text-slate-300 leading-relaxed max-w-4xl mx-auto
+              className={`prose prose-sm sm:prose-base leading-relaxed max-w-4xl mx-auto
                 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&_strong]:font-bold [&_em]:italic [&_u]:underline
-                [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-white [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:border-slate-800 [&_h1]:pb-2
-                [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:text-slate-200 [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:tracking-tight
-                [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-slate-200 [&_h3]:mt-5 [&_h3]:mb-2
-                [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-slate-300 [&_h4]:mt-4 [&_h4]:mb-1 [&_li]:list-none"
+                [&_h1]:text-2xl [&_h1]:font-black [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:tracking-tight [&_h1]:border-b [&_h1]:pb-2
+                [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:tracking-tight
+                [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mt-5 [&_h3]:mb-2
+                [&_h4]:text-base [&_h4]:font-bold [&_h4]:mt-4 [&_h4]:mb-1 [&_li]:list-none ${theme.prose}`}
               dangerouslySetInnerHTML={{ __html: module.long_summary }}
             />
           </div>

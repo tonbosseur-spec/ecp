@@ -5,6 +5,7 @@ import { Loader2, Plus, Trash2, AlertCircle, CheckCircle2, Video, Link as LinkIc
 import { NativeImageUploader } from '../components/NativeImageUploader';
 import { RichTextEditorModal } from '../components/RichTextEditorModal';
 import { EnrichModuleModal } from '../components/EnrichModuleModal';
+import { CourseQuizExcelImporter } from '../components/CourseQuizExcelImporter';
 
 interface Trainer {
   id: string;
@@ -835,9 +836,18 @@ export default function EditCourse() {
           {/* Section: Modules */}
           {productType !== 'ebook' && (
             <div className="space-y-4">
+              {id && (
+                <CourseQuizExcelImporter 
+                  courseId={id} 
+                  onImportComplete={() => {
+                    fetchData();
+                    // On peut aussi afficher un feedback supplémentaire ici si besoin
+                  }} 
+                />
+              )}
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Modules de la formation</h2>
-              </div>
+                  <h2 className="text-lg font-semibold text-gray-900">Modules de la formation</h2>
+                </div>
 
               {modules.length === 0 ? (
                 <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100 border-dashed flex flex-col items-center gap-3">
