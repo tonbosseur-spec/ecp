@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
-import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy } from 'lucide-react';
+import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, HelpCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
 interface Question {
@@ -12,6 +13,18 @@ interface Question {
   correct_index: number;
   explanation?: string;
   module_title?: string;
+}
+
+function formatDescriptionHtml(text: string | null | undefined): string {
+  if (!text) return '';
+  const hasHtml = /<[a-z][\s\S]*>/i.test(text);
+  if (hasHtml) {
+    return text;
+  }
+  return text
+    .split('\n\n')
+    .map(p => `<p class="mb-3 leading-relaxed">${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('');
 }
 
 export default function PublicQuizChallenge() {
@@ -35,6 +48,7 @@ export default function PublicQuizChallenge() {
   // Quiz state
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   
   // Results state
   const [copiedCode, setCopiedCode] = useState(false);
@@ -55,7 +69,7 @@ export default function PublicQuizChallenge() {
       setLoading(true);
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .select('title, description, guide_text')
+        .select('title, description, guide_text, trainer_id, trainers (*)')
         .eq('id', courseId)
         .single();
         
@@ -107,21 +121,26 @@ export default function PublicQuizChallenge() {
     setStep('quiz');
     setCurrentIdx(0);
     setAnswers([]);
+    setSelectedIndex(null);
   };
 
   const handleSelectOption = (optionIndex: number) => {
+    if (selectedIndex !== null) return;
+    setSelectedIndex(optionIndex);
+
     const newAnswers = [...answers];
     newAnswers[currentIdx] = optionIndex;
     setAnswers(newAnswers);
 
-    // Auto-advance after small delay
+    // Auto-advance after small visual feedback delay
     setTimeout(() => {
+      setSelectedIndex(null);
       if (currentIdx < questions.length - 1) {
         setCurrentIdx(prev => prev + 1);
       } else {
         finishQuiz(newAnswers);
       }
-    }, 400);
+    }, 350);
   };
 
   const finishQuiz = async (finalAnswers: number[]) => {
@@ -280,103 +299,202 @@ export default function PublicQuizChallenge() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 pb-24">
         {step === 'landing' && (
-          <div className="animate-fade-in flex flex-col items-center">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center"
+          >
             <Link to={`/course/${courseId}`} className="self-start flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 mb-8 transition-colors">
               <ChevronLeft className="w-4 h-4" />
               Retour à la formation
             </Link>
 
-            <div className="bg-white rounded-[2rem] p-8 sm:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 text-center w-full relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+            <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-[0_10px_40px_rgb(0,0,0,0.04)] border border-slate-100/80 text-center w-full relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
               
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-xs font-bold uppercase tracking-wider mb-6">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Challenge Interactif</span>
+              </div>
+
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 leading-[1.15] mb-6">
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">
                   {displayTitle}
                 </span>
               </h1>
               
-              <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed whitespace-pre-line">
-                {displayDescription}
-              </p>
+              {/* Rich Text Description */}
+              <div 
+                className="prose prose-indigo max-w-2xl mx-auto mb-10 text-base sm:text-lg text-slate-600 leading-relaxed text-left sm:text-center font-normal [&_p]:mb-3 [&_ul]:list-disc [&_ul]:ml-5 [&_ol]:list-decimal [&_ol]:ml-5 [&_a]:text-indigo-600 [&_a]:underline [&_strong]:font-bold [&_strong]:text-slate-900 [&_h1]:text-2xl [&_h2]:text-xl [&_h3]:text-lg [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold"
+                dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(displayDescription) }}
+              />
 
-              <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 mb-12">
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-700">
+              <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 mb-10">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50/80 rounded-xl border border-slate-200/80 text-sm font-semibold text-slate-700">
                   <Clock className="w-4 h-4 text-indigo-500" />
                   ~10 minutes
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-700">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50/80 rounded-xl border border-slate-200/80 text-sm font-semibold text-slate-700">
                   <Dices className="w-4 h-4 text-purple-500" />
-                  Max 20 questions aléatoires
+                  {questions.length} question(s) interactive(s)
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium text-slate-700">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50/80 rounded-xl border border-slate-200/80 text-sm font-semibold text-slate-700">
                   <Gift className="w-4 h-4 text-pink-500" />
-                  Réduction garantie à la clé
+                  Code de réduction à débloquer
                 </div>
               </div>
+
+              {/* Formateur Référent Card */}
+              {course?.trainers && (
+                <div className="mb-10 pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-left max-w-xl mx-auto bg-slate-50/60 p-5 sm:p-6 rounded-2xl border border-slate-200/60 shadow-xs">
+                  {course.trainers.photo_url ? (
+                    <img
+                      src={course.trainers.photo_url}
+                      alt={course.trainers.name}
+                      className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-2xl flex items-center justify-center shrink-0 shadow-md">
+                      {course.trainers.name ? course.trainers.name.substring(0, 2).toUpperCase() : 'TR'}
+                    </div>
+                  )}
+                  <div className="flex-1 text-center sm:text-left">
+                    <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <User className="w-3 h-3 text-indigo-500" />
+                        Formateur Référent
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">{course.trainers.name}</h3>
+                    {course.trainers.description && (
+                      <div 
+                        className="text-xs text-slate-600 mt-1.5 line-clamp-3 leading-relaxed [&_p]:mb-1"
+                        dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(course.trainers.description) }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
 
               {questions.length === 0 ? (
                 <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl">
                   <p className="text-slate-500 font-medium">Aucun challenge n'est encore disponible pour cette formation.</p>
                 </div>
               ) : (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={handleStart}
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-slate-900 text-white rounded-2xl text-lg font-bold hover:bg-slate-800 hover:-translate-y-0.5 transition-all shadow-xl shadow-slate-900/10 group"
+                  className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl text-lg font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-xl shadow-indigo-600/20 group cursor-pointer"
                 >
                   Lancer le Challenge Maintenant
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </motion.button>
               )}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {step === 'quiz' && (
-          <div className="animate-fade-in w-full max-w-2xl mx-auto">
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-3 text-sm font-bold text-slate-500">
-                <span>Question {currentIdx + 1} sur {questions.length}</span>
-                <span>{Math.round(((currentIdx) / questions.length) * 100)}% complété</span>
-              </div>
-              <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-indigo-600 transition-all duration-500 ease-out rounded-full"
-                  style={{ width: `${((currentIdx) / questions.length) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-[2rem] p-6 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-              {questions[currentIdx]?.module_title && (
-                <span className="inline-block px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-lg mb-6">
-                  {questions[currentIdx].module_title}
+          <div className="w-full max-w-2xl mx-auto">
+            {/* Animated Progress Bar & Header */}
+            <div className="mb-8 bg-white/90 backdrop-blur-md p-5 rounded-3xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between mb-3 text-sm font-bold text-slate-600">
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+                  Question {currentIdx + 1} sur {questions.length}
                 </span>
-              )}
-              
-              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-8 leading-snug">
-                {questions[currentIdx].text}
-              </h2>
-
-              <div className="space-y-3">
-                {questions[currentIdx].options.map((option, idx) => {
-                  const letters = ['A', 'B', 'C', 'D'];
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => handleSelectOption(idx)}
-                      className="w-full flex items-start gap-4 p-4 text-left rounded-2xl border-2 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/50 transition-colors group"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 font-bold flex items-center justify-center shrink-0 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                        {letters[idx]}
-                      </div>
-                      <span className="font-medium text-slate-700 group-hover:text-slate-900 mt-1">
-                        {option}
-                      </span>
-                    </button>
-                  );
-                })}
+                <span className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100 font-extrabold">
+                  {Math.round(((currentIdx + 1) / questions.length) * 100)}% complété
+                </span>
+              </div>
+              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/60">
+                <motion.div 
+                  className="h-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-full"
+                  initial={{ width: `${((currentIdx) / questions.length) * 100}%` }}
+                  animate={{ width: `${((currentIdx + 1) / questions.length) * 100}%` }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                ></motion.div>
               </div>
             </div>
+
+            {/* Question Card with AnimatePresence */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentIdx}
+                initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -15, scale: 0.98 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+                className="bg-white rounded-[2.5rem] p-6 sm:p-10 shadow-[0_12px_40px_rgb(0,0,0,0.06)] border border-slate-100 relative overflow-hidden"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  {questions[currentIdx]?.module_title ? (
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-xl border border-indigo-100/80">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                      {questions[currentIdx].module_title}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-purple-50 text-purple-700 text-xs font-bold uppercase tracking-wider rounded-xl border border-purple-100/80">
+                      <HelpCircle className="w-3.5 h-3.5 text-purple-500" />
+                      Question {currentIdx + 1}
+                    </span>
+                  )}
+                </div>
+                
+                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mb-8 leading-relaxed">
+                  {questions[currentIdx]?.text}
+                </h2>
+
+                <div className="space-y-3.5">
+                  {questions[currentIdx]?.options.map((option, idx) => {
+                    const letters = ['A', 'B', 'C', 'D'];
+                    const isSelected = selectedIndex === idx;
+
+                    return (
+                      <motion.button
+                        key={idx}
+                        whileHover={{ scale: 1.01, x: 2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleSelectOption(idx)}
+                        className={`w-full flex items-center justify-between p-4 sm:p-5 text-left rounded-2xl border-2 transition-all group cursor-pointer ${
+                          isSelected
+                            ? 'border-indigo-600 bg-indigo-50/90 ring-4 ring-indigo-500/15 shadow-md shadow-indigo-600/10'
+                            : 'border-slate-100 bg-slate-50/40 hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-9 h-9 rounded-xl font-bold text-sm flex items-center justify-center shrink-0 transition-all ${
+                              isSelected
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                : 'bg-white border border-slate-200 text-slate-600 group-hover:border-indigo-300 group-hover:text-indigo-600'
+                            }`}
+                          >
+                            {letters[idx]}
+                          </div>
+                          <span className={`font-semibold text-sm sm:text-base leading-snug transition-colors ${
+                            isSelected ? 'text-indigo-950 font-bold' : 'text-slate-700 group-hover:text-slate-900'
+                          }`}>
+                            {option}
+                          </span>
+                        </div>
+
+                        <div className="shrink-0 ml-3">
+                          {isSelected ? (
+                            <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-sm animate-in zoom-in-75">
+                              <Check className="w-4 h-4 stroke-[3]" />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full border-2 border-slate-200 group-hover:border-indigo-300 transition-colors"></div>
+                          )}
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
 
