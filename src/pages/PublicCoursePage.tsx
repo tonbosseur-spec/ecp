@@ -99,6 +99,7 @@ export default function PublicCoursePage() {
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoSuccessMsg, setPromoSuccessMsg] = useState<string | null>(null);
+  const [isCheckingPromo, setIsCheckingPromo] = useState(false);
 
   // Auto-check promo code when course loaded or searchParams changed
   useEffect(() => {
@@ -112,7 +113,7 @@ export default function PublicCoursePage() {
     }
   }, [course, searchParams]);
 
-  const applyCode = (code: string, isManual: boolean = true) => {
+  const applyCode = async (code: string, isManual: boolean = true) => {
     if (!course) return;
     setPromoError(null);
     setPromoSuccessMsg(null);
@@ -121,6 +122,12 @@ export default function PublicCoursePage() {
     if (!cleanCode) {
       setPromoError("Veuillez saisir un code promo.");
       return;
+    }
+
+    if (isManual) {
+      setIsCheckingPromo(true);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setIsCheckingPromo(false);
     }
 
     const availablePromos = extractCoursePromoCodes(course);
@@ -783,26 +790,48 @@ END:VCALENDAR`;
                     <input
                       type="text"
                       value={promoInput}
+                      disabled={isCheckingPromo}
                       onChange={(e) => setPromoInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                        if (e.key === 'Enter' && !isCheckingPromo) {
                           e.preventDefault();
                           applyCode(promoInput, true);
                         }
                       }}
                       placeholder="Ex: EXPERT50, BOOST20..."
-                      className="flex-1 px-3.5 py-2.5 text-xs font-mono font-bold uppercase bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:normal-case placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="flex-1 px-3.5 py-2.5 text-xs font-mono font-bold uppercase bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:normal-case placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
                     />
                     <button
                       type="button"
+                      disabled={isCheckingPromo}
                       onClick={() => applyCode(promoInput, true)}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors shrink-0 shadow-2xs cursor-pointer"
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-colors shrink-0 shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 min-w-[95px]"
                     >
-                      Appliquer
+                      {isCheckingPromo ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Vérification...</span>
+                        </>
+                      ) : (
+                        'Appliquer'
+                      )}
                     </button>
                   </div>
                   <AnimatePresence mode="wait">
-                    {promoError && (
+                    {isCheckingPromo && (
+                      <motion.div
+                        key="promo-checking"
+                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="p-2.5 bg-indigo-50 border border-indigo-200/80 rounded-xl text-[11px] font-semibold text-indigo-700 flex items-center gap-2 shadow-2xs"
+                      >
+                        <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin shrink-0" />
+                        <span>Vérification du code promo en cours...</span>
+                      </motion.div>
+                    )}
+                    {!isCheckingPromo && promoError && (
                       <motion.div
                         key="promo-error"
                         initial={{ opacity: 0, y: -6, scale: 0.98 }}
@@ -815,7 +844,7 @@ END:VCALENDAR`;
                         <span>{promoError}</span>
                       </motion.div>
                     )}
-                    {promoSuccessMsg && (
+                    {!isCheckingPromo && promoSuccessMsg && (
                       <motion.div
                         key="promo-success"
                         initial={{ opacity: 0, y: -6, scale: 0.98 }}
