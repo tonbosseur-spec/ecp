@@ -137,7 +137,7 @@ export default function PublicCoursePage() {
       setAppliedPromo(match);
       setPromoInput(cleanCode);
       const discountLabel = match.discount_type === 'fixed' 
-        ? `${match.discount_value.toLocaleString('fr-FR')} FCFA` 
+        ? `${(match.discount_value || 0).toLocaleString('fr-FR')} FCFA` 
         : `${match.discount_value}%`;
       setPromoSuccessMsg(`Code "${match.code}" appliqué avec succès (-${discountLabel}) !`);
       if (id) {
@@ -161,8 +161,8 @@ export default function PublicCoursePage() {
   };
 
   const basePrice = course?.price_fcfa || 0;
-  const discountCalculation = appliedPromo ? calculateDiscountedPrice(basePrice, appliedPromo) : { finalPrice: basePrice, savings: 0 };
-  const effectivePrice = discountCalculation.finalPrice;
+  const discountCalculation = appliedPromo ? calculateDiscountedPrice(basePrice, appliedPromo) : { finalPrice: basePrice, discountAmount: 0, savings: 0 };
+  const effectivePrice = discountCalculation.finalPrice || 0;
 
   // Accordion State
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
@@ -781,7 +781,7 @@ END:VCALENDAR`;
                     </div>
                   </div>
                   <span className="text-xs font-black text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
-                    -{discountCalculation.savings.toLocaleString('fr-FR')} FCFA
+                    -{(discountCalculation.savings ?? discountCalculation.discountAmount ?? 0).toLocaleString('fr-FR')} FCFA
                   </span>
                 </div>
               ) : (

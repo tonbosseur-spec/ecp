@@ -108,22 +108,22 @@ export function getDefaultPromoCodesForCourse(): PromoCode[] {
   }));
 }
 
-export function calculateDiscountedPrice(originalPrice: number, promo: PromoCode | null): { finalPrice: number, discountAmount: number } {
+export function calculateDiscountedPrice(originalPrice: number, promo: PromoCode | null): { finalPrice: number, discountAmount: number, savings: number } {
   if (!promo || !originalPrice || originalPrice <= 0) {
-    return { finalPrice: originalPrice, discountAmount: 0 };
+    return { finalPrice: originalPrice || 0, discountAmount: 0, savings: 0 };
   }
 
   let discount = 0;
   if (promo.discount_type === 'percentage') {
-    discount = Math.round((originalPrice * promo.discount_value) / 100);
+    discount = Math.round((originalPrice * (promo.discount_value || 0)) / 100);
   } else {
-    discount = promo.discount_value;
+    discount = promo.discount_value || 0;
   }
 
   discount = Math.min(discount, originalPrice); // Ne peut pas dépasser le prix initial
   const finalPrice = Math.max(0, originalPrice - discount);
 
-  return { finalPrice, discountAmount: discount };
+  return { finalPrice, discountAmount: discount, savings: discount };
 }
 
 /**

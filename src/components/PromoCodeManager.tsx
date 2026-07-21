@@ -163,10 +163,10 @@ export default function PromoCodeManager({ promoCodes, coursePriceFcfa, onChange
                 {coursePriceFcfa > 0 ? (
                   <div className="flex items-center justify-end gap-1.5">
                     <span className="text-xs text-slate-400 line-through">
-                      {coursePriceFcfa.toLocaleString('fr-FR')}
+                      {(coursePriceFcfa || 0).toLocaleString('fr-FR')}
                     </span>
                     <span className="text-xs font-black text-emerald-600">
-                      {finalPrice.toLocaleString('fr-FR')} FCFA
+                      {(finalPrice || 0).toLocaleString('fr-FR')} FCFA
                     </span>
                   </div>
                 ) : (
