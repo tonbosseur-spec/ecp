@@ -305,6 +305,7 @@ export default function ClientModuleView() {
   let isCurrentModuleLocked = false;
   let lockingModuleTitle = '';
   let isLockedByDate = false;
+  let isLockedByPreviousDate = false;
   
   if (currentIdx !== -1) {
     if (module.scheduled_date && new Date(module.scheduled_date).getTime() > new Date().getTime()) {
@@ -314,12 +315,17 @@ export default function ClientModuleView() {
 
     for (let i = 0; i < currentIdx; i++) {
       const prevMod = allModules[i];
+      if (prevMod.scheduled_date && new Date(prevMod.scheduled_date).getTime() > new Date().getTime()) {
+        isCurrentModuleLocked = true;
+        isLockedByPreviousDate = true;
+      }
+      
       const prevHasQuiz = quizModuleIds.includes(prevMod.id);
       const prevCompleted = completedIds.includes(prevMod.id);
       if (prevHasQuiz && !prevCompleted) {
         isCurrentModuleLocked = true;
         lockingModuleTitle = prevMod.title;
-        break;
+        // Don't break so we can check dates of all previous modules
       }
     }
   }
@@ -328,18 +334,20 @@ export default function ClientModuleView() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl animate-fade-in">
-          <div className={`w-16 h-16 ${isLockedByDate ? 'bg-amber-950/40 border-amber-500/30 text-amber-400' : 'bg-red-950/40 border-red-500/30 text-red-400'} rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse`}>
-            {isLockedByDate ? <Clock className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
+          <div className={`w-16 h-16 ${isLockedByDate || isLockedByPreviousDate ? 'bg-amber-950/40 border-amber-500/30 text-amber-400' : 'bg-red-950/40 border-red-500/30 text-red-400'} rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse`}>
+            {isLockedByDate || isLockedByPreviousDate ? <Clock className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
           </div>
           
-          <h2 className="text-2xl font-black mb-3 text-white tracking-tight">{isLockedByDate ? 'Bientôt disponible ⏳' : 'Accès Verrouillé 🔒'}</h2>
+          <h2 className="text-2xl font-black mb-3 text-white tracking-tight">{isLockedByDate || isLockedByPreviousDate ? 'Bientôt disponible ⏳' : 'Accès Verrouillé 🔒'}</h2>
           <p className="text-gray-400 text-sm leading-relaxed mb-6">
             {isLockedByDate 
               ? `Ce module sera disponible à partir du ${new Date(module.scheduled_date).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.` 
-              : `Pour explorer ce module, vous devez d'abord valider le quiz du module précédent :`}
+              : isLockedByPreviousDate
+                ? `Pour explorer ce module, vous devez d'abord attendre la disponibilité des modules précédents.`
+                : `Pour explorer ce module, vous devez d'abord valider le quiz du module précédent :`}
           </p>
           
-          {!isLockedByDate && (
+          {(!isLockedByDate && !isLockedByPreviousDate) && (
             <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl text-left mb-6 flex items-start gap-3">
               <div className="shrink-0 w-6 h-6 rounded-full bg-purple-900/40 text-purple-400 flex items-center justify-center font-bold text-xs mt-0.5">
                 💡

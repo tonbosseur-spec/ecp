@@ -305,18 +305,24 @@ export default function ClientCourseView() {
                   isLockedByDate = true;
                 }
 
+                let isLockedByPreviousDate = false;
                 let isLockedByQuiz = false;
                 for (let i = 0; i < index; i++) {
                   const prevMod = modules[i];
+                  
+                  if (prevMod.scheduled_date && new Date(prevMod.scheduled_date).getTime() > new Date().getTime()) {
+                    isLockedByPreviousDate = true;
+                  }
+
                   const prevHasQuiz = quizModuleIds.includes(prevMod.id);
                   const prevCompleted = completedIds.includes(prevMod.id);
                   if (prevHasQuiz && !prevCompleted) {
                     isLockedByQuiz = true;
-                    break;
+                    // Not breaking here anymore so we can check dates of all previous modules
                   }
                 }
                 
-                const isLocked = isLockedByQuiz || isLockedByDate;
+                const isLocked = isLockedByQuiz || isLockedByDate || isLockedByPreviousDate;
                 
                 return (
                   <div 
@@ -400,10 +406,16 @@ export default function ClientCourseView() {
                         <button
                           disabled
                           className="flex items-center justify-center gap-1.5 w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-                          title={isLockedByDate ? "Ce module sera disponible à la date programmée." : "Vous devez valider le quizz du module précédent pour débloquer ce module."}
+                          title={
+                            isLockedByDate 
+                              ? "Ce module sera disponible à la date programmée." 
+                              : isLockedByPreviousDate 
+                                ? "En attente de la disponibilité des modules précédents."
+                                : "Vous devez valider le quizz du module précédent pour débloquer ce module."
+                          }
                         >
                           <Lock className="w-3.5 h-3.5" />
-                          {isLockedByDate ? "Non disponible" : "Bloqué (Quizz requis)"}
+                          {isLockedByDate || isLockedByPreviousDate ? "Non disponible" : "Bloqué (Quizz requis)"}
                         </button>
                       ) : (
                         <Link
