@@ -31,6 +31,7 @@ interface ModuleInput {
   youtube_url?: string;
   download_files?: { name: string; url: string }[];
   quiz?: any;
+  scheduled_date?: string;
 }
 
 export default function CreateCourse() {
@@ -244,7 +245,8 @@ export default function CreateCourse() {
           order_index: index,
           long_summary: mod.long_summary || null,
           youtube_url: mod.youtube_url || null,
-          download_files: mod.download_files || []
+          download_files: mod.download_files || [],
+          scheduled_date: mod.scheduled_date ? new Date(mod.scheduled_date).toISOString() : null
         }));
 
         console.log("Inserting course modules (create payload):", modulesToInsert);
@@ -647,7 +649,7 @@ export default function CreateCourse() {
           <PromoCodeManager
             promoCodes={promoCodes}
             onChange={setPromoCodes}
-            basePriceFcfa={parseInt(priceFcfa, 10) || 0}
+            coursePriceFcfa={parseInt(priceFcfa, 10) || 0}
           />
 
           {/* Section: Liens & Médias / E-book */}
@@ -810,6 +812,15 @@ export default function CreateCourse() {
                             rows={2}
                             className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm resize-none"
                             placeholder="Description du module..."
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="datetime-local"
+                            value={mod.scheduled_date || ''}
+                            onChange={e => updateModule(mod.localId, 'scheduled_date', e.target.value)}
+                            className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-900 focus:ring-2 focus:ring-gray-900 transition-shadow text-sm font-medium"
+                            title="Date et heure de la séance (Optionnel)"
                           />
                         </div>
                         <div className="flex items-center justify-between pt-1">

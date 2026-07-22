@@ -920,7 +920,15 @@ END:VCALENDAR`;
                       <div className="flex-shrink-0 w-8 h-8 rounded-full theme-bg-light flex items-center justify-center font-bold text-sm">
                         {idx + 1}
                       </div>
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">{module.title}</h3>
+                      <div className="flex flex-col">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900">{module.title}</h3>
+                        {module.scheduled_date && (
+                          <div className="flex items-center gap-1.5 mt-1 text-xs font-medium text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full border border-emerald-100">
+                            <Clock className="w-3.5 h-3.5" />
+                            {new Date(module.scheduled_date).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {openModules[module.id] ? (
                       <ChevronUp className="w-5 h-5 theme-text flex-shrink-0" />

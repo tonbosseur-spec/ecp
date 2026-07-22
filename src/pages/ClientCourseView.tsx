@@ -300,16 +300,23 @@ export default function ClientCourseView() {
                 const fileCount = m.module_files?.length || 0;
                 
                 // Determine if this module is locked (if any previous module has a quiz and is not completed)
-                let isLocked = false;
+                let isLockedByDate = false;
+                if (m.scheduled_date && new Date(m.scheduled_date).getTime() > new Date().getTime()) {
+                  isLockedByDate = true;
+                }
+
+                let isLockedByQuiz = false;
                 for (let i = 0; i < index; i++) {
                   const prevMod = modules[i];
                   const prevHasQuiz = quizModuleIds.includes(prevMod.id);
                   const prevCompleted = completedIds.includes(prevMod.id);
                   if (prevHasQuiz && !prevCompleted) {
-                    isLocked = true;
+                    isLockedByQuiz = true;
                     break;
                   }
                 }
+                
+                const isLocked = isLockedByQuiz || isLockedByDate;
                 
                 return (
                   <div 
@@ -354,12 +361,18 @@ export default function ClientCourseView() {
                       </div>
 
                       {/* Title & Description */}
-                      <h4 className={`text-base font-black mb-2 leading-snug transition-colors ${
+                      <h4 className={`text-base font-black leading-snug transition-colors ${
                         isLocked ? 'text-gray-400' : 'text-gray-900 group-hover:text-purple-700'
                       }`}>
                         {m.title}
                       </h4>
-                      <p className={`text-xs leading-relaxed line-clamp-3 mb-4 ${
+                      {m.scheduled_date && (
+                        <div className={`flex items-center gap-1.5 mt-2 mb-2 text-xs font-medium w-fit px-2 py-0.5 rounded-full border ${isLocked ? 'text-gray-400 bg-gray-50 border-gray-200' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
+                          <Clock className="w-3.5 h-3.5" />
+                          {new Date(m.scheduled_date).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
+                      <p className={`text-xs leading-relaxed line-clamp-3 mb-4 mt-2 ${
                         isLocked ? 'text-gray-400/80' : 'text-gray-500'
                       }`}>
                         {m.description || "Aucune description rapide disponible pour ce module."}
@@ -387,10 +400,10 @@ export default function ClientCourseView() {
                         <button
                           disabled
                           className="flex items-center justify-center gap-1.5 w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-                          title="Vous devez valider le quizz du module précédent pour débloquer ce module."
+                          title={isLockedByDate ? "Ce module sera disponible à la date programmée." : "Vous devez valider le quizz du module précédent pour débloquer ce module."}
                         >
                           <Lock className="w-3.5 h-3.5" />
-                          Bloqué (Quizz requis)
+                          {isLockedByDate ? "Non disponible" : "Bloqué (Quizz requis)"}
                         </button>
                       ) : (
                         <Link

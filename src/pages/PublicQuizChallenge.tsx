@@ -317,7 +317,7 @@ export default function PublicQuizChallenge() {
         });
         const scorePercentage = questions.length > 0 ? (correctCount / questions.length) * 100 : 0;
         
-        await saveResult(authRes.data.session.user.id, scorePercentage, timeTakenSeconds, authRes.data.session.user.email);
+        await saveResult(authRes.data.session.user.id, scorePercentage, timeTakenSeconds);
         setStep('results');
         if (scorePercentage >= 80) triggerConfetti();
       }

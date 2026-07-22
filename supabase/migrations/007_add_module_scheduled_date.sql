@@ -1,0 +1,1 @@
+ALTER TABLE course_modules ADD COLUMN IF NOT EXISTS scheduled_date TIMESTAMPTZ;

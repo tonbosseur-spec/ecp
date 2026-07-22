@@ -19,7 +19,8 @@ import {
   Lock,
   X,
   Sun,
-  Moon
+  Moon,
+  Clock
 } from 'lucide-react';
 import {
   getCourseFromCache,
@@ -303,8 +304,14 @@ export default function ClientModuleView() {
   // Check if current module is locked
   let isCurrentModuleLocked = false;
   let lockingModuleTitle = '';
+  let isLockedByDate = false;
   
   if (currentIdx !== -1) {
+    if (module.scheduled_date && new Date(module.scheduled_date).getTime() > new Date().getTime()) {
+      isCurrentModuleLocked = true;
+      isLockedByDate = true;
+    }
+
     for (let i = 0; i < currentIdx; i++) {
       const prevMod = allModules[i];
       const prevHasQuiz = quizModuleIds.includes(prevMod.id);
@@ -321,24 +328,28 @@ export default function ClientModuleView() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl animate-fade-in">
-          <div className="w-16 h-16 bg-red-950/40 border border-red-500/30 text-red-400 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-            <Lock className="w-8 h-8" />
+          <div className={`w-16 h-16 ${isLockedByDate ? 'bg-amber-950/40 border-amber-500/30 text-amber-400' : 'bg-red-950/40 border-red-500/30 text-red-400'} rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse`}>
+            {isLockedByDate ? <Clock className="w-8 h-8" /> : <Lock className="w-8 h-8" />}
           </div>
           
-          <h2 className="text-2xl font-black mb-3 text-white tracking-tight">Accès Verrouillé 🔒</h2>
+          <h2 className="text-2xl font-black mb-3 text-white tracking-tight">{isLockedByDate ? 'Bientôt disponible ⏳' : 'Accès Verrouillé 🔒'}</h2>
           <p className="text-gray-400 text-sm leading-relaxed mb-6">
-            Pour explorer ce module, vous devez d'abord valider le quiz du module précédent :
+            {isLockedByDate 
+              ? `Ce module sera disponible à partir du ${new Date(module.scheduled_date).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.` 
+              : `Pour explorer ce module, vous devez d'abord valider le quiz du module précédent :`}
           </p>
           
-          <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl text-left mb-6 flex items-start gap-3">
-            <div className="shrink-0 w-6 h-6 rounded-full bg-purple-900/40 text-purple-400 flex items-center justify-center font-bold text-xs mt-0.5">
-              💡
+          {!isLockedByDate && (
+            <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl text-left mb-6 flex items-start gap-3">
+              <div className="shrink-0 w-6 h-6 rounded-full bg-purple-900/40 text-purple-400 flex items-center justify-center font-bold text-xs mt-0.5">
+                💡
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-0.5">Quiz requis</p>
+                <p className="text-sm font-bold text-slate-100">{lockingModuleTitle}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-0.5">Quiz requis</p>
-              <p className="text-sm font-bold text-slate-100">{lockingModuleTitle}</p>
-            </div>
-          </div>
+          )}
           
           <div className="space-y-3">
             <button
@@ -500,8 +511,14 @@ export default function ClientModuleView() {
               <h3 className={`text-xl sm:text-2xl font-black ${theme.title} leading-tight`}>
                 {module.title}
               </h3>
+              {module.scheduled_date && (
+                <div className="flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
+                  <Clock className="w-4 h-4" />
+                  {new Date(module.scheduled_date).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
               {module.description && (
-                <p className={`${theme.textDesc} text-sm leading-relaxed`}>
+                <p className={`${theme.textDesc} text-sm leading-relaxed mt-2`}>
                   {module.description}
                 </p>
               )}
