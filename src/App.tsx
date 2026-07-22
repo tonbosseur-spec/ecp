@@ -21,6 +21,11 @@ import ClientCourseView from './pages/ClientCourseView';
 import ClientModuleView from './pages/ClientModuleView';
 import Marketplace from './pages/Marketplace';
 import LandingPage from './pages/LandingPage';
+import ExpertisesPage from './pages/ExpertisesPage';
+import HowItWorksPage from './pages/HowItWorksPage';
+import MentionsLegalesPage from './pages/MentionsLegalesPage';
+import ConfidentialitePage from './pages/ConfidentialitePage';
+import CGUPage from './pages/CGUPage';
 import DownloadAppPage from './pages/DownloadAppPage';
 import QuizDemo from './pages/QuizDemo';
 import AdminHub from './pages/AdminHub';
@@ -84,6 +89,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirector />} />
+      <Route path="/expertises" element={<ExpertisesPage />} />
+      <Route path="/methodology" element={<HowItWorksPage />} />
+      <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
+      <Route path="/confidentialite" element={<ConfidentialitePage />} />
+      <Route path="/cgu" element={<CGUPage />} />
       <Route path="/download" element={<DownloadAppPage />} />
       <Route path="/quiz-demo" element={<QuizDemo />} />
       <Route path="/course/:id" element={<PublicCoursePage />} />

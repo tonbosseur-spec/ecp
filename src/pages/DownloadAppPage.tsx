@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import Footer from '../components/Footer';
 import { 
   GraduationCap, 
   Download, 
@@ -334,20 +335,7 @@ export default function DownloadAppPage() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-800 bg-slate-950 mt-12">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-2 text-slate-400">
-              <GraduationCap className="w-5 h-5" />
-              <span className="text-sm font-bold">© 2026 Exceller chez Pierre.</span>
-            </div>
-            <div className="flex items-center gap-6 text-[11px] font-black uppercase tracking-widest text-slate-500">
-              <span className="hover:text-white transition-colors cursor-pointer">Confidentialité</span>
-              <span className="hover:text-white transition-colors cursor-pointer">Support Client</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

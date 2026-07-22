@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabaseClient';
+import ClientNavBar from '../components/ClientNavBar';
 import { 
   Loader2, 
   Calendar, 
@@ -292,27 +293,7 @@ export default function Marketplace() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-12">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-                <ShoppingBag className="w-6 h-6" />
-              </div>
-              <span className="font-bold text-xl text-gray-900 tracking-tight">Exceller Market</span>
-            </div>
-            <button 
-              onClick={() => navigate('/client/hub')}
-              className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
-              title="Retour à mon espace"
-            >
-              <ChevronLeft className="w-6 h-6" />
-              <span className="text-sm font-bold">Retour</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <ClientNavBar currentSession={session} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <div className="mb-10 text-center max-w-2xl mx-auto">

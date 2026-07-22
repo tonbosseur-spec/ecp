@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useInView } from 'motion/react';
 import { supabase } from '../lib/supabaseClient';
+import ClientNavBar from '../components/ClientNavBar';
+import Footer from '../components/Footer';
 import { 
   GraduationCap, 
   Flame, 
@@ -65,67 +67,6 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
 
 export default function LandingPage() {
   const adminWhatsAppPhone = "237698389030"; // Pierre's phone number
-
-  const services = [
-    {
-      icon: <GraduationCap className="w-6 h-6 text-blue-600" />,
-      title: "Formations",
-      subtitle: "Apprentissage structuré",
-      desc: "Des programmes complets, étape par étape, animés par des formateurs experts pour acquérir de solides compétences professionnelles.",
-      color: "from-blue-50 to-blue-100/50 border-blue-150 text-blue-700",
-      iconBg: "bg-blue-100"
-    },
-    {
-      icon: <Flame className="w-6 h-6 text-orange-600" />,
-      title: "Cours intensifs",
-      subtitle: "Mise à niveau rapide",
-      desc: "Sessions accélérées conçues pour assimiler rapidement des concepts clés et opérationnaliser vos connaissances en un temps record.",
-      color: "from-orange-50 to-orange-100/50 border-orange-150 text-orange-700",
-      iconBg: "bg-orange-100"
-    },
-    {
-      icon: <BookOpen className="w-6 h-6 text-purple-600" />,
-      title: "Ressources & Vidéos",
-      subtitle: "Autonomie complète",
-      desc: "Bibliothèques d'e-books, de guides méthodologiques et de supports de cours à télécharger pour apprendre à votre propre rythme.",
-      color: "from-purple-50 to-purple-100/50 border-purple-150 text-purple-700",
-      iconBg: "bg-purple-100"
-    },
-    {
-      icon: <FileText className="w-6 h-6 text-emerald-600" />,
-      title: "Suivi de mémoires",
-      subtitle: "Méthodologie de recherche",
-      desc: "Accompagnement académique rigoureux pour la rédaction, la structuration et la préparation de vos soutenances de mémoire.",
-      color: "from-emerald-50 to-emerald-100/50 border-emerald-150 text-emerald-700",
-      iconBg: "bg-emerald-100"
-    },
-    {
-      icon: <BarChart3 className="w-6 h-6 text-pink-600" />,
-      title: "Analyses statistiques",
-      subtitle: "Traitement de données",
-      desc: "Analyses descriptives et inférentielles rigoureuses de vos données d'enquêtes ou d'entreprises pour particuliers et professionnels.",
-      color: "from-pink-50 to-pink-100/50 border-pink-150 text-pink-700",
-      iconBg: "bg-pink-100"
-    }
-  ];
-
-  const steps = [
-    {
-      num: "01",
-      title: "Création de compte",
-      desc: "Inscrivez-vous gratuitement sur la plateforme en quelques clics pour obtenir votre Espace Personnel sécurisé."
-    },
-    {
-      num: "02",
-      title: "Sélection ou Proposition",
-      desc: "Choisissez parmi nos services et formations disponibles, ou proposez-nous directement votre idée sur-mesure."
-    },
-    {
-      num: "03",
-      title: "Apprentissage & Suivi",
-      desc: "Accédez à vos modules, ressources et à votre Hub privé interactif pour démarrer votre progression."
-    }
-  ];
 
   const stats = [
     { target: 1200, suffix: "+", label: "Étudiants accompagnés" },
@@ -315,44 +256,7 @@ export default function LandingPage() {
       )}
 
       {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-2xl text-gray-900 tracking-tight">Exceller chez Pierre</span>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Link 
-                to={currentSession ? "/client/hub" : "/client/login"}
-                className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors px-3 py-2 rounded-xl hover:bg-gray-50 flex items-center gap-1.5"
-              >
-                <User className="w-4 h-4 text-gray-400" />
-                <span>Mon Hub</span>
-              </Link>
-              {currentSession ? (
-                <>
-                  <Link 
-                    to="/client/marketplace"
-                    className="hidden sm:inline-flex items-center justify-center px-4 py-2 bg-gray-950 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-all shadow-sm"
-                  >
-                    Catalogue
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link 
-                    to="/client/register"
-                    className="hidden sm:inline-flex items-center justify-center px-4 py-2 bg-gray-950 text-white rounded-xl font-bold text-xs hover:bg-gray-800 transition-all shadow-sm"
-                  >
-                    Créer un compte
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
+      <ClientNavBar currentSession={currentSession} />
 
       {/* 1. Hero Section */}
       <section className="relative bg-gradient-to-b from-blue-50/70 via-indigo-50/30 to-white pt-16 pb-20 sm:pb-28 overflow-hidden">
@@ -431,6 +335,18 @@ export default function LandingPage() {
               >
                 <Compass className="w-5 h-5 mr-2 text-gray-500" />
                 <span>Explorer le catalogue</span>
+              </Link>
+            </div>
+
+            {/* Download App APK CTA Button */}
+            <div className="pt-4 flex justify-center">
+              <Link
+                to="/download"
+                className="inline-flex items-center justify-center px-6 py-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-white font-extrabold rounded-2xl shadow-lg shadow-indigo-900/20 hover:shadow-xl hover:shadow-indigo-900/30 transition-all hover:scale-[1.02] active:scale-98 text-sm sm:text-base border border-indigo-500/30 gap-2.5 group"
+              >
+                <Smartphone className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                <span>Télécharger l'application mobile (APK)</span>
+                <Download className="w-4 h-4 text-gray-300 group-hover:translate-y-0.5 transition-transform" />
               </Link>
             </div>
           </motion.div>
@@ -521,86 +437,6 @@ export default function LandingPage() {
                 </div>
               </motion.div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. Section "Nos Services" */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight sm:text-4xl">
-              Nos Domaines d'Expertise
-            </h2>
-            <p className="text-gray-500 text-base">
-              Découvrez des prestations structurées et adaptées pour maximiser vos compétences et valoriser vos travaux de recherche.
-            </p>
-          </div>
-
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto justify-center">
-            {services.map((service, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className={`bg-gradient-to-b ${service.color} border p-6 sm:p-8 rounded-3xl flex flex-col justify-between hover:scale-105 hover:shadow-xl transition-all duration-300 group`}
-              >
-                <div className="space-y-4">
-                  <div className={`w-12 h-12 ${service.iconBg} rounded-2xl flex items-center justify-center shadow-xs mb-4`}>
-                    {service.icon}
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400 block mb-1">
-                      {service.subtitle}
-                    </span>
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {service.title}
-                    </h3>
-                  </div>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {service.desc}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 3. Section "Comment ça fonctionne ?" */}
-      <section className="py-20 bg-gray-50 border-y border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight sm:text-4xl">
-              Une Méthodologie Simple & Efficace
-            </h2>
-            <p className="text-gray-500 text-base">
-              Rejoignez la plateforme et lancez-vous dans votre parcours d'apprentissage en quelques instants.
-            </p>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto relative">
-            {steps.map((step, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.15 }}
-                className="bg-white p-8 rounded-3xl border border-gray-100 shadow-xs relative flex flex-col items-start"
-              >
-                <span className="text-5xl font-black text-blue-100 font-mono absolute top-4 right-6 select-none">
-                  {step.num}
-                </span>
-                <div className="px-4 h-10 bg-blue-50 text-blue-600 font-bold rounded-xl flex items-center justify-center text-sm mb-6 border border-blue-100 whitespace-nowrap">
-                  Étape {idx + 1}
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3">{step.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{step.desc}</p>
-              </motion.div>
-            ))}
           </div>
         </div>
       </section>
@@ -881,47 +717,7 @@ export default function LandingPage() {
       </section>
 
       {/* 5. Footer & Contact Direct */}
-      <footer className="bg-gray-950 text-gray-400 py-16 border-t border-gray-900">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-10">
-          <div className="max-w-xl mx-auto space-y-4">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Une question spécifique ? Discutons-en !
-            </h2>
-            <p className="text-gray-400 text-sm sm:text-base">
-              Notre équipe d'administration est disponible pour répondre à vos demandes personnalisées, besoins en statistiques ou encadrements particuliers.
-            </p>
-          </div>
-
-          {/* WhatsApp Direct CTA */}
-          <div>
-            <a
-              href={`https://wa.me/${adminWhatsAppPhone}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-900/30 hover:scale-105 active:scale-95 transition-all text-base gap-2.5"
-            >
-              <MessageSquare className="w-5 h-5 fill-white text-white" />
-              <span>Contactez-nous sur WhatsApp</span>
-            </a>
-          </div>
-
-          <div className="border-t border-gray-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-            <div className="flex items-center gap-2 text-white">
-              <span className="font-black text-3xl tracking-tighter">Exceller chez Pierre</span>
-            </div>
-            
-            <div className="flex gap-4">
-              <Link to="/client/login" className="hover:text-white transition-colors">Espace Client</Link>
-              <span className="text-gray-800">|</span>
-              <Link to="/login" className="hover:text-white transition-colors">Portail Admin</Link>
-            </div>
-
-            <p className="text-gray-600">
-              © {new Date().getFullYear()} Exceller chez Pierre. Tous droits réservés.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer adminWhatsAppPhone={adminWhatsAppPhone} />
     </div>
   );
 }
