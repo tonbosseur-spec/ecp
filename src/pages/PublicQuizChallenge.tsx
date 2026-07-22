@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { getQuizClassForScore, QUIZ_CLASSES, extractCoursePromoCodes, PromoCode } from '../lib/promoUtils';
-import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, HelpCircle, ExternalLink, Zap, Ticket } from 'lucide-react';
+import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, Users, HelpCircle, ExternalLink, Zap, Ticket, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
@@ -45,8 +45,18 @@ export default function PublicQuizChallenge() {
   const [course, setCourse] = useState<any>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState<'landing' | 'quiz' | 'auth' | 'results'>('landing');
+  const [step, setStep] = useState<'landing' | 'participant_form' | 'quiz' | 'auth' | 'results'>('landing');
   const [session, setSession] = useState<any>(null);
+
+  const [participantForm, setParticipantForm] = useState({
+    firstName: '',
+    lastName: '',
+    whatsappCountry: '+237',
+    whatsappNumber: '',
+    email: ''
+  });
+  const [participantFormLoading, setParticipantFormLoading] = useState(false);
+
   const [authMode, setAuthMode] = useState<'register'|'login'>('register');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -130,7 +140,37 @@ export default function PublicQuizChallenge() {
     }
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    setParticipantFormLoading(true);
+    setStep('participant_form');
+    
+    // Auto-fill if user is logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const { data: profile } = await supabase
+        .from('client_profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (profile) {
+        setParticipantForm({
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          whatsappCountry: '+237',
+          whatsappNumber: profile.phone_number || '',
+          email: session.user.email || ''
+        });
+      } else {
+        setParticipantForm(prev => ({ ...prev, email: session.user.email || '' }));
+      }
+    }
+    
+    setParticipantFormLoading(false);
+  };
+
+  const handleStartQuiz = (e: React.FormEvent) => {
+    e.preventDefault();
     setStep('quiz');
     setCurrentIdx(0);
     setAnswers([]);
@@ -199,35 +239,50 @@ export default function PublicQuizChallenge() {
     }
     
     const { data: { session: currentSession } } = await supabase.auth.getSession();
+    await saveResult(currentSession?.user?.id || null, scorePercentage, elapsed);
     
-    if (currentSession) {
-      await saveResult(currentSession.user.id, scorePercentage, elapsed, currentSession.user.email);
-      setStep('results');
-      if (scorePercentage >= 60) triggerConfetti();
-    } else {
-      setStep('auth');
-    }
+    setStep('results');
+    if (scorePercentage >= 60) triggerConfetti();
   };
 
-  const saveResult = async (userId: string, score: number, durationSec: number, userEmail?: string) => {
+  const saveResult = async (userId: string | null, score: number, durationSec: number) => {
     try {
+      // 1. Log in the new dedicated quiz_results table for beautiful Admin Dashboard
+      try {
+        await supabase.from('quiz_results').insert({
+          course_id: courseId,
+          user_id: userId,
+          first_name: participantForm.firstName,
+          last_name: participantForm.lastName,
+          whatsapp_country: participantForm.whatsappCountry,
+          whatsapp_number: participantForm.whatsappNumber,
+          email: participantForm.email,
+          score_percentage: score,
+          duration_sec: durationSec
+        });
+      } catch (err) {
+        console.warn('quiz_results insert failed, falling back to course_proposals only', err);
+      }
+
+      // 2. Also keep the old course_proposals lead insertion for backwards compatibility/lead tracking
       const quizClass = getQuizClassForScore(score);
       const coursePromoCodes = extractCoursePromoCodes(course);
       const unlockedPromo = coursePromoCodes.find(p => p.min_score === quizClass.minScore && p.max_score === quizClass.maxScore) || {
         code: quizClass.defaultCode,
-        discount_value: quizClass.defaultDiscount
+        discount_value: quizClass.defaultDiscount,
+        discount_type: 'percentage'
       };
 
       await supabase.from('course_proposals').insert({
         client_id: userId,
         course_id: courseId,
         custom_title: `Résultat Quizz (${quizClass.title}) : ${course?.title}`,
-        description: `Email: ${userEmail || email || 'Non renseigné'} | Score : ${Math.round(score)}% (${quizClass.name} - ${quizClass.title}) | Temps : ${formatDuration(durationSec)} | Code Promo : ${unlockedPromo.code} (-${unlockedPromo.discount_value}${unlockedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})`,
+        description: `Nom: ${participantForm.firstName} ${participantForm.lastName} | Email: ${participantForm.email} | WhatsApp: ${participantForm.whatsappCountry}${participantForm.whatsappNumber} | Score : ${Math.round(score)}% (${quizClass.name} - ${quizClass.title}) | Temps : ${formatDuration(durationSec)} | Code Promo : ${unlockedPromo.code} (-${unlockedPromo.discount_value}${unlockedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})`,
         status: 'quiz_lead',
         price: 0
       });
     } catch (e) {
-      console.error(e);
+      console.error('Error saving result', e);
     }
   };
 
@@ -455,12 +510,119 @@ export default function PublicQuizChallenge() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleStart}
-                  className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl text-lg font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-xl shadow-indigo-600/20 group cursor-pointer"
+                  disabled={participantFormLoading}
+                  className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl text-lg font-bold hover:from-indigo-700 hover:to-purple-700 transition-all shadow-xl shadow-indigo-600/20 group cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
                 >
-                  Lancer le Challenge Maintenant
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  {participantFormLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Lancer le Challenge Maintenant'}
+                  {!participantFormLoading && <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
                 </motion.button>
               )}
+            </div>
+          </motion.div>
+        )}
+
+        {step === 'participant_form' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-xl mx-auto"
+          >
+            <div className="bg-white rounded-[2rem] p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mb-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5">
+                <Users className="w-32 h-32 text-indigo-900" />
+              </div>
+              
+              <div className="relative z-10 text-center mb-8">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-indigo-100">
+                  <User className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">Vos informations</h2>
+                <p className="text-slate-500 text-sm">Veuillez indiquer vos coordonnées pour valider votre participation et recevoir vos résultats.</p>
+              </div>
+
+              <form onSubmit={handleStartQuiz} className="space-y-5 relative z-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-slate-700">Prénom</label>
+                    <input
+                      type="text"
+                      required
+                      value={participantForm.firstName}
+                      onChange={e => setParticipantForm(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                      placeholder="Votre prénom"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-slate-700">Nom</label>
+                    <input
+                      type="text"
+                      required
+                      value={participantForm.lastName}
+                      onChange={e => setParticipantForm(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                      placeholder="Votre nom"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-700">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={participantForm.email}
+                    onChange={e => setParticipantForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                    placeholder="votre.email@exemple.com"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-700">Numéro WhatsApp</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={participantForm.whatsappCountry}
+                      onChange={e => setParticipantForm(prev => ({ ...prev, whatsappCountry: e.target.value }))}
+                      className="w-32 px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors appearance-none cursor-pointer"
+                    >
+                      <option value="+237">🇨🇲 +237</option>
+                      <option value="+33">🇫🇷 +33</option>
+                      <option value="+225">🇨🇮 +225</option>
+                      <option value="+221">🇸🇳 +221</option>
+                      <option value="+241">🇬🇦 +241</option>
+                      <option value="+242">🇨🇬 +242</option>
+                      <option value="+243">🇨🇩 +243</option>
+                      <option value="+1">🇺🇸 +1</option>
+                    </select>
+                    <input
+                      type="tel"
+                      required
+                      value={participantForm.whatsappNumber}
+                      onChange={e => setParticipantForm(prev => ({ ...prev, whatsappNumber: e.target.value }))}
+                      className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                      placeholder="690000000"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setStep('landing')}
+                    className="px-6 py-3 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                  >
+                    Démarrer le Quizz
+                    <Play className="w-4 h-4 fill-current" />
+                  </button>
+                </div>
+              </form>
             </div>
           </motion.div>
         )}

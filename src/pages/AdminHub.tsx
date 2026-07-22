@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2 } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
 
@@ -10,6 +10,7 @@ export default function AdminHub() {
   const [pendingPayments, setPendingPayments] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'formations' | 'paiements' | 'quizz'>('formations');
   const [quizLeads, setQuizLeads] = useState<any[]>([]);
+  const [quizResults, setQuizResults] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Modal Quiz Settings State
@@ -80,6 +81,13 @@ export default function AdminHub() {
         .select('*, client_profiles(first_name, last_name), courses(title)')
         .eq('status', 'quiz_lead')
         .order('created_at', { ascending: false });
+
+      // Fetch dedicated quiz results
+      const { data: qResults } = await supabase
+        .from("quiz_results")
+        .select("*, courses(title)")
+        .order("created_at", { ascending: false });
+      if (qResults) setQuizResults(qResults);
 
       if (leadsData) setQuizLeads(leadsData);
 
@@ -337,6 +345,40 @@ export default function AdminHub() {
         
         {activeTab === 'quizz' ? (
           <div className="animate-fade-in space-y-8">
+            
+            {/* KPI Dashboard */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-3">
+                  <Users className="w-6 h-6" />
+                </div>
+                <span className="text-3xl font-black text-gray-900">{quizResults.length}</span>
+                <span className="text-sm font-semibold text-gray-500 mt-1">Participants Totaux</span>
+              </div>
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-3">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <span className="text-3xl font-black text-gray-900">
+                  {quizResults.length > 0 
+                    ? Math.round(quizResults.reduce((acc, curr) => acc + curr.score_percentage, 0) / quizResults.length)
+                    : 0}%
+                </span>
+                <span className="text-sm font-semibold text-gray-500 mt-1">Score Moyen</span>
+              </div>
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-3">
+                  <Target className="w-6 h-6" />
+                </div>
+                <span className="text-3xl font-black text-gray-900">
+                  {quizResults.length > 0 
+                    ? Math.round((quizResults.filter(r => r.score_percentage >= 60).length / quizResults.length) * 100)
+                    : 0}%
+                </span>
+                <span className="text-sm font-semibold text-gray-500 mt-1">Taux de Réussite (≥ 60%)</span>
+              </div>
+            </div>
+
             {/* List of quiz links */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Liens des Challenges Publics</h3>
@@ -385,16 +427,82 @@ export default function AdminHub() {
               </div>
             </div>
 
-            {/* List of leads */}
+            {/* List of Quiz Results */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-gray-900">Répondants aux Quizz ({quizLeads.length})</h3>
+                <h3 className="text-lg font-bold text-gray-900">Résultats Détaillés ({quizResults.length})</h3>
               </div>
               <div className="divide-y divide-gray-100">
-                {quizLeads.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500 font-medium">Aucun répondant pour le moment.</div>
+                {quizResults.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500 font-medium">Aucun résultat récent.</div>
                 ) : (
-                  quizLeads.map((lead) => (
+                  quizResults.map((result) => (
+                    <div key={result.id} className="p-6 hover:bg-gray-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className="font-bold text-gray-900">
+                            {result.first_name} {result.last_name}
+                          </span>
+                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-lg font-medium">
+                            {new Date(result.created_at).toLocaleDateString()} à {new Date(result.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {result.score_percentage >= 60 ? (
+                            <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Succès
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg font-bold flex items-center gap-1">
+                              <X className="w-3.5 h-3.5" /> Échec
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-bold text-indigo-600 mb-2">{result.courses?.title || 'Quizz'}</p>
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700">Email:</span>
+                            {result.email || 'Non renseigné'}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700">WhatsApp:</span>
+                            {result.whatsapp_number ? `${result.whatsapp_country} ${result.whatsapp_number}` : 'Non renseigné'}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700">Score:</span>
+                            <span className="font-black text-gray-900">{Math.round(result.score_percentage)}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700">Temps:</span>
+                            {Math.floor(result.duration_sec / 60)}m {result.duration_sec % 60}s
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {result.whatsapp_number && (
+                        <div className="shrink-0 flex items-center gap-2">
+                          <a 
+                            href={`https://wa.me/${result.whatsapp_country.replace('+', '')}${result.whatsapp_number}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            WhatsApp
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {quizLeads.length > 0 && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden opacity-75">
+                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-gray-900">Anciens Leads ({quizLeads.length})</h3>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {quizLeads.map((lead) => (
                     <div key={lead.id} className="p-6 hover:bg-gray-50/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-3 mb-1">
@@ -421,10 +529,10 @@ export default function AdminHub() {
                         </Link>
                       </div>
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : activeTab === 'paiements' ? (
 
