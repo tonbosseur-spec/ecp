@@ -306,6 +306,7 @@ export default function ClientModuleView() {
   let lockingModuleTitle = '';
   let isLockedByDate = false;
   let isLockedByPreviousDate = false;
+  let isLockedBySessions = false;
   
   if (currentIdx !== -1) {
     if (module.scheduled_date && new Date(module.scheduled_date).getTime() > new Date().getTime()) {
@@ -325,7 +326,17 @@ export default function ClientModuleView() {
       if (prevHasQuiz && !prevCompleted) {
         isCurrentModuleLocked = true;
         lockingModuleTitle = prevMod.title;
-        // Don't break so we can check dates of all previous modules
+      }
+
+      // Check sessions of previous module
+      const prevSessions = (prevMod.download_files || []).filter((f: any) => f.type === 'session');
+      if (prevSessions.length > 0) {
+        const allPrevSessionsCompleted = prevSessions.every((s: any) => s.isCompleted);
+        if (!allPrevSessionsCompleted) {
+          isCurrentModuleLocked = true;
+          isLockedBySessions = true;
+          lockingModuleTitle = prevMod.title;
+        }
       }
     }
   }
@@ -344,7 +355,9 @@ export default function ClientModuleView() {
               ? `Ce module sera disponible à partir du ${new Date(module.scheduled_date).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.` 
               : isLockedByPreviousDate
                 ? `Pour explorer ce module, vous devez d'abord attendre la disponibilité des modules précédents.`
-                : `Pour explorer ce module, vous devez d'abord valider le quiz du module précédent :`}
+                : isLockedBySessions
+                  ? `Pour explorer ce module, toutes les séances du module précédent doivent avoir été réalisées (même si le quiz est déjà validé) :`
+                  : `Pour explorer ce module, vous devez d'abord valider le quiz du module précédent :`}
           </p>
           
           {(!isLockedByDate && !isLockedByPreviousDate) && (
@@ -353,7 +366,9 @@ export default function ClientModuleView() {
                 💡
               </div>
               <div>
-                <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-0.5">Quiz requis</p>
+                <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-0.5">
+                  {isLockedBySessions ? 'Séances requises' : 'Quiz requis'}
+                </p>
                 <p className="text-sm font-bold text-slate-100">{lockingModuleTitle}</p>
               </div>
             </div>
@@ -375,7 +390,10 @@ export default function ClientModuleView() {
 
   const embedUrl = getYoutubeEmbedUrl(module.youtube_url);
   // Support either the new module_files relation or old download_files JSON array
-  const filesList = module.module_files && module.module_files.length > 0 ? module.module_files : (module.download_files || []);
+  const rawFilesList = module.module_files && module.module_files.length > 0 ? module.module_files : (module.download_files || []);
+  
+  const filesList = rawFilesList.filter((f: any) => f.type !== 'session');
+  const sessionsList = rawFilesList.filter((f: any) => f.type === 'session').sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const theme = {
     bgApp: isLightMode ? 'bg-slate-50' : 'bg-slate-950',
@@ -592,6 +610,46 @@ export default function ClientModuleView() {
                 </p>
               )}
             </div>
+
+            {/* Planning des Séances */}
+            {sessionsList && sessionsList.length > 0 && (
+              <div className={`space-y-4 border-t ${theme.divider} pt-6`}>
+                <span className="text-[10px] font-black uppercase text-orange-500 tracking-wider flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  Programme des Séances ({sessionsList.length})
+                </span>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sessionsList.map((session: any, idx: number) => {
+                    const isDone = session.isCompleted;
+                    return (
+                      <div key={idx} className={`p-4 rounded-2xl border ${isDone ? 'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/50' : isLightMode ? 'bg-orange-50/50 border-orange-100' : 'bg-orange-950/20 border-orange-900/50'} relative transition-colors`}>
+                        {isDone && (
+                          <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-sm">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className={`text-sm font-bold ${isDone ? 'text-emerald-800 dark:text-emerald-400' : 'text-orange-800 dark:text-orange-400'}`}>
+                            {session.name}
+                          </h4>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300'}`}>
+                            {new Date(session.date).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
+                        {session.objectives && session.objectives.length > 0 && (
+                          <ul className={`text-xs space-y-1 mt-2 pl-4 list-disc ${isDone ? 'text-emerald-700 dark:text-emerald-300' : 'text-orange-700 dark:text-orange-300'}`}>
+                            {session.objectives.map((obj: string, i: number) => (
+                              <li key={i}>{obj}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Downloadable files */}
             <div className={`space-y-3 border-t ${theme.divider} pt-6`}>

@@ -1,0 +1,13 @@
+Voici la requête SQL pour ajouter la colonne `sessions` (de type JSON) à votre table `course_modules` :
+
+```sql
+ALTER TABLE course_modules 
+ADD COLUMN IF NOT EXISTS sessions JSONB DEFAULT '[]'::jsonb;
+```
+
+**💡 Note importante :** 
+Vous **n'avez pas besoin** d'exécuter cette requête pour que l'application fonctionne ! 
+
+Pour que tout soit immédiatement opérationnel sans nécessiter de migration manuelle de votre base de données, j'ai temporairement stocké les séances dans la colonne JSON `download_files` qui existait déjà, en leur attribuant un type spécifique (`type: 'session'`).
+
+Si vous préférez séparer proprement les données et utiliser cette nouvelle colonne `sessions` dans la base de données, n'hésitez pas à me le dire, j'adapterai le code en conséquence !

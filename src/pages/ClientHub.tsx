@@ -757,13 +757,23 @@ export default function ClientHub() {
                       
                       // Check if locked
                       let isLocked = false;
+                      let lockReason = "";
                       for (let i = 0; i < index; i++) {
                         const prevMod = courseModules[i];
                         const prevHasQuiz = quizModuleIds.includes(prevMod.id);
                         const prevCompleted = completedModuleIds.includes(prevMod.id);
                         if (prevHasQuiz && !prevCompleted) {
                           isLocked = true;
-                          break;
+                          lockReason = "Vous devez valider le quizz du module précédent pour débloquer ce module.";
+                        }
+
+                        const prevSessions = (prevMod.download_files || []).filter((f: any) => f.type === 'session');
+                        if (prevSessions.length > 0) {
+                          const allPrevSessionsCompleted = prevSessions.every((s: any) => s.isCompleted);
+                          if (!allPrevSessionsCompleted) {
+                            isLocked = true;
+                            lockReason = "Toutes les séances du module précédent doivent être réalisées pour débloquer ce module.";
+                          }
                         }
                       }
                       
@@ -779,7 +789,7 @@ export default function ClientHub() {
                                 ? 'bg-purple-600 text-white border-purple-600 shadow-md'
                                 : 'bg-white text-gray-700 border-gray-100 hover:bg-gray-100 hover:border-gray-200'
                           }`}
-                          title={isLocked ? "Vous devez valider le quizz du module précédent pour débloquer ce module." : undefined}
+                          title={isLocked ? lockReason : undefined}
                         >
                           <div className={`mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
                             isLocked

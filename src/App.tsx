@@ -29,6 +29,7 @@ import CGUPage from './pages/CGUPage';
 import DownloadAppPage from './pages/DownloadAppPage';
 import QuizDemo from './pages/QuizDemo';
 import AdminHub from './pages/AdminHub';
+import AdminSessionsDashboard from './pages/AdminSessionsDashboard';
 import AdminLayout from './components/AdminLayout';
 import { Loader2 } from 'lucide-react';
 
@@ -122,6 +123,7 @@ export default function App() {
           <Route path="/courses/:id" element={<AdminCourseDetails />} />
           <Route path="/trainers" element={<ManageTrainers />} />
           <Route path="/admin/hub" element={<AdminHub />} />
+          <Route path="/admin/sessions" element={<AdminSessionsDashboard />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       ) : (

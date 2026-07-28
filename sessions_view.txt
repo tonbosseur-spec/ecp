@@ -1,0 +1,39 @@
+            {/* Planning des Séances */}
+            {sessionsList && sessionsList.length > 0 && (
+              <div className={`space-y-4 border-t ${theme.divider} pt-6`}>
+                <span className="text-[10px] font-black uppercase text-orange-500 tracking-wider flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  Programme des Séances ({sessionsList.length})
+                </span>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sessionsList.map((session: any, idx: number) => {
+                    const isDone = session.isCompleted;
+                    return (
+                      <div key={idx} className={`p-4 rounded-2xl border ${isDone ? 'bg-emerald-50/50 border-emerald-100' : isLightMode ? 'bg-orange-50/50 border-orange-100' : 'bg-orange-950/20 border-orange-900/50'} relative transition-colors`}>
+                        {isDone && (
+                          <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-sm">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className={`text-sm font-bold ${isDone ? 'text-emerald-800' : 'text-orange-800 dark:text-orange-400'}`}>
+                            {session.name}
+                          </h4>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {new Date(session.date).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
+                        {session.objectives && session.objectives.length > 0 && (
+                          <ul className={`text-xs space-y-1 mt-2 pl-4 list-disc ${isDone ? 'text-emerald-700' : 'text-orange-700 dark:text-orange-300'}`}>
+                            {session.objectives.map((obj: string, i: number) => (
+                              <li key={i}>{obj}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}

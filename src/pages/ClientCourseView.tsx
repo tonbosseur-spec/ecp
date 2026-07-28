@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { 
@@ -16,8 +16,12 @@ import {
   CheckCircle2,
   WifiOff,
   RefreshCw,
-  Lock
+  Lock,
+  Calendar,
+  CheckSquare,
+  Sparkles
 } from 'lucide-react';
+import { ModuleSession } from '../types';
 import { 
   getCourseFromCache, 
   getModulesFromCache, 
@@ -150,6 +154,128 @@ export default function ClientCourseView() {
     checkAuthAndFetchData();
   }, [courseId, navigate]);
 
+  // Extract all sessions across accessible/unlocked modules with module metadata
+  const allCourseSessions = useMemo(() => {
+    const result: { session: ModuleSession; module: any; moduleIndex: number }[] = [];
+    
+    modules.forEach((mod, modIdx) => {
+      // Determine if module is locked
+      let isLockedByDate = false;
+      if (mod.scheduled_date && new Date(mod.scheduled_date).getTime() > new Date().getTime()) {
+        isLockedByDate = true;
+      }
+
+      let isLockedByPreviousDate = false;
+      let isLockedByQuiz = false;
+      let isLockedBySessions = false;
+      for (let i = 0; i < modIdx; i++) {
+        const prevMod = modules[i];
+        if (prevMod.scheduled_date && new Date(prevMod.scheduled_date).getTime() > new Date().getTime()) {
+          isLockedByPreviousDate = true;
+        }
+        const prevHasQuiz = quizModuleIds.includes(prevMod.id);
+        const prevCompleted = completedIds.includes(prevMod.id);
+        if (prevHasQuiz && !prevCompleted) {
+          isLockedByQuiz = true;
+        }
+
+        const prevSessions = (prevMod.download_files || []).filter((f: any) => f.type === 'session');
+        if (prevSessions.length > 0) {
+          const allPrevSessionsCompleted = prevSessions.every((s: any) => s.isCompleted);
+          if (!allPrevSessionsCompleted) {
+            isLockedBySessions = true;
+          }
+        }
+      }
+
+      const isLocked = isLockedByQuiz || isLockedByDate || isLockedByPreviousDate || isLockedBySessions;
+      if (isLocked) {
+        // Do not expose sessions for locked modules
+        return;
+      }
+
+      const rawFiles = mod.download_files || [];
+      const modSessions = rawFiles.filter((f: any) => f.type === 'session') as ModuleSession[];
+      
+      modSessions.forEach(session => {
+        result.push({
+          session,
+          module: mod,
+          moduleIndex: modIdx
+        });
+      });
+    });
+
+    return result;
+  }, [modules, quizModuleIds, completedIds]);
+
+  // Helper to determine end time of a session
+  const getSessionEndTime = (dateStr: string): number => {
+    if (!dateStr) return Infinity;
+    if (dateStr.includes('T') || dateStr.includes(':')) {
+      return new Date(dateStr).getTime();
+    }
+    const d = new Date(dateStr);
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  };
+
+  const formatSessionDateTime = (dateStr: string) => {
+    if (!dateStr) return 'Date non spécifiée';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+
+    const hasTime = dateStr.includes('T') || dateStr.includes(':');
+    const dateFormatted = d.toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    if (hasTime) {
+      const timeFormatted = d.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      return `${dateFormatted} à ${timeFormatted}`;
+    }
+
+    return dateFormatted;
+  };
+
+  // Find the next upcoming session (uncompleted session whose date/time has NOT passed yet)
+  const nextSessionData = useMemo(() => {
+    if (allCourseSessions.length === 0) return null;
+
+    const now = Date.now();
+
+    const sorted = [...allCourseSessions].sort((a, b) => {
+      const dateA = a.session.date ? new Date(a.session.date).getTime() : Infinity;
+      const dateB = b.session.date ? new Date(b.session.date).getTime() : Infinity;
+      if (dateA !== dateB) return dateA - dateB;
+      return a.moduleIndex - b.moduleIndex;
+    });
+
+    const upcoming = sorted.find(item => {
+      if (item.session.isCompleted) return false;
+      const endTime = getSessionEndTime(item.session.date);
+      return endTime >= now;
+    });
+
+    if (upcoming) {
+      return {
+        allCompleted: false,
+        data: upcoming
+      };
+    }
+
+    return {
+      allCompleted: true,
+      data: sorted[sorted.length - 1]
+    };
+  }, [allCourseSessions]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3">
@@ -276,6 +402,84 @@ export default function ClientCourseView() {
           </div>
         </div>
 
+        {/* Next Session Tile */}
+        {nextSessionData && nextSessionData.data && (
+          <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-orange-500/10 border-2 border-orange-200/80 rounded-3xl p-6 sm:p-7 shadow-sm mb-8 relative overflow-hidden">
+            {/* Top Badge & Module Link */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-orange-200/50">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black text-white shadow-xs ${
+                  nextSessionData.allCompleted ? 'bg-emerald-600' : 'bg-orange-500'
+                }`}>
+                  <Calendar className="w-3.5 h-3.5" />
+                  {nextSessionData.allCompleted ? 'Toutes les séances réalisées' : 'PROCHAINE SÉANCE PROGRAMMÉE'}
+                </span>
+                <span className="text-xs font-bold text-orange-900/80 bg-orange-100/60 px-2.5 py-0.5 rounded-md">
+                  Module {nextSessionData.data.moduleIndex + 1}
+                </span>
+              </div>
+
+              <span className="text-xs font-extrabold text-slate-800 bg-white/80 backdrop-blur-xs px-3 py-1 rounded-xl border border-orange-200/60 truncate max-w-md">
+                {nextSessionData.data.module.title}
+              </span>
+            </div>
+
+            {/* Content Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+              {/* Left Column: Date & Title */}
+              <div className="md:col-span-6 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-orange-700">
+                  <Clock className="w-4 h-4 text-orange-500" />
+                  <span>
+                    {formatSessionDateTime(nextSessionData.data.session.date)}
+                  </span>
+                </div>
+
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {nextSessionData.data.session.name}
+                </h3>
+
+                {nextSessionData.data.session.completionPercent > 0 && (
+                  <p className="text-xs text-orange-800/80 font-semibold">
+                    Impact sur le module : +{nextSessionData.data.session.completionPercent}% de progression
+                  </p>
+                )}
+              </div>
+
+              {/* Right Column: Objectives & CTA */}
+              <div className="md:col-span-6 bg-white/90 backdrop-blur-xs rounded-2xl p-4 border border-orange-100 shadow-xs space-y-3">
+                <p className="text-[11px] font-black uppercase text-orange-600 tracking-wider flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  Objectifs de la séance
+                </p>
+
+                {nextSessionData.data.session.objectives && nextSessionData.data.session.objectives.length > 0 ? (
+                  <ul className="space-y-1.5 text-xs text-slate-700 font-medium">
+                    {nextSessionData.data.session.objectives.map((obj, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
+                        <span>{obj}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">Aucun objectif spécifique renseigné pour cette séance.</p>
+                )}
+
+                <div className="pt-2 flex justify-end">
+                  <Link
+                    to={`/client/course/${courseId}/module/${nextSessionData.data.module.id}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl transition-all shadow-xs hover:shadow-md"
+                  >
+                    Accéder au module
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modules Grid */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -307,6 +511,7 @@ export default function ClientCourseView() {
 
                 let isLockedByPreviousDate = false;
                 let isLockedByQuiz = false;
+                let isLockedBySessions = false;
                 for (let i = 0; i < index; i++) {
                   const prevMod = modules[i];
                   
@@ -318,11 +523,19 @@ export default function ClientCourseView() {
                   const prevCompleted = completedIds.includes(prevMod.id);
                   if (prevHasQuiz && !prevCompleted) {
                     isLockedByQuiz = true;
-                    // Not breaking here anymore so we can check dates of all previous modules
+                  }
+
+                  // Check if previous module has uncompleted sessions
+                  const prevSessions = (prevMod.download_files || []).filter((f: any) => f.type === 'session');
+                  if (prevSessions.length > 0) {
+                    const allPrevSessionsCompleted = prevSessions.every((s: any) => s.isCompleted);
+                    if (!allPrevSessionsCompleted) {
+                      isLockedBySessions = true;
+                    }
                   }
                 }
                 
-                const isLocked = isLockedByQuiz || isLockedByDate || isLockedByPreviousDate;
+                const isLocked = isLockedByQuiz || isLockedByDate || isLockedByPreviousDate || isLockedBySessions;
                 
                 return (
                   <div 
@@ -383,6 +596,56 @@ export default function ClientCourseView() {
                       }`}>
                         {m.description || "Aucune description rapide disponible pour ce module."}
                       </p>
+
+                      {/* Display sessions for accessible / unlocked modules only */}
+                      {!isLocked && (() => {
+                        const modSessions = (m.download_files || []).filter((f: any) => f.type === 'session') as ModuleSession[];
+                        if (modSessions.length === 0) return null;
+
+                        return (
+                          <div className="mt-3 pt-3 border-t border-orange-100 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-black uppercase text-orange-600 tracking-wider">
+                              <span className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-orange-500" />
+                                Séances programmées ({modSessions.length})
+                              </span>
+                            </div>
+                            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                              {modSessions.map((s, sIdx) => (
+                                <div 
+                                  key={s.id || sIdx}
+                                  className={`p-2 rounded-xl text-xs border ${
+                                    s.isCompleted 
+                                      ? 'bg-emerald-50/70 border-emerald-200/80 text-emerald-950' 
+                                      : 'bg-orange-50/50 border-orange-200/60 text-slate-900'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-bold text-xs truncate flex items-center gap-1">
+                                      {s.isCompleted && <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />}
+                                      {s.name}
+                                    </span>
+                                    <span className="text-[10px] font-medium text-slate-500 shrink-0">
+                                      {s.date ? (
+                                        s.date.includes('T') || s.date.includes(':') 
+                                          ? `${new Date(s.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${new Date(s.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                                          : new Date(s.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                                      ) : ''}
+                                    </span>
+                                  </div>
+                                  {s.objectives && s.objectives.length > 0 && (
+                                    <ul className="text-[10px] text-slate-600 list-disc pl-3.5 mt-1 space-y-0.5">
+                                      {s.objectives.map((obj, oIdx) => (
+                                        <li key={oIdx} className="line-clamp-2">{obj}</li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Footer indicators and Call to action */}
@@ -411,11 +674,17 @@ export default function ClientCourseView() {
                               ? "Ce module sera disponible à la date programmée." 
                               : isLockedByPreviousDate 
                                 ? "En attente de la disponibilité des modules précédents."
-                                : "Vous devez valider le quizz du module précédent pour débloquer ce module."
+                                : isLockedBySessions
+                                  ? "Toutes les séances du module précédent doivent être réalisées pour débloquer ce module (même si le quizz est validé)."
+                                  : "Vous devez valider le quizz du module précédent pour débloquer ce module."
                           }
                         >
                           <Lock className="w-3.5 h-3.5" />
-                          {isLockedByDate || isLockedByPreviousDate ? "Non disponible" : "Bloqué (Quizz requis)"}
+                          {isLockedByDate || isLockedByPreviousDate 
+                            ? "Non disponible" 
+                            : isLockedBySessions 
+                              ? "Bloqué (Séances requises)" 
+                              : "Bloqué (Quizz requis)"}
                         </button>
                       ) : (
                         <Link

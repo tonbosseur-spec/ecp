@@ -1,11 +1,53 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { LayoutDashboard, PlusCircle, LogOut, Users, Store, Shield } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, LogOut, Users, Store, Shield, CalendarCheck } from 'lucide-react';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [overdueSessionsCount, setOverdueSessionsCount] = useState(0);
+
+  useEffect(() => {
+    fetchOverdueCount();
+  }, [location.pathname]);
+
+  const fetchOverdueCount = async () => {
+    try {
+      const { data: courses } = await supabase
+        .from('courses')
+        .select('course_modules(download_files)')
+        .eq('is_archived', false);
+
+      let count = 0;
+      const now = Date.now();
+
+      courses?.forEach((c: any) => {
+        c.course_modules?.forEach((m: any) => {
+          const files = m.download_files || [];
+          files.forEach((f: any) => {
+            if (f.type === 'session' && !f.isCompleted && f.date) {
+              let sTime: number;
+              if (f.date.includes('T') || f.date.includes(':')) {
+                sTime = new Date(f.date).getTime();
+              } else {
+                const d = new Date(f.date);
+                d.setHours(23, 59, 59, 999);
+                sTime = d.getTime();
+              }
+              if (!isNaN(sTime) && sTime < now) {
+                count++;
+              }
+            }
+          });
+        });
+      });
+
+      setOverdueSessionsCount(count);
+    } catch (err) {
+      console.error("Error fetching overdue sessions count:", err);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -17,6 +59,7 @@ export default function AdminLayout() {
     { path: '/courses/new', icon: PlusCircle, label: 'Nouvelle formation' },
     { path: '/admin/hub', icon: Store, label: 'Espace Hub' },
     { path: '/trainers', icon: Users, label: 'Formateurs' },
+    { path: '/admin/sessions', icon: CalendarCheck, label: 'Séances (Formateur)', showBadge: overdueSessionsCount > 0, badgeCount: overdueSessionsCount },
   ];
 
   const isFullScreenForm = location.pathname === '/courses/new' || location.pathname.startsWith('/edit-course');
@@ -45,14 +88,23 @@ export default function AdminLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                className={`flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
                   isActive 
                     ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100/50' 
                     : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                  <span>{item.label}</span>
+                </div>
+                {item.showBadge && (
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-xs ${
+                    isActive ? 'bg-red-500 text-white' : 'bg-red-600 text-white'
+                  }`}>
+                    {item.badgeCount}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -89,11 +141,16 @@ export default function AdminLayout() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex flex-col items-center justify-center w-16 h-full gap-1 transition-colors ${
+                  className={`flex flex-col items-center justify-center w-16 h-full gap-1 transition-colors relative ${
                     isActive ? 'text-gray-900' : 'text-gray-400 hover:text-gray-600'
                   }`}
                 >
-                  <Icon className={`w-6 h-6 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                  <div className="relative">
+                    <Icon className={`w-6 h-6 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                    {item.showBadge && (
+                      <span className="absolute -top-1 -right-1.5 w-3 h-3 bg-red-600 rounded-full border-2 border-white animate-pulse" />
+                    )}
+                  </div>
                   <span className="text-[10px] font-medium">{item.label === 'Nouvelle formation' ? 'Nouveau' : item.label === 'Espace Hub' ? 'Hub' : item.label}</span>
                 </Link>
               );

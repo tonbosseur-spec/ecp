@@ -280,12 +280,14 @@ export default function CreateCourse() {
               }
 
               if (originalMod.download_files && originalMod.download_files.length > 0) {
-                originalMod.download_files.forEach(file => {
-                  filesToInsert.push({
-                    module_id: savedMod.id,
-                    name: file.name,
-                    url: file.url
-                  });
+                originalMod.download_files.forEach((file: any) => {
+                  if (file.url && file.type !== 'session') {
+                    filesToInsert.push({
+                      module_id: savedMod.id,
+                      name: file.name,
+                      url: file.url
+                    });
+                  }
                 });
               }
             }

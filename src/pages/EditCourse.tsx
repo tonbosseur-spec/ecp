@@ -158,13 +158,19 @@ export default function EditCourse() {
           const sortedModules = courseData.course_modules.sort((a: any, b: any) => a.order_index - b.order_index);
           const mappedModules = sortedModules.map((m: any) => {
             const moduleQuiz = quizzesData?.find((q: any) => q.module_id === m.id);
+            const rawFiles = m.download_files || [];
+            const sessions = rawFiles.filter((f: any) => f.type === 'session');
+            const filesFromRaw = rawFiles.filter((f: any) => f.type !== 'session');
+            const filesFromTable = m.module_files || [];
+            const effectiveFiles = filesFromTable.length > 0 ? filesFromTable : filesFromRaw;
+
             return {
               localId: m.id || Math.random().toString(36).substring(7),
               title: m.title,
               description: m.description,
               long_summary: m.long_summary || '',
               youtube_url: m.youtube_url || '',
-              download_files: m.module_files && m.module_files.length > 0 ? m.module_files : (m.download_files || []),
+              download_files: [...effectiveFiles, ...sessions],
               quiz: moduleQuiz ? { title: moduleQuiz.title, questions: moduleQuiz.questions } : null,
               scheduled_date: m.scheduled_date ? m.scheduled_date.substring(0, 16) : ''
             };
@@ -394,12 +400,14 @@ export default function EditCourse() {
 
                 // Préparer fichiers
                 if (originalMod.download_files && originalMod.download_files.length > 0) {
-                  originalMod.download_files.forEach(file => {
-                    filesToInsert.push({
-                      module_id: savedMod.id,
-                      name: file.name,
-                      url: file.url
-                    });
+                  originalMod.download_files.forEach((file: any) => {
+                    if (file.url && file.type !== 'session') {
+                      filesToInsert.push({
+                        module_id: savedMod.id,
+                        name: file.name,
+                        url: file.url
+                      });
+                    }
                   });
                 }
               }

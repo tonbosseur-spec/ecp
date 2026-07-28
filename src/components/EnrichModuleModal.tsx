@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { QuizEditorModal } from './QuizEditorModal';
+import { ModuleSession } from '../types';
 
 interface DownloadFile {
   name: string;
@@ -348,6 +349,7 @@ export function EnrichModuleModal({
   // Custom States
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [downloadFiles, setDownloadFiles] = useState<DownloadFile[]>([]);
+  const [sessions, setSessions] = useState<ModuleSession[]>([]);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [quiz, setQuiz] = useState<any | null>(null);
   const [isQuizEditorOpen, setIsQuizEditorOpen] = useState(false);
@@ -360,7 +362,13 @@ export function EnrichModuleModal({
   useEffect(() => {
     if (isOpen) {
       setYoutubeUrl(initialData.youtube_url || '');
-      setDownloadFiles(initialData.download_files || []);
+      
+      const rawFiles = initialData.download_files || [];
+      const loadedFiles = rawFiles.filter((f: any) => f.type !== 'session');
+      const loadedSessions = (rawFiles.filter((f: any) => f.type === 'session') as unknown) as ModuleSession[];
+      
+      setDownloadFiles(loadedFiles);
+      setSessions(loadedSessions);
       setQuiz(initialData.quiz || null);
       
       const longSummary = initialData.long_summary || '';
@@ -396,6 +404,32 @@ export function EnrichModuleModal({
     if (window.confirm('Voulez-vous effacer toutes les mises en forme du résumé ?')) {
       handleCommand('removeFormat');
     }
+  };
+
+  // Sessions Handlers
+  const addSession = () => {
+    const now = new Date();
+    const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+
+    setSessions([...sessions, { 
+      id: crypto.randomUUID(), 
+      name: `Séance ${sessions.length + 1}`, 
+      objectives: [], 
+      completionPercent: 0, 
+      date: localISO,
+      isCompleted: false,
+      type: 'session' 
+    }]);
+  };
+
+  const removeSession = (index: number) => {
+    setSessions(sessions.filter((_, i) => i !== index));
+  };
+
+  const updateSession = (index: number, key: keyof ModuleSession, value: any) => {
+    setSessions(sessions.map((s, i) => (i === index ? { ...s, [key]: value } : s)));
   };
 
   // Download Files Handlers
@@ -546,11 +580,21 @@ export function EnrichModuleModal({
 
     // Filter out invalid files
     const validFiles = downloadFiles.filter(f => f.name.trim() !== '' && f.url.trim() !== '');
+    const validSessions = sessions
+      .filter(s => s.name.trim() !== '')
+      .map(s => ({
+        ...s,
+        objectives: (Array.isArray(s.objectives) ? s.objectives : [])
+          .map(o => o.trim())
+          .filter(Boolean)
+      }));
+
+    const combinedFiles = [...validFiles, ...validSessions] as any;
 
     onSave({
       long_summary: summaryHtml,
       youtube_url: youtubeUrl.trim(),
-      download_files: validFiles,
+      download_files: combinedFiles,
       quiz: quiz,
     });
     onClose();
@@ -1051,6 +1095,140 @@ export function EnrichModuleModal({
                   <Plus className="w-3.5 h-3.5" />
                   Créer le Quizz
                 </button>
+              </div>
+            )}
+          </div>
+
+          {/* Section 5: Séances (Sessions) */}
+          <div className="space-y-3 pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                <CheckSquare className="w-4 h-4 text-orange-500" />
+                5. Séances du module
+              </label>
+              <button
+                type="button"
+                onClick={addSession}
+                className="text-xs text-orange-600 hover:text-orange-800 hover:underline font-semibold flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" /> Ajouter une séance
+              </button>
+            </div>
+            
+            {sessions.length === 0 ? (
+              <div className="bg-slate-50 border border-dashed border-gray-200 rounded-2xl p-6 text-center flex flex-col items-center">
+                <p className="text-xs text-gray-500 mb-3 max-w-lg">
+                  Ajoutez les séances prévues pour ce module. Le formateur pourra les cocher comme réalisées et les apprenants verront le planning.
+                </p>
+                <button
+                  type="button"
+                  onClick={addSession}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-all shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Créer une séance
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {sessions.map((session, index) => (
+                  <div key={session.id} className="p-4 bg-orange-50 border border-orange-100 rounded-2xl relative">
+                    <button
+                      type="button"
+                      onClick={() => removeSession(index)}
+                      className="absolute top-3 right-3 p-1.5 text-orange-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Supprimer la séance"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
+                      <div className="sm:col-span-1">
+                        <label className="block text-[11px] font-bold text-orange-800 mb-1">Nom de la séance</label>
+                        <input
+                          type="text"
+                          value={session.name}
+                          onChange={(e) => updateSession(index, 'name', e.target.value)}
+                          className="w-full text-xs p-2 border border-orange-200 rounded-lg bg-white focus:ring-1 focus:ring-orange-500"
+                          placeholder="ex: M1S1 - Introduction"
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <label className="block text-[11px] font-bold text-orange-800 mb-1">Date de la séance</label>
+                        <input
+                          type="date"
+                          value={session.date ? (session.date.includes('T') ? session.date.substring(0, 10) : session.date) : ''}
+                          onChange={(e) => {
+                            const newDate = e.target.value;
+                            const currentTime = session.date && session.date.includes('T') ? session.date.substring(11, 16) : '09:00';
+                            updateSession(index, 'date', newDate ? `${newDate}T${currentTime}` : '');
+                          }}
+                          className="w-full text-xs p-2 border border-orange-200 rounded-lg bg-white focus:ring-1 focus:ring-orange-500 font-medium"
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <label className="block text-[11px] font-bold text-orange-800 mb-1 flex items-center justify-between">
+                          <span>Heure précise</span>
+                          <span className="text-[10px] text-orange-600 font-normal">Ex: 14:30</span>
+                        </label>
+                        <input
+                          type="time"
+                          value={session.date && session.date.includes('T') ? session.date.substring(11, 16) : '09:00'}
+                          onChange={(e) => {
+                            const newTime = e.target.value || '09:00';
+                            const currentDate = session.date ? (session.date.includes('T') ? session.date.substring(0, 10) : session.date) : new Date().toISOString().substring(0, 10);
+                            updateSession(index, 'date', `${currentDate}T${newTime}`);
+                          }}
+                          className="w-full text-xs p-2 border border-orange-200 rounded-lg bg-white focus:ring-1 focus:ring-orange-500 font-bold text-orange-900"
+                        />
+                        {/* Quick hour selector shortcuts */}
+                        <div className="flex items-center gap-1 mt-1.5 overflow-x-auto pb-0.5">
+                          {['09:00', '10:00', '14:00', '16:00', '18:00', '20:00'].map((timePreset) => {
+                            const activeTime = session.date && session.date.includes('T') ? session.date.substring(11, 16) : '09:00';
+                            const isSelected = activeTime === timePreset;
+                            return (
+                              <button
+                                key={timePreset}
+                                type="button"
+                                onClick={() => {
+                                  const currentDate = session.date ? (session.date.includes('T') ? session.date.substring(0, 10) : session.date) : new Date().toISOString().substring(0, 10);
+                                  updateSession(index, 'date', `${currentDate}T${timePreset}`);
+                                }}
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-all ${
+                                  isSelected 
+                                    ? 'bg-orange-600 text-white shadow-2xs scale-105' 
+                                    : 'bg-orange-100/80 hover:bg-orange-200 text-orange-800'
+                                }`}
+                              >
+                                {timePreset}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="sm:col-span-1">
+                        <label className="block text-[11px] font-bold text-orange-800 mb-1">Progression module (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={session.completionPercent}
+                          onChange={(e) => updateSession(index, 'completionPercent', parseInt(e.target.value) || 0)}
+                          className="w-full text-xs p-2 border border-orange-200 rounded-lg bg-white focus:ring-1 focus:ring-orange-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="block text-[11px] font-bold text-orange-800 mb-1">Objectifs (un par ligne)</label>
+                        <textarea
+                          rows={3}
+                          value={Array.isArray(session.objectives) ? session.objectives.join('\n') : (session.objectives || '')}
+                          onChange={(e) => updateSession(index, 'objectives', e.target.value.split('\n'))}
+                          className="w-full text-xs p-2 border border-orange-200 rounded-lg bg-white focus:ring-1 focus:ring-orange-500"
+                          placeholder={"Découvrir l'interface\nMaîtriser les formules\nCréer un tableau de bord"}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
