@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send, Archive, ArchiveRestore } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send, Archive, ArchiveRestore, UserX, UserCheck, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ShareCourseButton from '../components/ShareCourseButton';
 
@@ -22,6 +22,7 @@ interface Registration {
   participant_name: string;
   participant_email: string;
   participant_phone: string;
+  payment_status?: string;
   registered_at: string;
 }
 
@@ -50,7 +51,7 @@ export default function AdminCourseDetails() {
       
       const [courseResponse, registrationsResponse, modulesResponse] = await Promise.all([
         supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active, product_type, is_archived').eq('id', id).single(),
-        supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, registered_at').eq('course_id', id).order('registered_at', { ascending: false }),
+        supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, payment_status, registered_at').eq('course_id', id).order('registered_at', { ascending: false }),
         supabase.from('course_modules').select('id, title').eq('course_id', id)
       ]);
 
@@ -161,10 +162,59 @@ export default function AdminCourseDetails() {
     }
   };
 
-  const formatWhatsAppLink = (phone: string) => {
-    // Remove all non-numeric characters for the wa.me link
-    const numericPhone = phone.replace(/\D/g, '');
-    return `https://wa.me/${numericPhone}`;
+  const formatWhatsAppLink = (phone: string, name?: string) => {
+    let numericPhone = (phone || '').replace(/\D/g, '');
+    if (numericPhone.length === 9 && (numericPhone.startsWith('6') || numericPhone.startsWith('2'))) {
+      numericPhone = '237' + numericPhone;
+    }
+    const msg = name && course
+      ? `Bonjour ${name}, je vous me permets de vous contacter concernant la formation "${course.title}".`
+      : `Bonjour, je vous me permets de vous contacter concernant votre formation.`;
+    return `https://wa.me/${numericPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const handleToggleRegistrationAccess = async (registrationId: string, name: string, currentStatus?: string) => {
+    const isApproved = currentStatus === 'approved';
+    const newStatus = isApproved ? 'rejected' : 'approved';
+    const actionText = isApproved 
+      ? `désinscrire ${name} de la formation "${course?.title}" (son accès au compte sera immédiatement retiré)`
+      : `réinscrire ${name} et lui réactiver l'accès à la formation "${course?.title}"`;
+
+    if (!window.confirm(`Voulez-vous vraiment ${actionText} ?`)) return;
+
+    // Immediate local state update for instant UI feedback
+    setRegistrations(prev => prev.map(r => r.id === registrationId ? { ...r, payment_status: newStatus } : r));
+
+    try {
+      const { error } = await supabase
+        .from('registrations')
+        .update({ payment_status: newStatus })
+        .eq('id', registrationId);
+
+      if (error) console.warn("Notice updating registration status:", error.message);
+    } catch (err: any) {
+      console.warn("Could not update registration status in DB:", err);
+    }
+  };
+
+  const handleDeleteRegistration = async (registrationId: string, name: string) => {
+    if (!window.confirm(`Suppression définitive : Voulez-vous vraiment supprimer le compte / l'inscription de "${name}" pour cette formation ? Cette action est irréversible.`)) {
+      return;
+    }
+
+    // Immediate local state update for instant UI feedback
+    setRegistrations(prev => prev.filter(r => r.id !== registrationId));
+
+    try {
+      const { error } = await supabase
+        .from('registrations')
+        .delete()
+        .eq('id', registrationId);
+
+      if (error) console.warn("Notice deleting registration:", error.message);
+    } catch (err: any) {
+      console.warn("Could not delete registration in DB:", err);
+    }
   };
 
   const toggleActive = async () => {
@@ -414,14 +464,36 @@ export default function AdminCourseDetails() {
             const totalCount = courseModules.length;
             const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+            const isApproved = participant.payment_status === 'approved';
+            const isRejected = participant.payment_status === 'rejected' || participant.payment_status === 'cancelled';
+            const isPending = !isApproved && !isRejected;
+
             return (
-              <div key={`${participant.id}-${index}`} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-gray-900">{participant.participant_name}</h3>
+              <div key={`${participant.id}-${index}`} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900 text-sm">{participant.participant_name}</h3>
+                    {isApproved ? (
+                      <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                        Accès Actif
+                      </span>
+                    ) : isRejected ? (
+                      <span className="text-[10px] font-extrabold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                        Désinscrit (Accès retiré)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                        En attente
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-md">{date}</span>
                 </div>
                 
-                <div className="space-y-2 mb-4">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Mail className="w-4 h-4 text-gray-400" />
                     <a href={`mailto:${participant.participant_email}`} className="truncate hover:text-gray-900">
@@ -456,16 +528,45 @@ export default function AdminCourseDetails() {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-gray-50">
+                {/* Actions bar: WhatsApp, Désinscrire/Réinscrire, Supprimer */}
+                <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
                   <a
-                    href={formatWhatsAppLink(participant.participant_phone)}
+                    href={formatWhatsAppLink(participant.participant_phone, participant.participant_name)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-2 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 font-medium text-sm rounded-xl transition-colors"
+                    className="flex-1 min-w-[130px] flex items-center justify-center gap-1.5 py-2 px-3 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 font-bold text-xs rounded-xl transition-colors border border-[#25D366]/20"
                   >
-                    <MessageCircle className="w-4 h-4" />
-                    Contacter via WhatsApp
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    WhatsApp
                   </a>
+
+                  {isApproved ? (
+                    <button
+                      onClick={() => handleToggleRegistrationAccess(participant.id, participant.participant_name, participant.payment_status)}
+                      className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 py-2 px-3 bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs rounded-xl transition-colors border border-amber-200"
+                      title="Retirer l'accès et désinscrire cet élève"
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                      Désinscrire
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleToggleRegistrationAccess(participant.id, participant.participant_name, participant.payment_status)}
+                      className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold text-xs rounded-xl transition-colors border border-emerald-200"
+                      title="Réinscrire et réactiver l'accès"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      {isRejected ? 'Réinscrire' : 'Valider accès'}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => handleDeleteRegistration(participant.id, participant.participant_name)}
+                    className="p-2 text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 font-bold text-xs rounded-xl transition-colors border border-red-200 flex items-center justify-center"
+                    title="Supprimer définitivement ce compte / cette inscription"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             );

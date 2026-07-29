@@ -22,10 +22,18 @@ import {
   ExternalLink,
   RefreshCw,
   Check,
-  Lock
+  Lock,
+  Users,
+  Share2,
+  Copy,
+  Gift,
+  DollarSign,
+  TrendingUp,
+  Wallet
 } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
 import { dailyTips } from '../data/tips';
+import { getClientReferralCode, getParrainReferralSales, ReferralCodeInfo, ReferralSale } from '../lib/referralService';
 
 const stripHtml = (html: string) => {
   if (!html) return '';
@@ -44,11 +52,22 @@ export default function ClientHub() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments'>('hub');
+  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage'>('hub');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const navigate = useNavigate();
+
+  // Referral / Parrainage state
+  const [referralCode, setReferralCode] = useState<ReferralCodeInfo | null>(null);
+  const [referralSales, setReferralSales] = useState<ReferralSale[]>([]);
+  const [referralStats, setReferralStats] = useState({
+    totalReferredCount: 0,
+    totalSalesVolume: 0,
+    totalCommissionEarned: 0
+  });
+  const [copiedCodeToast, setCopiedCodeToast] = useState(false);
+  const [copiedLinkToast, setCopiedLinkToast] = useState(false);
 
   // Course detailed content (LMS) states
   const [activeCourseContentReg, setActiveCourseContentReg] = useState<any | null>(null);
@@ -130,7 +149,18 @@ export default function ClientHub() {
           setAllCompletedModuleIds(progressData.map(p => p.module_id));
         }
 
-        // Fetch proposals & interests
+        // Fetch referral code for parrainage
+        const refInfo = await getClientReferralCode(userId);
+        if (refInfo) {
+          setReferralCode(refInfo);
+          const salesData = await getParrainReferralSales(userId, refInfo.code);
+          setReferralSales(salesData.sales);
+          setReferralStats({
+            totalReferredCount: salesData.totalReferredCount,
+            totalSalesVolume: salesData.totalSalesVolume,
+            totalCommissionEarned: salesData.totalCommissionEarned
+          });
+        }
         const { data: propData, error: propError } = await supabase
           .from('course_proposals')
           .select('*, courses(*)')
@@ -540,6 +570,32 @@ export default function ClientHub() {
                   <p className="text-gray-500 text-xs font-medium">Suivi de vos tranches</p>
                 </div>
               </button>
+
+              {/* Parrainage & Commercial - 1 col (Si code promo attribué) */}
+              {referralCode && (
+                <button 
+                  onClick={() => setActiveSection('parrainage')}
+                  className="md:col-span-1 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-amber-900/20 hover:-translate-y-1 transition-all duration-300 min-h-[180px] text-white relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
+                    <Gift className="w-28 h-28 text-white" />
+                  </div>
+                  <div className="relative z-10 flex justify-between w-full items-start mb-6">
+                    <div className="bg-white/20 p-3.5 rounded-2xl backdrop-blur-sm">
+                      <Gift className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="bg-white/20 px-2.5 py-1 rounded-full text-[10px] font-black backdrop-blur-sm border border-white/20">
+                      10% Commission
+                    </span>
+                  </div>
+                  <div className="relative z-10">
+                    <h3 className="text-lg font-bold text-white mb-0.5">Mon Parrainage</h3>
+                    <p className="text-amber-100 text-xs font-medium">
+                      Code : <span className="font-extrabold underline">{referralCode.code}</span> ({referralStats.totalReferredCount} filleul{referralStats.totalReferredCount !== 1 ? 's' : ''})
+                    </p>
+                  </div>
+                </button>
+              )}
 
               {/* Catalogue - 1 col */}
               <Link 
@@ -1714,6 +1770,212 @@ export default function ClientHub() {
                 })()}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Parrainage & Commercial Section */}
+        {activeSection === 'parrainage' && (
+          <div className="space-y-6 animate-fade-in">
+            {!referralCode ? (
+              <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
+                <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-600">
+                  <Lock className="w-10 h-10" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Fonctionnalité non attribuée</h3>
+                <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+                  Vous n'avez pas de code promo de parrainage attribué à votre compte. Seuls les clients disposant d'un code commercial/parrain ont accès à cet espace.
+                </p>
+                <a 
+                  href="https://wa.me/237698389030?text=Bonjour,%20je%20souhaite%20obtenir%20un%20code%20promo%20de%20parrainage%20pour%20devenir%20commercial" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Demander un code parrain à l'Admin
+                </a>
+              </div>
+            ) : (
+              <>
+                {/* Header Banner with Promo Code & Copy Buttons */}
+                <div className="bg-gradient-to-br from-amber-600 via-orange-600 to-amber-800 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                    <Gift className="w-64 h-64 text-white" />
+                  </div>
+                  
+                  <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                      <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold mb-3 backdrop-blur-sm border border-white/20">
+                        <Gift className="w-3.5 h-3.5" />
+                        Espace Commercial & Parrainage Actif (10%)
+                      </div>
+                      <h2 className="text-2xl sm:text-3xl font-black mb-2">Votre Code Promo : <span className="underline decoration-amber-300">{referralCode.code}</span></h2>
+                      <p className="text-amber-100 text-xs sm:text-sm max-w-xl">
+                        Partagez votre code avec vos proches ou prospects. Chaque personne s'inscrivant avec votre code bénéficie de 10% de réduction, et vous touchez <strong className="text-white font-bold">10% de commission</strong> sur tous leurs paiements !
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                      {/* Copy Code */}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(referralCode.code);
+                          setCopiedCodeToast(true);
+                          setTimeout(() => setCopiedCodeToast(false), 2500);
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-gray-900 hover:bg-amber-50 rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+                      >
+                        {copiedCodeToast ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-amber-600" />}
+                        {copiedCodeToast ? 'Code Copié !' : 'Copier le Code'}
+                      </button>
+
+                      {/* Copy Share Link */}
+                      <button
+                        onClick={() => {
+                          const link = `${window.location.origin}/client/marketplace?promo=${referralCode.code}`;
+                          navigator.clipboard.writeText(link);
+                          setCopiedLinkToast(true);
+                          setTimeout(() => setCopiedLinkToast(false), 2500);
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-900/60 hover:bg-amber-900/80 text-white rounded-xl font-bold text-xs transition-all border border-amber-400/30 backdrop-blur-sm active:scale-95 cursor-pointer"
+                      >
+                        {copiedLinkToast ? <Check className="w-4 h-4 text-emerald-300" /> : <Share2 className="w-4 h-4 text-amber-200" />}
+                        {copiedLinkToast ? 'Lien Copié !' : 'Copier Lien d\'Affiliation'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3 KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Filleuls */}
+                  <div className="bg-white border border-gray-150 rounded-2xl p-5 flex items-center gap-4 shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Filleuls Parrainés</span>
+                      <span className="text-2xl font-black text-gray-900">{referralStats.totalReferredCount}</span>
+                      <span className="text-[11px] text-gray-400 block mt-0.5">Personne(s) inscrite(s)</span>
+                    </div>
+                  </div>
+
+                  {/* Ventes Totales */}
+                  <div className="bg-white border border-gray-150 rounded-2xl p-5 flex items-center gap-4 shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                      <TrendingUp className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Ventes Générées</span>
+                      <span className="text-2xl font-black text-gray-900">{referralStats.totalSalesVolume.toLocaleString('fr-FR')} FCFA</span>
+                      <span className="text-[11px] text-gray-400 block mt-0.5">Volume total d'achats</span>
+                    </div>
+                  </div>
+
+                  {/* Commissions (10%) */}
+                  <div className="bg-white border border-emerald-200 bg-emerald-50/30 rounded-2xl p-5 flex items-center justify-between gap-4 shadow-xs">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                        <Wallet className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Gain Rétribué (10%)</span>
+                        <span className="text-2xl font-black text-emerald-900">{referralStats.totalCommissionEarned.toLocaleString('fr-FR')} FCFA</span>
+                        <span className="text-[11px] text-emerald-700 block mt-0.5">Votre montant à réclamer</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Claim Money Action Bar */}
+                <div className="bg-white border border-amber-200 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm bg-gradient-to-r from-amber-50/50 to-orange-50/50">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      <DollarSign className="w-5 h-5 text-amber-600" />
+                      <span>Réclamer vos gains de parrainage</span>
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Cliquez ci-dessous pour contacter directement l'administrateur via WhatsApp avec le détail de vos commissions.
+                    </p>
+                  </div>
+
+                  <a
+                    href={`https://wa.me/237698389030?text=${encodeURIComponent(
+                      `Bonjour M. l'Administrateur,\n\nJe suis ${profile?.first_name || ''} ${profile?.last_name || ''} (Code Promo: ${referralCode.code}).\n\nJe souhaite réclamer mes commissions de parrainage :\n- Nombre de filleuls : ${referralStats.totalReferredCount}\n- Montant total des commissions (10%) : ${referralStats.totalCommissionEarned.toLocaleString('fr-FR')} FCFA.\n\nMerci de bien vouloir procéder à mon paiement.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 px-6 py-3.5 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all text-sm shrink-0 w-full sm:w-auto cursor-pointer"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Réclamer mon dû sur WhatsApp
+                  </a>
+                </div>
+
+                {/* Table of Referred Purchases */}
+                <div className="bg-white border border-gray-150 rounded-2xl p-6 shadow-xs">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">Achats de vos filleuls</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Liste des utilisateurs s'étant inscrits avec votre code promo</p>
+                    </div>
+                    <span className="text-xs font-extrabold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                      {referralSales.length} transaction{referralSales.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {referralSales.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 p-6">
+                      <Users className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <h4 className="text-sm font-bold text-gray-700">Aucun filleul inscrit pour le moment</h4>
+                      <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+                        Partagez votre code promo <strong className="text-amber-700 font-mono font-bold">{referralCode.code}</strong> à vos contacts. Dès leur inscription, leurs achats apparaîtront ici automatiquement !
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-gray-100 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+                            <th className="py-3 px-4">Filleul</th>
+                            <th className="py-3 px-4">Formation</th>
+                            <th className="py-3 px-4">Date</th>
+                            <th className="py-3 px-4">Prix Formation</th>
+                            <th className="py-3 px-4 text-right">Votre Commission (10%)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-xs">
+                          {referralSales.map((sale) => (
+                            <tr key={sale.id} className="hover:bg-gray-50/60 transition-colors">
+                              <td className="py-3.5 px-4">
+                                <span className="font-bold text-gray-900 block">{sale.buyerName}</span>
+                                <span className="text-[11px] text-gray-400 block">{sale.buyerEmail}</span>
+                              </td>
+                              <td className="py-3.5 px-4 font-medium text-gray-800">
+                                {sale.courseTitle}
+                              </td>
+                              <td className="py-3.5 px-4 text-gray-500">
+                                {new Date(sale.registeredAt).toLocaleDateString('fr-FR', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </td>
+                              <td className="py-3.5 px-4 font-bold text-gray-700">
+                                {sale.coursePrice.toLocaleString('fr-FR')} FCFA
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-black text-emerald-700 bg-emerald-50/40 rounded-lg">
+                                +{sale.commissionAmount.toLocaleString('fr-FR')} FCFA
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </main>

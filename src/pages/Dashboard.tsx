@@ -13,6 +13,10 @@ import {
   XCircle,
   Lightbulb,
   MessageSquare,
+  MessageCircle,
+  UserX,
+  UserCheck,
+  UserMinus,
   Check,
   X,
   ChevronDown,
@@ -24,10 +28,25 @@ import {
   Archive,
   ArchiveRestore,
   ArrowRight,
-  Clock
+  Clock,
+  Gift,
+  Tag,
+  DollarSign,
+  Wallet,
+  Percent,
+  Share2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AdminChat } from '../components/AdminChat';
+import { 
+  getClientReferralCode, 
+  setClientReferralCode, 
+  removeClientReferralCode, 
+  getLocalReferralCodes, 
+  getLocalReferralSales,
+  ReferralCodeInfo,
+  ReferralSale
+} from '../lib/referralService';
 
 interface Course {
   id: string;
@@ -54,7 +73,7 @@ interface PendingPayment {
 }
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'formations' | 'payments' | 'proposals' | 'messages' | 'students' | 'calendar'>('formations');
+  const [activeTab, setActiveTab] = useState<'formations' | 'payments' | 'proposals' | 'messages' | 'students' | 'calendar' | 'commerciaux'>('formations');
   
   const [courses, setCourses] = useState<Course[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -83,7 +102,13 @@ export default function Dashboard() {
   const [studentsSearch, setStudentsSearch] = useState('');
   const [studentsCourseFilter, setStudentsCourseFilter] = useState<string>('all');
   const [studentsProgressFilter, setStudentsProgressFilter] = useState<'all' | 'not_started' | 'in_progress' | 'completed'>('all');
+  const [studentsStatusFilter, setStudentsStatusFilter] = useState<'all' | 'active' | 'pending' | 'rejected'>('all');
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+
+  // Commercial / Referral Promo States
+  const [editingPromoStudent, setEditingPromoStudent] = useState<any | null>(null);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [savingPromo, setSavingPromo] = useState(false);
 
   useEffect(() => {
     fetchCourses();
@@ -275,6 +300,12 @@ export default function Dashboard() {
         const course_title = courseObj?.title || 'Formation inconnue';
         const course_type = courseObj?.product_type || 'formation';
 
+        // Check assigned promo code
+        const localCodes = getLocalReferralCodes();
+        const clientPromo = (client_id && localCodes[client_id])
+          ? localCodes[client_id].code
+          : ((reg as any).promo_code || '');
+
         return {
           id: reg.id,
           client_id,
@@ -292,6 +323,7 @@ export default function Dashboard() {
           average_quiz_score: averageQuizScore,
           has_quizzes_completed: quizScores.length > 0,
           modules_detail: modulesDetail,
+          promo_code: clientPromo
         };
       });
 
@@ -302,6 +334,141 @@ export default function Dashboard() {
     } finally {
       setLoadingStudents(false);
     }
+  };
+
+  const handleDeleteStudent = async (student: any) => {
+    if (!window.confirm(`Suppression définitive : Voulez-vous vraiment supprimer le compte et l'inscription de "${student.participant_name}" pour la formation "${student.course_title}" ?`)) {
+      return;
+    }
+
+    // Update local state immediately for instant feedback
+    setStudentsData(prev => prev.filter(s => s.id !== student.id));
+
+    try {
+      const { error } = await supabase
+        .from('registrations')
+        .delete()
+        .eq('id', student.id);
+
+      if (error) console.warn("Notice deleting registration:", error.message);
+
+      if (student.client_id) {
+        try {
+          await supabase.from('client_profiles').delete().eq('id', student.client_id);
+          await removeClientReferralCode(student.client_id);
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      setToast(`Compte/Inscription de ${student.participant_name} supprimé(e) avec succès.`);
+      setTimeout(() => setToast(null), 3000);
+    } catch (err: any) {
+      setToast(`Compte/Inscription supprimé(e).`);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
+  const handleToggleStudentAccess = async (student: any, newStatus: 'approved' | 'rejected' | 'pending') => {
+    const isDesinscrire = newStatus === 'rejected';
+    const actionLabel = isDesinscrire 
+      ? `désinscrire ${student.participant_name} de la formation "${student.course_title}" (son accès aux cours sera immédiatement retiré)`
+      : `réinscrire ${student.participant_name} et rétablir son accès à la formation "${student.course_title}"`;
+
+    if (!window.confirm(`Voulez-vous vraiment ${actionLabel} ?`)) {
+      return;
+    }
+
+    // Update local state immediately for instant feedback
+    setStudentsData(prev => prev.map(s => s.id === student.id ? { ...s, payment_status: newStatus } : s));
+
+    try {
+      const { error } = await supabase
+        .from('registrations')
+        .update({ payment_status: newStatus })
+        .eq('id', student.id);
+
+      if (error) console.warn("Notice updating payment_status:", error.message);
+
+      const toastMessage = isDesinscrire
+        ? `Accès retiré. ${student.participant_name} est désormais désinscrit(e).`
+        : `Accès débloqué avec succès pour ${student.participant_name}.`;
+
+      setToast(toastMessage);
+      setTimeout(() => setToast(null), 3000);
+    } catch (err: any) {
+      setToast(isDesinscrire ? "Accès retiré." : "Accès activé.");
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
+  const handleAssignPromoCode = async () => {
+    if (!editingPromoStudent) return;
+    const targetId = editingPromoStudent.client_id || editingPromoStudent.id;
+    const code = promoCodeInput.trim().toUpperCase();
+
+    if (!code) {
+      alert("Veuillez saisir un code promo commercial valide.");
+      return;
+    }
+
+    setSavingPromo(true);
+    try {
+      const res = await setClientReferralCode(targetId, code, {
+        name: editingPromoStudent.participant_name,
+        email: editingPromoStudent.participant_email,
+        phone: editingPromoStudent.participant_phone
+      });
+
+      if (!res.success) {
+        alert(res.message || "Erreur lors de l'attribution du code promo.");
+        setSavingPromo(false);
+        return;
+      }
+
+      // Update local studentsData state
+      setStudentsData(prev => prev.map(s => {
+        if (s.id === editingPromoStudent.id || (s.client_id && s.client_id === targetId)) {
+          return { ...s, promo_code: code };
+        }
+        return s;
+      }));
+
+      setToast(`Code promo "${code}" attribué à ${editingPromoStudent.participant_name}.`);
+      setTimeout(() => setToast(null), 3000);
+      setEditingPromoStudent(null);
+      setPromoCodeInput('');
+    } catch (e: any) {
+      alert("Erreur: " + e.message);
+    } finally {
+      setSavingPromo(false);
+    }
+  };
+
+  const handleRemovePromoCode = async (student: any) => {
+    const targetId = student.client_id || student.id;
+    if (!window.confirm(`Supprimer le code promo commercial de ${student.participant_name} ?`)) return;
+
+    await removeClientReferralCode(targetId);
+    setStudentsData(prev => prev.map(s => {
+      if (s.id === student.id || (s.client_id && s.client_id === targetId)) {
+        return { ...s, promo_code: '' };
+      }
+      return s;
+    }));
+    setToast(`Code promo supprimé pour ${student.participant_name}.`);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const getWhatsAppLink = (phone: string, name: string, courseTitle?: string) => {
+    let cleanPhone = (phone || '').replace(/\D/g, '');
+    if (cleanPhone.length === 9 && (cleanPhone.startsWith('6') || cleanPhone.startsWith('2'))) {
+      cleanPhone = '237' + cleanPhone;
+    }
+    const msg = courseTitle
+      ? `Bonjour ${name}, je vous me permets de vous contacter de la part de l'administration concernant votre formation "${courseTitle}".`
+      : `Bonjour ${name}, je vous me permets de vous contacter de la part de l'administration.`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
 
   const fetchUnreadMessages = async () => {
@@ -610,8 +777,11 @@ export default function Dashboard() {
 
   // Students calculations
   const studentKPIs = useMemo(() => {
-    // Count active students who have been approved
+    const totalAll = studentsData.length;
     const activeRegs = studentsData.filter(s => s.payment_status === 'approved');
+    const pendingRegs = studentsData.filter(s => s.payment_status === 'pending');
+    const rejectedRegs = studentsData.filter(s => s.payment_status === 'rejected' || s.payment_status === 'cancelled');
+
     const totalStudents = activeRegs.length;
     
     let totalCompletion = 0;
@@ -630,7 +800,10 @@ export default function Dashboard() {
     const avgQuizScore = quizScoreCount > 0 ? Math.round(quizScoreSum / quizScoreCount) : 0;
 
     return {
+      totalAll,
       totalStudents,
+      pendingCount: pendingRegs.length,
+      rejectedCount: rejectedRegs.length,
       avgCompletion,
       avgQuizScore,
       quizScoreCount
@@ -663,9 +836,18 @@ export default function Dashboard() {
         matchesProgress = student.completion_rate === 100;
       }
 
-      return matchesSearch && matchesCourse && matchesProgress;
+      let matchesStatus = true;
+      if (studentsStatusFilter === 'active') {
+        matchesStatus = student.payment_status === 'approved';
+      } else if (studentsStatusFilter === 'pending') {
+        matchesStatus = student.payment_status === 'pending';
+      } else if (studentsStatusFilter === 'rejected') {
+        matchesStatus = student.payment_status === 'rejected' || student.payment_status === 'cancelled';
+      }
+
+      return matchesSearch && matchesCourse && matchesProgress && matchesStatus;
     });
-  }, [studentsData, studentsSearch, studentsCourseFilter, studentsProgressFilter]);
+  }, [studentsData, studentsSearch, studentsCourseFilter, studentsProgressFilter, studentsStatusFilter]);
 
   if (loading) {
     return (
@@ -691,7 +873,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`p-4 sm:p-6 mx-auto pb-24 relative md:max-w-none md:px-8 w-full ${(activeTab === 'messages' || activeTab === 'students') ? 'max-w-5xl' : 'max-w-md'}`}>
+    <div className={`p-4 sm:p-6 mx-auto pb-24 relative md:max-w-none md:px-8 w-full ${(activeTab === 'messages' || activeTab === 'students' || activeTab === 'commerciaux') ? 'max-w-5xl' : 'max-w-md'}`}>
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-medium animate-in slide-in-from-top-4 fade-in duration-300">
           <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -700,8 +882,8 @@ export default function Dashboard() {
       )}
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Catalogue & Paiements</h1>
-        <p className="text-sm text-gray-500 mt-1">Gérez vos produits et validez les achats</p>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Catalogue & Administration</h1>
+        <p className="text-sm text-gray-500 mt-1">Gérez vos formations, apprenants et commerciaux</p>
       </div>
 
       <div className="flex border-b border-gray-200 mb-6 overflow-x-auto scrollbar-none whitespace-nowrap">
@@ -760,6 +942,19 @@ export default function Dashboard() {
           }`}
         >
           Apprenants
+        </button>
+        <button
+          onClick={() => setActiveTab('commerciaux')}
+          className={`flex-1 py-3 px-2 text-center text-xs sm:text-sm font-medium border-b-2 transition-colors relative ${
+            activeTab === 'commerciaux' 
+              ? 'border-amber-600 text-amber-700 font-bold' 
+              : 'border-transparent text-amber-600 hover:text-amber-800 hover:border-amber-300'
+          }`}
+        >
+          <span className="flex items-center justify-center gap-1">
+            <Gift className="w-3.5 h-3.5 text-amber-500" />
+            Commerciaux & Promo
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('messages')}
@@ -1428,40 +1623,52 @@ export default function Dashboard() {
           </div>
 
           {/* KPI Dashboard Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             {/* KPI 1 */}
-            <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
-                <Users className="w-6 h-6" />
+            <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                <Users className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Apprenants Actifs</span>
-                <span className="text-2xl font-black text-gray-900">{studentKPIs.totalStudents}</span>
-                <span className="text-[10px] text-gray-400 block mt-0.5">Inscriptions validées</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Total Inscrits</span>
+                <span className="text-xl font-black text-gray-900">{studentKPIs.totalAll}</span>
+                <span className="text-[10px] text-gray-400 block mt-0.5">Tous statuts confondus</span>
               </div>
             </div>
 
             {/* KPI 2 */}
-            <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
-                <TrendingUp className="w-6 h-6" />
+            <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Complétion Moyenne</span>
-                <span className="text-2xl font-black text-gray-900">{studentKPIs.avgCompletion}%</span>
-                <span className="text-[10px] text-gray-400 block mt-0.5">Progression globale</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Accès Actifs</span>
+                <span className="text-xl font-black text-emerald-600">{studentKPIs.totalStudents}</span>
+                <span className="text-[10px] text-gray-400 block mt-0.5">Comptes débloqués</span>
               </div>
             </div>
 
             {/* KPI 3 */}
-            <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
-                <Award className="w-6 h-6" />
+            <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600 shrink-0">
+                <UserX className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Moyenne des Quiz</span>
-                <span className="text-2xl font-black text-gray-900">{studentKPIs.avgQuizScore > 0 ? `${studentKPIs.avgQuizScore}%` : 'N/A'}</span>
-                <span className="text-[10px] text-gray-400 block mt-0.5">{studentKPIs.quizScoreCount} quiz validés</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Accès Retirés</span>
+                <span className="text-xl font-black text-red-600">{studentKPIs.rejectedCount}</span>
+                <span className="text-[10px] text-gray-400 block mt-0.5">Désinscrits</span>
+              </div>
+            </div>
+
+            {/* KPI 4 */}
+            <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Complétion Moyenne</span>
+                <span className="text-xl font-black text-gray-900">{studentKPIs.avgCompletion}%</span>
+                <span className="text-[10px] text-gray-400 block mt-0.5">Progression globale</span>
               </div>
             </div>
           </div>
@@ -1480,8 +1687,22 @@ export default function Dashboard() {
               />
             </div>
 
+            {/* Status Filter */}
+            <div className="w-full sm:w-52">
+              <select
+                value={studentsStatusFilter}
+                onChange={e => setStudentsStatusFilter(e.target.value as any)}
+                className="block w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all text-xs font-semibold"
+              >
+                <option value="all">Tous les statuts ({studentsData.length})</option>
+                <option value="active">Comptes Actifs ({studentKPIs.totalStudents})</option>
+                <option value="pending">En attente ({studentKPIs.pendingCount})</option>
+                <option value="rejected">Désinscrits / Retirés ({studentKPIs.rejectedCount})</option>
+              </select>
+            </div>
+
             {/* Course Filter */}
-            <div className="w-full sm:w-60">
+            <div className="w-full sm:w-56">
               <select
                 value={studentsCourseFilter}
                 onChange={e => setStudentsCourseFilter(e.target.value)}
@@ -1495,13 +1716,13 @@ export default function Dashboard() {
             </div>
 
             {/* Progress Filter */}
-            <div className="w-full sm:w-48">
+            <div className="w-full sm:w-44">
               <select
                 value={studentsProgressFilter}
                 onChange={e => setStudentsProgressFilter(e.target.value as any)}
                 className="block w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all text-xs"
               >
-                <option value="all">Tous les niveaux d'avancement</option>
+                <option value="all">Avancement (Tous)</option>
                 <option value="not_started">Non commencé (0%)</option>
                 <option value="in_progress">En cours (1-99%)</option>
                 <option value="completed">Terminé (100%)</option>
@@ -1531,6 +1752,8 @@ export default function Dashboard() {
                 const isExpanded = expandedStudentId === student.id;
                 const hasAccount = !!student.client_id;
                 const isApproved = student.payment_status === 'approved';
+                const isRejected = student.payment_status === 'rejected' || student.payment_status === 'cancelled';
+                const isPending = !isApproved && !isRejected;
 
                 return (
                   <div 
@@ -1539,8 +1762,7 @@ export default function Dashboard() {
                   >
                     {/* Header info row */}
                     <div 
-                      onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
-                      className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                      className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                     >
                       {/* Left side: Student Name, Details & Account Badge */}
                       <div className="flex-1 min-w-0">
@@ -1548,21 +1770,32 @@ export default function Dashboard() {
                           <h3 className="font-bold text-gray-900 text-sm truncate">
                             {student.participant_name}
                           </h3>
-                          {hasAccount ? (
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                              Compte actif
+                          
+                          {/* Access / Payment status badge */}
+                          {isApproved ? (
+                            <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                              Accès Actif
+                            </span>
+                          ) : isRejected ? (
+                            <span className="text-[10px] font-extrabold text-red-800 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                              Désinscrit (Accès retiré)
                             </span>
                           ) : (
-                            <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 flex items-center gap-1">
+                            <span className="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
                               <span className="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
-                              Pas de compte app
+                              En attente
                             </span>
                           )}
-                          
-                          {!isApproved && (
-                            <span className="text-[9px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-                              Paiement : {student.payment_status}
+
+                          {hasAccount ? (
+                            <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                              Compte connecté
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                              Pas de compte app
                             </span>
                           )}
                         </div>
@@ -1582,8 +1815,8 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Right side: Stats quick preview */}
-                      <div className="flex flex-wrap items-center gap-4 md:gap-6 shrink-0 w-full md:w-auto">
+                      {/* Right side: Stats quick preview & expand toggle */}
+                      <div className="flex flex-wrap items-center gap-4 md:gap-6 shrink-0 w-full md:w-auto justify-between md:justify-end">
                         {/* Progress preview */}
                         <div className="flex-1 md:flex-none md:w-36">
                           <div className="flex justify-between text-[11px] font-bold text-gray-600 mb-1">
@@ -1627,12 +1860,74 @@ export default function Dashboard() {
                         </div>
 
                         {/* Expand toggle icon */}
-                        <div className="hidden md:block">
-                          <button className="p-1 text-gray-400 hover:text-gray-600">
-                            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                          </button>
-                        </div>
+                        <button 
+                          onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
+                          className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
+                        >
+                          <span>{isExpanded ? 'Masquer' : 'Détails'}</span>
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
                       </div>
+                    </div>
+
+                    {/* Action Toolbar Row: WhatsApp, Promo Code, Désinscrire/Réinscrire, Supprimer */}
+                    <div className="bg-gray-50/80 border-t border-gray-100 px-5 py-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* WhatsApp Contact Button */}
+                        <a
+                          href={getWhatsAppLink(student.participant_phone, student.participant_name, student.course_title)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-[#25D366]/20 shadow-2xs"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>Envoyer WhatsApp</span>
+                        </a>
+
+                        {/* Commercial Promo Code Button */}
+                        <button
+                          onClick={() => {
+                            setEditingPromoStudent(student);
+                            setPromoCodeInput(student.promo_code || `${student.participant_name.split(' ')[0].toUpperCase()}${Math.floor(10 + Math.random() * 90)}`);
+                          }}
+                          className="px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-amber-200 shadow-2xs"
+                          title="Attribuer ou modifier un code promo commercial pour cet inscrit"
+                        >
+                          <Gift className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{student.promo_code ? `Code: ${student.promo_code}` : '+ Code Commercial'}</span>
+                        </button>
+
+                        {/* Désinscrire / Retirer l'accès OR Réinscrire */}
+                        {isApproved ? (
+                          <button
+                            onClick={() => handleToggleStudentAccess(student, 'rejected')}
+                            className="px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-amber-200 shadow-2xs"
+                            title="Désinscrire l'élève et lui retirer l'accès à ce cours"
+                          >
+                            <UserX className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Désinscrire (Retirer l'accès)</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleStudentAccess(student, 'approved')}
+                            className="px-3 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-emerald-200 shadow-2xs"
+                            title="Réinscrire l'élève et réactiver son accès au cours"
+                          >
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{isRejected ? "Réinscrire (Activer l'accès)" : "Valider l'inscription"}</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Supprimer le compte */}
+                      <button
+                        onClick={() => handleDeleteStudent(student)}
+                        className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-red-200 shadow-2xs ml-auto"
+                        title="Supprimer définitivement ce compte et son inscription"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Supprimer le compte</span>
+                      </button>
                     </div>
 
                     {/* Expandable Module Breakdown Details */}
@@ -1717,8 +2012,252 @@ export default function Dashboard() {
         </div>
       )}
 
+      {activeTab === 'commerciaux' && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-amber-600/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-amber-100 backdrop-blur-sm border border-white/20">
+                <Gift className="w-3.5 h-3.5" />
+                <span>Gestion des Commerciaux & Parrainage</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Programme d'Affiliation (10%)</h2>
+              <p className="text-sm text-amber-100 max-w-xl leading-relaxed">
+                Attribuez un code promo personnalisé à chaque inscrit. Tout achat effectué avec son code génère une commission de 10% pour le commercial / parrain.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                if (studentsData.length > 0) {
+                  setEditingPromoStudent(studentsData[0]);
+                  setPromoCodeInput(studentsData[0].promo_code || '');
+                } else {
+                  alert("Aucun apprenant/inscrit dans la liste pour le moment.");
+                }
+              }}
+              className="px-5 py-3 bg-white text-amber-800 hover:bg-amber-50 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <PlusCircle className="w-4 h-4 text-amber-600" />
+              <span>Attribuer un Code Promo</span>
+            </button>
+          </div>
+
+          {/* Commerciaux KPI Cards */}
+          {(() => {
+            const allAssignedCodes = getLocalReferralCodes();
+            const allSales = getLocalReferralSales();
+            const totalCommerciaux = Object.keys(allAssignedCodes).length;
+            const totalSalesCount = allSales.length;
+            const totalVolume = allSales.reduce((sum, s) => sum + (s.coursePrice || 0), 0);
+            const totalCommissions = allSales.reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                    <Tag className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Commerciaux Actifs</span>
+                    <span className="text-xl font-black text-gray-900">{totalCommerciaux}</span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">Codes promo attribués</span>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ventes Parrainées</span>
+                    <span className="text-xl font-black text-blue-600">{totalSalesCount}</span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">Inscriptions via promo</span>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                    <Banknote className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Volume Ventes</span>
+                    <span className="text-xl font-black text-emerald-600">{totalVolume.toLocaleString('fr-FR')} FCFA</span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">Chiffre d'affaires parrainé</span>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-150 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Commissions Dues</span>
+                    <span className="text-xl font-black text-purple-600">{totalCommissions.toLocaleString('fr-FR')} FCFA</span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">10% dus aux commerciaux</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* List of Registered Users & Commercial Codes */}
+          <div className="bg-white border border-gray-150 rounded-2xl p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100">
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">Inscrits & Codes Commerciaux</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Attribuez ou modifiez les codes promo de parrainage de chaque inscrit</p>
+              </div>
+            </div>
+
+            {studentsData.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <p className="text-sm">Aucun inscrit trouvé.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {studentsData.map(student => {
+                  const allSales = getLocalReferralSales();
+                  const clientCode = student.promo_code;
+                  const parrainSales = clientCode
+                    ? allSales.filter(s => s.promoCode.toUpperCase() === clientCode.toUpperCase())
+                    : [];
+                  const referredCount = parrainSales.length;
+                  const commissionEarned = parrainSales.reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+
+                  return (
+                    <div key={student.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-900 text-sm">{student.participant_name}</span>
+                          {clientCode ? (
+                            <span className="text-xs font-black text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 font-mono flex items-center gap-1">
+                              <Tag className="w-3 h-3 text-amber-500" />
+                              {clientCode}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Aucun code promo commercial</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 flex flex-wrap items-center gap-3">
+                          <span>{student.participant_email}</span>
+                          <span>•</span>
+                          <span>{student.participant_phone}</span>
+                          <span>•</span>
+                          <span className="text-indigo-600 font-medium">{student.course_title}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {clientCode ? (
+                          <div className="text-right mr-2">
+                            <span className="text-xs font-bold text-emerald-600 block">{referredCount} parrainé(s)</span>
+                            <span className="text-[11px] text-purple-700 font-extrabold">{commissionEarned.toLocaleString('fr-FR')} FCFA dus</span>
+                          </div>
+                        ) : null}
+
+                        <a
+                          href={getWhatsAppLink(student.participant_phone, student.participant_name, `Votre code promo parrainage ${clientCode || ''}`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 font-bold text-xs rounded-xl transition-colors border border-[#25D366]/20 flex items-center gap-1"
+                          title="Contacter sur WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">WhatsApp</span>
+                        </a>
+
+                        <button
+                          onClick={() => {
+                            setEditingPromoStudent(student);
+                            setPromoCodeInput(student.promo_code || `${student.participant_name.split(' ')[0].toUpperCase()}${Math.floor(10 + Math.random() * 90)}`);
+                          }}
+                          className="px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs rounded-xl border border-amber-200 transition-colors flex items-center gap-1"
+                        >
+                          <Tag className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{clientCode ? 'Modifier Code' : '+ Attribuer Code'}</span>
+                        </button>
+
+                        {clientCode && (
+                          <button
+                            onClick={() => handleRemovePromoCode(student)}
+                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Supprimer le code promo commercial"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'messages' && (
         <AdminChat onBack={() => setActiveTab('formations')} />
+      )}
+
+      {/* Assign Promo Code Modal */}
+      {editingPromoStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative border border-gray-100 animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                  <Gift className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base">Code Commercial</h3>
+                  <p className="text-xs text-gray-500">Pour : {editingPromoStudent.participant_name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingPromoStudent(null)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                  Code Promo Commercial (10% parrainage)
+                </label>
+                <input
+                  type="text"
+                  value={promoCodeInput}
+                  onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                  placeholder="EX: PIERRE10"
+                  className="w-full px-4 py-3 bg-amber-50/30 border border-amber-200 rounded-2xl text-gray-900 font-mono font-bold text-lg tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Toute personne s'inscrivant avec ce code promo ou l'utilisant lors d'un achat fera bénéficier <strong>{editingPromoStudent.participant_name}</strong> de 10% de commission.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  onClick={() => setEditingPromoStudent(null)}
+                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 border border-gray-200 transition-all"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleAssignPromoCode}
+                  disabled={savingPromo || !promoCodeInput.trim()}
+                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
+                >
+                  {savingPromo ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  <span>Enregistrer le Code</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

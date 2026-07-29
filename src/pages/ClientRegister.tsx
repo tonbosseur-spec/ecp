@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { User, Phone, Mail, Lock, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Sparkles, BookOpen, GraduationCap } from 'lucide-react';
+import { User, Phone, Mail, Lock, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Sparkles, BookOpen, GraduationCap, Gift, Tag } from 'lucide-react';
+import { findReferralCode, saveUserSponsor, ReferralCodeInfo } from '../lib/referralService';
 
 export default function ClientRegister() {
   const [firstName, setFirstName] = useState('');
@@ -11,6 +12,11 @@ export default function ClientRegister() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
+  // Promo code state
+  const [promoCode, setPromoCode] = useState('');
+  const [promoInfo, setPromoInfo] = useState<ReferralCodeInfo | null>(null);
+  const [promoStatusMessage, setPromoStatusMessage] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -19,6 +25,31 @@ export default function ClientRegister() {
   const [searchParams] = useSearchParams();
   const redirectPath = searchParams.get('redirect');
   const reason = searchParams.get('reason');
+
+  // Check URL promo code on mount
+  useEffect(() => {
+    const urlPromo = searchParams.get('promo');
+    if (urlPromo) {
+      setPromoCode(urlPromo.toUpperCase());
+      verifyCode(urlPromo.toUpperCase());
+    }
+  }, [searchParams]);
+
+  const verifyCode = async (codeToTest: string) => {
+    if (!codeToTest.trim()) {
+      setPromoInfo(null);
+      setPromoStatusMessage(null);
+      return;
+    }
+    const found = await findReferralCode(codeToTest);
+    if (found) {
+      setPromoInfo(found);
+      setPromoStatusMessage(`Code valide ! Parrain : ${found.clientName} (10% de réduction)`);
+    } else {
+      setPromoInfo(null);
+      setPromoStatusMessage(`Code promo "${codeToTest.toUpperCase()}" valide (Attribution parrainage).`);
+    }
+  };
 
   // Validation
   const isValidEmail = email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
@@ -59,6 +90,12 @@ export default function ClientRegister() {
         throw signUpError;
       }
 
+      // If user entered a promo code, record their sponsor association
+      if (promoCode.trim()) {
+        const userId = data.user?.id || email;
+        saveUserSponsor(userId, promoCode.trim().toUpperCase(), promoInfo);
+      }
+
       setSuccess(true);
       
       // Clear form
@@ -68,6 +105,9 @@ export default function ClientRegister() {
       setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setPromoCode('');
+      setPromoInfo(null);
+      setPromoStatusMessage(null);
       
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de l\'inscription.');
@@ -332,6 +372,42 @@ export default function ClientRegister() {
                   placeholder="••••••••"
                 />
               </div>
+            </div>
+
+            {/* Code promo de Parrainage (Optionnel) */}
+            <div className="pt-2 border-t border-dashed border-gray-200">
+              <label className="block text-[11px] font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center justify-between" htmlFor="promoCode">
+                <span className="flex items-center gap-1 text-amber-700">
+                  <Gift className="w-3.5 h-3.5 text-amber-500" />
+                  Code promo de parrainage (Optionnel)
+                </span>
+                <span className="text-[10px] text-amber-600 font-extrabold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                  -10% de réduction
+                </span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Tag className="h-4 w-4 text-amber-500" />
+                </div>
+                <input
+                  id="promoCode"
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => {
+                    const clean = e.target.value.toUpperCase();
+                    setPromoCode(clean);
+                    verifyCode(clean);
+                  }}
+                  className="block w-full pl-10 pr-3 py-3 border border-amber-200 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all bg-amber-50/20 focus:bg-white text-sm font-mono font-bold tracking-wider uppercase"
+                  placeholder="EX: PIERRE10"
+                />
+              </div>
+              {promoStatusMessage && (
+                <p className={`mt-1.5 text-xs font-bold flex items-center gap-1 ${promoInfo ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {promoStatusMessage}
+                </p>
+              )}
             </div>
             
             <div className="pt-4">

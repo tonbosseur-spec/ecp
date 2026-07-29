@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
+import { findReferralCode, recordReferralSale, ReferralCodeInfo } from '../lib/referralService';
 import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock, Ticket, Tag, Sparkles, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -97,6 +98,7 @@ export default function PublicCoursePage() {
   const [searchParams] = useSearchParams();
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
+  const [appliedReferralInfo, setAppliedReferralInfo] = useState<ReferralCodeInfo | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoSuccessMsg, setPromoSuccessMsg] = useState<string | null>(null);
   const [isCheckingPromo, setIsCheckingPromo] = useState(false);
@@ -117,6 +119,7 @@ export default function PublicCoursePage() {
     if (!course) return;
     setPromoError(null);
     setPromoSuccessMsg(null);
+    setAppliedReferralInfo(null);
 
     const cleanCode = code.trim().toUpperCase();
     if (!cleanCode) {
@@ -130,6 +133,7 @@ export default function PublicCoursePage() {
       setIsCheckingPromo(false);
     }
 
+    // 1. Check direct course promo codes
     const availablePromos = extractCoursePromoCodes(course);
     const match = availablePromos.find(p => p.code.trim().toUpperCase() === cleanCode);
 
@@ -143,15 +147,39 @@ export default function PublicCoursePage() {
       if (id) {
         try { localStorage.setItem(`promo_${id}`, cleanCode); } catch (e) {}
       }
-    } else {
-      if (isManual) {
-        setPromoError(`Le code "${cleanCode}" est invalide ou non applicable à cette formation.`);
+      return;
+    }
+
+    // 2. Check referral promo codes (Commercials / Parrains)
+    const referralMatch = await findReferralCode(cleanCode);
+    if (referralMatch) {
+      setAppliedReferralInfo(referralMatch);
+      const referralPromo: PromoCode = {
+        code: cleanCode,
+        discount_type: 'percentage',
+        discount_value: referralMatch.discountPercent || 10,
+        min_score: 0,
+        max_score: 100,
+        class_name: 'Parrainage',
+        description: `Code promo de parrainage (${referralMatch.clientName})`
+      };
+      setAppliedPromo(referralPromo);
+      setPromoInput(cleanCode);
+      setPromoSuccessMsg(`Code parrainage "${cleanCode}" valide ! Vous bénéficiez de 10% de réduction.`);
+      if (id) {
+        try { localStorage.setItem(`promo_${id}`, cleanCode); } catch (e) {}
       }
+      return;
+    }
+
+    if (isManual) {
+      setPromoError(`Le code "${cleanCode}" est invalide ou non applicable à cette formation.`);
     }
   };
 
   const removePromo = () => {
     setAppliedPromo(null);
+    setAppliedReferralInfo(null);
     setPromoInput('');
     setPromoError(null);
     setPromoSuccessMsg(null);
@@ -365,22 +393,51 @@ END:VCALENDAR`;
         }
       }
 
-      const { data: registration, error: regError } = await supabase
-        .from('registrations')
-        .insert([{
-          course_id: id,
-          client_id: clientId,
-          participant_name: name,
-          participant_email: email,
-          participant_phone: countryCode + phone.replace(/\s+/g, ''),
-          transaction_id: isFree ? 'GRATUIT' : transactionId,
-          payment_status: isFree ? 'approved' : 'pending',
-          payment_mode: isFree ? 'full' : paymentMode
-        }])
-        .select()
-        .single();
+      const regPayload: any = {
+        course_id: id,
+        client_id: clientId,
+        participant_name: name,
+        participant_email: email,
+        participant_phone: countryCode + phone.replace(/\s+/g, ''),
+        transaction_id: isFree ? 'GRATUIT' : transactionId,
+        payment_status: isFree ? 'approved' : 'pending',
+        payment_mode: isFree ? 'full' : paymentMode,
+        promo_code: appliedPromo ? appliedPromo.code : null
+      };
+
+      let registration: any = null;
+      let regError: any = null;
+
+      try {
+        const res = await supabase.from('registrations').insert([regPayload]).select().single();
+        registration = res.data;
+        regError = res.error;
+      } catch (err: any) {
+        // Fallback without promo_code property if table column doesn't exist
+        delete regPayload.promo_code;
+        const res = await supabase.from('registrations').insert([regPayload]).select().single();
+        registration = res.data;
+        regError = res.error;
+      }
 
       if (regError) throw regError;
+
+      // Record referral sale if referral code was used
+      if (appliedReferralInfo && registration) {
+        await recordReferralSale({
+          registrationId: registration.id,
+          courseId: id!,
+          courseTitle: course.title,
+          coursePrice: effectivePrice,
+          buyerClientId: clientId,
+          buyerName: name,
+          buyerEmail: email,
+          buyerPhone: countryCode + phone.replace(/\s+/g, ''),
+          paymentStatus: isFree ? 'approved' : 'pending',
+          promoCode: appliedReferralInfo.code,
+          parrainInfo: appliedReferralInfo
+        });
+      }
 
       // Create initial payment record if not free
       if (!isFree && registration) {
