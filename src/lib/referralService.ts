@@ -143,7 +143,29 @@ export async function setClientReferralCode(
   existingCodes[clientId] = info;
   saveLocalReferralCodes(existingCodes);
 
-  // Try updating Supabase client_profiles table (with fallback if column doesn't exist)
+  // 1. Try updating the dedicated 'promo_code' table in Supabase (upsert)
+  try {
+    const { error: upsertError } = await supabase
+      .from('promo_code')
+      .upsert({
+        client_id: clientId,
+        client_name: clientInfo.name,
+        client_email: clientInfo.email,
+        client_phone: clientInfo.phone || '',
+        code: cleanCode,
+        discount_percent: 10,
+        commission_percent: 10,
+        created_at: new Date().toISOString()
+      }, { onConflict: 'client_id' });
+
+    if (upsertError) {
+      console.warn("Could not upsert into promo_code table:", upsertError.message);
+    }
+  } catch (err) {
+    console.warn("Could not upsert into promo_code table:", err);
+  }
+
+  // 2. Try updating Supabase client_profiles table (with fallback if column doesn't exist)
   try {
     const { error } = await supabase
       .from('client_profiles')
@@ -168,6 +190,17 @@ export async function removeClientReferralCode(clientId: string): Promise<boolea
   delete existingCodes[clientId];
   saveLocalReferralCodes(existingCodes);
 
+  // Delete from dedicated 'promo_code' table
+  try {
+    await supabase
+      .from('promo_code')
+      .delete()
+      .eq('client_id', clientId);
+  } catch (e) {
+    // Ignore error
+  }
+
+  // Fallback update on client_profiles
   try {
     await supabase
       .from('client_profiles')
@@ -182,7 +215,35 @@ export async function removeClientReferralCode(clientId: string): Promise<boolea
 
 export async function getAllReferralCodes(): Promise<Record<string, ReferralCodeInfo>> {
   const localCodes = getLocalReferralCodes();
-  
+  let updated = false;
+
+  // 1. Fetch from the dedicated 'promo_code' table
+  try {
+    const { data: dbCodes } = await supabase
+      .from('promo_code')
+      .select('*');
+
+    if (dbCodes && dbCodes.length > 0) {
+      dbCodes.forEach((c: any) => {
+        const info: ReferralCodeInfo = {
+          clientId: c.client_id,
+          clientName: c.client_name,
+          clientEmail: c.client_email,
+          clientPhone: c.client_phone,
+          code: c.code,
+          discountPercent: c.discount_percent || 10,
+          commissionPercent: c.commission_percent || 10,
+          createdAt: c.created_at
+        };
+        localCodes[c.client_id] = info;
+        updated = true;
+      });
+    }
+  } catch (e) {
+    console.warn("Could not fetch from promo_code table:", e);
+  }
+
+  // 2. Fetch from client_profiles table as fallback/merge
   try {
     const { data: profiles } = await supabase
       .from('client_profiles')
@@ -190,9 +251,8 @@ export async function getAllReferralCodes(): Promise<Record<string, ReferralCode
       .not('promo_code', 'is', null);
 
     if (profiles && profiles.length > 0) {
-      let updated = false;
       profiles.forEach(p => {
-        if (p.promo_code) {
+        if (p.promo_code && !localCodes[p.id]) {
           const name = `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email;
           const info: ReferralCodeInfo = {
             clientId: p.id,
@@ -208,16 +268,18 @@ export async function getAllReferralCodes(): Promise<Record<string, ReferralCode
           updated = true;
         }
       });
-      if (updated) {
-        saveLocalReferralCodes(localCodes);
-      }
     }
   } catch (e) {
-    // Column might not exist or network error, fallback to local
+    // Column might not exist or network error, fallback
+  }
+
+  if (updated) {
+    saveLocalReferralCodes(localCodes);
   }
   
   return localCodes;
 }
+
 export async function findReferralCode(code: string): Promise<ReferralCodeInfo | null> {
   const cleanCode = code.trim().toUpperCase();
   if (!cleanCode) return null;
@@ -227,7 +289,34 @@ export async function findReferralCode(code: string): Promise<ReferralCodeInfo |
   const match = Object.values(localCodes).find(c => c.code === cleanCode);
   if (match) return match;
 
-  // 2. Query Supabase client_profiles if available
+  // 2. Query dedicated 'promo_code' table
+  try {
+    const { data: dbPromo } = await supabase
+      .from('promo_code')
+      .select('*')
+      .eq('code', cleanCode)
+      .maybeSingle();
+
+    if (dbPromo) {
+      const info: ReferralCodeInfo = {
+        clientId: dbPromo.client_id,
+        clientName: dbPromo.client_name,
+        clientEmail: dbPromo.client_email,
+        clientPhone: dbPromo.client_phone,
+        code: dbPromo.code,
+        discountPercent: dbPromo.discount_percent || 10,
+        commissionPercent: dbPromo.commission_percent || 10,
+        createdAt: dbPromo.created_at
+      };
+      localCodes[dbPromo.client_id] = info;
+      saveLocalReferralCodes(localCodes);
+      return info;
+    }
+  } catch (e) {
+    // Ignore error
+  }
+
+  // 3. Query Supabase client_profiles as fallback
   try {
     const { data: profile } = await supabase
       .from('client_profiles')
@@ -271,7 +360,34 @@ export async function getClientReferralCode(clientId: string): Promise<ReferralC
     return localCodes[clientId];
   }
 
-  // 2. Query Supabase client_profiles
+  // 2. Query dedicated 'promo_code' table
+  try {
+    const { data: dbPromo } = await supabase
+      .from('promo_code')
+      .select('*')
+      .eq('client_id', clientId)
+      .maybeSingle();
+
+    if (dbPromo) {
+      const info: ReferralCodeInfo = {
+        clientId: dbPromo.client_id,
+        clientName: dbPromo.client_name,
+        clientEmail: dbPromo.client_email,
+        clientPhone: dbPromo.client_phone,
+        code: dbPromo.code,
+        discountPercent: dbPromo.discount_percent || 10,
+        commissionPercent: dbPromo.commission_percent || 10,
+        createdAt: dbPromo.created_at
+      };
+      localCodes[clientId] = info;
+      saveLocalReferralCodes(localCodes);
+      return info;
+    }
+  } catch (e) {
+    // Ignore error
+  }
+
+  // 3. Query Supabase client_profiles as fallback
   try {
     const { data: profile } = await supabase
       .from('client_profiles')
