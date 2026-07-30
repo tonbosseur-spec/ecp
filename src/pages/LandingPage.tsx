@@ -660,7 +660,7 @@ export default function LandingPage() {
                   <span>Commencer une formation</span>
                 </Link>
                 <a
-                  href={`https://wa.me/${adminWhatsAppPhone}`}
+                  href={`https://wa.me/${adminWhatsAppPhone}?text=${encodeURIComponent("Bonjour Pierre ! Je souhaite avoir des informations pour réserver un accompagnement ou une formation sur mesure.")}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all text-base flex items-center justify-center gap-2 border border-white/20"

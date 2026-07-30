@@ -480,7 +480,7 @@ export default function AdminHub() {
                       {result.whatsapp_number && (
                         <div className="shrink-0 flex items-center gap-2">
                           <a 
-                            href={`https://wa.me/${result.whatsapp_country.replace('+', '')}${result.whatsapp_number}`}
+                            href={`https://wa.me/${result.whatsapp_country.replace('+', '')}${result.whatsapp_number.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${result.first_name} ! Félicitations pour votre score de ${Math.round(result.score_percentage)}% au Quiz Challenge. Vous avez débloqué votre code de réduction. Souhaitez-vous que je vous aide à finaliser votre inscription ?`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-4 py-2.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 rounded-xl text-xs font-bold transition-all flex items-center gap-2"

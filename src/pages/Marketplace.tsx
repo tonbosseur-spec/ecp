@@ -21,7 +21,8 @@ import {
   UserPlus,
   LogIn,
   ShoppingBag,
-  ChevronLeft
+  ChevronLeft,
+  MessageSquare
 } from 'lucide-react';
 
 const PROPOSAL_TEMPLATES = [
@@ -558,13 +559,24 @@ export default function Marketplace() {
             <p className="text-gray-500 text-base leading-relaxed">
               Nous pouvons créer un programme sur mesure adapté à vos objectifs spécifiques.
             </p>
-            <button
-              onClick={handleOpenProposalModal}
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 transition-all hover:scale-105 active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Réserver un accompagnement personnalisé</span>
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={handleOpenProposalModal}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 transition-all hover:scale-105 active:scale-95 text-sm"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Proposer une formation sur mesure</span>
+              </button>
+              <a
+                href={`https://wa.me/237698389030?text=${encodeURIComponent("Bonjour Pierre ! Je consulte le Catalogue Exceller chez Pierre et j'aimerais échanger avec vous sur WhatsApp concernant un besoin de formation ou un accompagnement.")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white font-black rounded-2xl shadow-xl shadow-emerald-100 transition-all hover:scale-105 active:scale-95 text-sm"
+              >
+                <MessageSquare className="w-5 h-5" />
+                <span>Discuter sur WhatsApp</span>
+              </a>
+            </div>
           </div>
         </div>
       </main>

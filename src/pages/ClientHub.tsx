@@ -34,6 +34,7 @@ import {
 import { ClientChat } from '../components/ClientChat';
 import { dailyTips } from '../data/tips';
 import { getClientReferralCode, getParrainReferralSales, ReferralCodeInfo, ReferralSale } from '../lib/referralService';
+import { loadFromCache, saveToCache } from '../lib/offlineSync';
 
 const stripHtml = (html: string) => {
   if (!html) return '';
@@ -48,6 +49,7 @@ const stripHtml = (html: string) => {
 export default function ClientHub() {
   const [dailyTip, setDailyTip] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [profile, setProfile] = useState<any>(null);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -80,6 +82,38 @@ export default function ClientHub() {
   const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
 
   useEffect(() => {
+    // Handle online/offline events
+    const handleOnline = async () => {
+      setIsOffline(false);
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const userId = session.user.id;
+          const offlineActions = loadFromCache('offline_progress_actions_' + userId);
+          if (offlineActions && offlineActions.length > 0) {
+            // Process offline actions
+            for (const action of offlineActions) {
+              if (action.isCompleted) {
+                await supabase.from('module_progress').insert([{ client_id: userId, module_id: action.moduleId }]);
+              } else {
+                await supabase.from('module_progress').delete().eq('client_id', userId).eq('module_id', action.moduleId);
+              }
+            }
+            saveToCache('offline_progress_actions_' + userId, []);
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing offline actions", err);
+      }
+      
+      fetchClientData(); // Sync when back online
+    };
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     // Pick a random tip
     setDailyTip(dailyTips[Math.floor(Math.random() * dailyTips.length)]);
 
@@ -94,6 +128,26 @@ export default function ClientHub() {
 
         const userId = session.user.id;
 
+        // --- OFFLINE FIRST ---
+        // Load from cache first for fast display / offline support
+        const cachedProfile = loadFromCache('profile_' + userId);
+        const cachedRegistrations = loadFromCache('registrations_' + userId);
+        const cachedPayments = loadFromCache('payments_' + userId);
+        const cachedProgress = loadFromCache('progress_' + userId);
+        const cachedProposals = loadFromCache('proposals_' + userId);
+        
+        if (cachedProfile) setProfile(cachedProfile);
+        if (cachedRegistrations) setRegistrations(cachedRegistrations);
+        if (cachedPayments) setPayments(cachedPayments);
+        if (cachedProgress) setAllCompletedModuleIds(cachedProgress);
+        if (cachedProposals) setProposals(cachedProposals);
+
+        if (!navigator.onLine) {
+          setLoading(false);
+          return;
+        }
+        // ---------------------
+
         // Fetch profile
         const { data: profileData, error: profileError } = await supabase
           .from('client_profiles')
@@ -107,12 +161,15 @@ export default function ClientHub() {
         
         if (profileData) {
           setProfile(profileData);
+          saveToCache('profile_' + userId, profileData);
         } else {
           // Fallback to user metadata
-          setProfile({
+          const fallbackProfile = {
             first_name: session.user.user_metadata?.first_name || 'Client',
             last_name: session.user.user_metadata?.last_name || ''
-          });
+          };
+          setProfile(fallbackProfile);
+          saveToCache('profile_' + userId, fallbackProfile);
         }
 
         // Fetch registrations with courses and nested course module IDs for progress tracking
@@ -126,7 +183,9 @@ export default function ClientHub() {
 
         if (regData) {
           // Filter out registrations where course is null (just in case)
-          setRegistrations(regData.filter(r => r.courses));
+          const validRegs = regData.filter(r => r.courses);
+          setRegistrations(validRegs);
+          saveToCache('registrations_' + userId, validRegs);
         }
 
         // Fetch payments
@@ -137,7 +196,10 @@ export default function ClientHub() {
           .order('due_date', { ascending: true });
 
         if (payError) throw payError;
-        setPayments(payData || []);
+        if (payData) {
+          setPayments(payData);
+          saveToCache('payments_' + userId, payData);
+        }
 
         // Fetch client's completed module progress
         const { data: progressData, error: progressError } = await supabase
@@ -146,7 +208,9 @@ export default function ClientHub() {
           .eq('client_id', userId);
           
         if (!progressError && progressData) {
-          setAllCompletedModuleIds(progressData.map(p => p.module_id));
+          const progressIds = progressData.map(p => p.module_id);
+          setAllCompletedModuleIds(progressIds);
+          saveToCache('progress_' + userId, progressIds);
         }
 
         // Fetch referral code for parrainage
@@ -168,7 +232,10 @@ export default function ClientHub() {
           .order('created_at', { ascending: false });
 
         if (propError) throw propError;
-        setProposals(propData || []);
+        if (propData) {
+          setProposals(propData);
+          saveToCache('proposals_' + userId, propData);
+        }
       } catch (err) {
         console.error("Erreur chargement hub:", err);
       } finally {
@@ -177,6 +244,11 @@ export default function ClientHub() {
     };
 
     fetchClientData();
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [navigate]);
 
   useEffect(() => {
@@ -189,6 +261,22 @@ export default function ClientHub() {
     try {
       setLoadingContent(true);
       
+      const cachedModules = loadFromCache('modules_' + courseId);
+      const cachedQuizModules = loadFromCache('quizModules_' + courseId);
+      
+      if (cachedModules) {
+        setCourseModules(cachedModules);
+        if (cachedModules.length > 0) setSelectedModuleId(cachedModules[0].id);
+      }
+      if (cachedQuizModules) {
+        setQuizModuleIds(cachedQuizModules);
+      }
+
+      if (!navigator.onLine) {
+        setLoadingContent(false);
+        return;
+      }
+      
       // Fetch modules for this course
       const { data: modulesData, error: modulesError } = await supabase
         .from('course_modules')
@@ -200,6 +288,7 @@ export default function ClientHub() {
       
       const fetchedModules = modulesData || [];
       setCourseModules(fetchedModules);
+      saveToCache('modules_' + courseId, fetchedModules);
       
       // Fetch quiz status for these modules
       if (fetchedModules.length > 0) {
@@ -209,8 +298,10 @@ export default function ClientHub() {
           .in('module_id', fetchedModules.map(m => m.id));
         const qModuleIds = (quizzesData || []).map((q: any) => q.module_id);
         setQuizModuleIds(qModuleIds);
+        saveToCache('quizModules_' + courseId, qModuleIds);
       } else {
         setQuizModuleIds([]);
+        saveToCache('quizModules_' + courseId, []);
       }
 
       if (fetchedModules.length > 0) {
@@ -231,6 +322,7 @@ export default function ClientHub() {
           const completedIds = progressData.map(p => p.module_id);
           setCompletedModuleIds(completedIds);
           setAllCompletedModuleIds(completedIds);
+          saveToCache('progress_' + session.user.id, completedIds);
         }
       }
     } catch (err) {
@@ -250,6 +342,31 @@ export default function ClientHub() {
       
       const isCompleted = completedModuleIds.includes(moduleId);
       
+      // Optimitistic update
+      if (isCompleted) {
+        setCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
+        setAllCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
+      } else {
+        setCompletedModuleIds(prev => [...prev, moduleId]);
+        setAllCompletedModuleIds(prev => [...prev, moduleId]);
+      }
+
+      if (!navigator.onLine) {
+        // Store offline action
+        const offlineActions = loadFromCache('offline_progress_actions_' + userId) || [];
+        offlineActions.push({ moduleId, isCompleted: !isCompleted });
+        saveToCache('offline_progress_actions_' + userId, offlineActions);
+        
+        // Update cached progress array
+        const currentProgress = loadFromCache('progress_' + userId) || [];
+        if (isCompleted) {
+          saveToCache('progress_' + userId, currentProgress.filter((id: string) => id !== moduleId));
+        } else {
+          saveToCache('progress_' + userId, [...currentProgress, moduleId]);
+        }
+        return;
+      }
+      
       if (isCompleted) {
         const { error } = await supabase
           .from('module_progress')
@@ -257,17 +374,31 @@ export default function ClientHub() {
           .eq('client_id', userId)
           .eq('module_id', moduleId);
           
-        if (error) throw error;
-        setCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
-        setAllCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
+        if (error) {
+           // rollback
+           setCompletedModuleIds(prev => [...prev, moduleId]);
+           setAllCompletedModuleIds(prev => [...prev, moduleId]);
+           throw error;
+        }
       } else {
         const { error } = await supabase
           .from('module_progress')
           .insert([{ client_id: userId, module_id: moduleId }]);
           
-        if (error) throw error;
-        setCompletedModuleIds(prev => [...prev, moduleId]);
-        setAllCompletedModuleIds(prev => [...prev, moduleId]);
+        if (error) {
+           // rollback
+           setCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
+           setAllCompletedModuleIds(prev => prev.filter(id => id !== moduleId));
+           throw error;
+        }
+      }
+      
+      // Update cached progress array
+      const currentProgress = loadFromCache('progress_' + userId) || [];
+      if (isCompleted) {
+        saveToCache('progress_' + userId, currentProgress.filter((id: string) => id !== moduleId));
+      } else {
+        saveToCache('progress_' + userId, [...currentProgress, moduleId]);
       }
     } catch (err) {
       console.error("Error toggling module completion:", err);
@@ -439,6 +570,14 @@ export default function ClientHub() {
             </div>
           </div>
         </div>
+        {isOffline && (
+          <div className="bg-amber-50 border-b border-amber-100 py-2">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+              <p className="text-xs font-medium text-amber-700">Vous êtes hors ligne. Affichage des données en cache.</p>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -655,7 +794,7 @@ export default function ClientHub() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Suivi de vos paiements</h2>
               <a 
-                href="https://wa.me/237698389030" 
+                href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour ! Je suis ${profile?.first_name || ''} ${profile?.last_name || ''} (${profile?.email || ''}). J'ai une question concernant le suivi de mes paiements et mes accès.`)}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-[#25D366] text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-all"
@@ -716,7 +855,7 @@ export default function ClientHub() {
                         </span>
                         {payment.status === 'pending' && (
                           <a 
-                            href={`https://wa.me/237698389030?text=Bonjour,%20je%20souhaite%20régler%20la%20tranche%20pour%20${encodeURIComponent(payment.registrations?.courses?.title)}`} 
+                            href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour ! Je suis ${profile?.first_name || ''} ${profile?.last_name || ''} (${profile?.email || ''}). Je souhaite régler la tranche ${payment.tranche_number} (${payment.amount.toLocaleString('fr-FR')} FCFA) pour la formation "${payment.registrations?.courses?.title || 'Formation'}". Merci de m'indiquer la marche à suivre.`)}`} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="p-1.5 bg-[#25D366] text-white rounded-lg hover:opacity-90 transition-all"
@@ -1786,7 +1925,7 @@ export default function ClientHub() {
                   Vous n'avez pas de code promo de parrainage attribué à votre compte. Seuls les clients disposant d'un code commercial/parrain ont accès à cet espace.
                 </p>
                 <a 
-                  href="https://wa.me/237698389030?text=Bonjour,%20je%20souhaite%20obtenir%20un%20code%20promo%20de%20parrainage%20pour%20devenir%20commercial" 
+                  href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour M. l'Administrateur,\n\nJe suis ${profile?.first_name || ''} ${profile?.last_name || ''} (${profile?.email || ''}).\n\nJe souhaite demander l'activation d'un code promo commercial / parrainage pour mon compte afin de commencer à recommander vos formations et percevoir mes 10% de commission.\n\nMerci !`)}`} 
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors shadow-sm text-sm"

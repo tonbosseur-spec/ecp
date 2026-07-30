@@ -44,6 +44,8 @@ import {
   removeClientReferralCode, 
   getLocalReferralCodes, 
   getLocalReferralSales,
+  getAllReferralCodes,
+  getAllReferralSales,
   ReferralCodeInfo,
   ReferralSale
 } from '../lib/referralService';
@@ -144,6 +146,12 @@ export default function Dashboard() {
   const fetchStudentsData = async () => {
     try {
       setLoadingStudents(true);
+      
+      // Update promo codes and sales cache from DB
+      await Promise.all([
+        getAllReferralCodes(),
+        getAllReferralSales()
+      ]);
       
       // 1. Fetch all registrations with courses
       const { data: regs, error: regsError } = await supabase
@@ -304,7 +312,7 @@ export default function Dashboard() {
         const localCodes = getLocalReferralCodes();
         const clientPromo = (client_id && localCodes[client_id])
           ? localCodes[client_id].code
-          : ((reg as any).promo_code || '');
+          : ''; // Removed reg.promo_code fallback to avoid confusion between buyer code and commercial code
 
         return {
           id: reg.id,
@@ -1428,14 +1436,18 @@ export default function Dashboard() {
                   }).format(proposal.proposed_price)
                 : null;
  
-              // Helper to generate a WhatsApp URL
+              // Helper to generate a WhatsApp URL with contextual pre-filled message
               const getWhatsAppUrl = (phone: string | null) => {
                 if (!phone) return '#';
                 let cleanPhone = phone.replace(/\D/g, '');
-                if (cleanPhone.length === 9 && cleanPhone.startsWith('6')) {
+                if (cleanPhone.length === 9 && (cleanPhone.startsWith('6') || cleanPhone.startsWith('2'))) {
                    cleanPhone = '237' + cleanPhone;
                 }
-                return `https://wa.me/${cleanPhone}`;
+                const courseTitle = proposal.courses?.title || proposal.custom_title || 'votre demande';
+                const msg = hasCourse
+                  ? `Bonjour ${clientName} ! Je suis l'administrateur de Exceller chez Pierre. Je vous contacte suite à votre intérêt pour la formation "${courseTitle}". Avez-vous besoin d'aide pour finaliser votre inscription ?`
+                  : `Bonjour ${clientName} ! Je suis l'administrateur de Exceller chez Pierre. J'ai bien reçu votre proposition de formation sur mesure "${courseTitle}". Je suis à votre disposition pour échanger à ce sujet.`;
+                return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
               };
  
               return (

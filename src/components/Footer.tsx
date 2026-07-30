@@ -22,7 +22,7 @@ export default function Footer({ adminWhatsAppPhone = "237698389030" }: FooterPr
         {/* WhatsApp Direct CTA */}
         <div>
           <a
-            href={`https://wa.me/${adminWhatsAppPhone}`}
+            href={`https://wa.me/${adminWhatsAppPhone}?text=${encodeURIComponent("Bonjour ! Je vous contacte depuis le site Exceller chez Pierre. J'aurais une question concernant vos formations et accompagnements.")}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-900/30 hover:scale-105 active:scale-95 transition-all text-base gap-2.5"

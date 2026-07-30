@@ -335,10 +335,15 @@ export const AdminChat = ({ onBack }: { onBack?: () => void }) => {
   const getWhatsAppUrl = (phone: string | null) => {
     if (!phone) return '#';
     let cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length === 9 && cleanPhone.startsWith('6')) {
+    if (cleanPhone.length === 9 && (cleanPhone.startsWith('6') || cleanPhone.startsWith('2'))) {
        cleanPhone = '237' + cleanPhone;
     }
-    return `https://wa.me/${cleanPhone}`;
+    const clientName = selectedConversation ? `${selectedConversation.first_name}` : '';
+    const contextTitle = activeContext?.courses?.title;
+    const msg = contextTitle
+      ? `Bonjour ${clientName} ! Je suis l'administrateur de Exceller chez Pierre. Je vous contacte concernant la formation "${contextTitle}".`
+      : `Bonjour ${clientName} ! Je suis l'administrateur de Exceller chez Pierre. Je vous contacte afin de répondre à votre demande.`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
 
   const filteredConversations = conversations.filter(c => 

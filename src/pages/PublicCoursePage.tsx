@@ -1505,7 +1505,13 @@ END:VCALENDAR`;
             <a href="https://t.me/pierrembom" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400 transition-colors" title="Telegram">
               <Send className="w-6 h-6" />
             </a>
-            <a href="https://wa.me/237698389030" target="_blank" rel="noopener noreferrer" className="text-gray-400 theme-text transition-colors" title="WhatsApp">
+            <a 
+              href={`https://wa.me/237698389030?text=${encodeURIComponent(course ? `Bonjour Pierre ! Je suis sur la page de la formation "${course.title}" (${course.price ? `${course.price} FCFA` : 'Gratuit'}). J'aimerais avoir plus d'informations.` : "Bonjour Pierre ! Je consulte vos formations et souhaite poser une question.")}`} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-gray-400 theme-text transition-colors" 
+              title="WhatsApp"
+            >
               <MessageCircle className="w-6 h-6" />
             </a>
           </div>
@@ -1521,7 +1527,7 @@ END:VCALENDAR`;
       {/* Floating Action Button (Mobile) */}
       <div className="fixed bottom-4 left-0 right-0 px-4 z-50 sm:hidden">
         <a 
-          href="https://wa.me/237698389030"
+          href={`https://wa.me/237698389030?text=${encodeURIComponent(course ? `Bonjour Pierre ! Je suis sur la page de la formation "${course.title}" (${course.price ? `${course.price} FCFA` : 'Gratuit'}). J'aimerais poser une question.` : "Bonjour Pierre ! Je consulte vos formations et souhaite poser une question.")}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white font-bold py-3.5 px-6 rounded-full shadow-[0_4px_14px_0_rgba(37,211,102,0.39)] hover:bg-[#128C7E] hover:shadow-[0_6px_20px_rgba(37,211,102,0.23)] transition-all active:scale-95"

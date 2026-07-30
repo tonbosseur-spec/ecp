@@ -180,9 +180,44 @@ export async function removeClientReferralCode(clientId: string): Promise<boolea
   return true;
 }
 
-/**
- * Lookup referral code info by code string.
- */
+export async function getAllReferralCodes(): Promise<Record<string, ReferralCodeInfo>> {
+  const localCodes = getLocalReferralCodes();
+  
+  try {
+    const { data: profiles } = await supabase
+      .from('client_profiles')
+      .select('id, first_name, last_name, email, phone, promo_code')
+      .not('promo_code', 'is', null);
+
+    if (profiles && profiles.length > 0) {
+      let updated = false;
+      profiles.forEach(p => {
+        if (p.promo_code) {
+          const name = `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email;
+          const info: ReferralCodeInfo = {
+            clientId: p.id,
+            clientName: name,
+            clientEmail: p.email || '',
+            clientPhone: p.phone || '',
+            code: p.promo_code,
+            discountPercent: 10,
+            commissionPercent: 10,
+            createdAt: new Date().toISOString()
+          };
+          localCodes[p.id] = info;
+          updated = true;
+        }
+      });
+      if (updated) {
+        saveLocalReferralCodes(localCodes);
+      }
+    }
+  } catch (e) {
+    // Column might not exist or network error, fallback to local
+  }
+  
+  return localCodes;
+}
 export async function findReferralCode(code: string): Promise<ReferralCodeInfo | null> {
   const cleanCode = code.trim().toUpperCase();
   if (!cleanCode) return null;
@@ -320,6 +355,61 @@ export async function recordReferralSale(saleData: {
  * Fetch all referral sales for a parrain client ID.
  * Merges local sales cache with Supabase registrations if promo_code is saved in registrations.
  */
+export async function getAllReferralSales(): Promise<ReferralSale[]> {
+  const localSales = getLocalReferralSales();
+  
+  try {
+    const { data: regs } = await supabase
+      .from('registrations')
+      .select('id, client_id, course_id, participant_name, participant_email, participant_phone, payment_status, registered_at, promo_code, courses(id, title, price_fcfa)')
+      .not('promo_code', 'is', null);
+
+    if (regs && regs.length > 0) {
+      const dbSales: ReferralSale[] = regs.map((r: any) => {
+        const coursePrice = r.courses?.price_fcfa || 0;
+        return {
+          id: r.id,
+          registrationId: r.id,
+          courseId: r.course_id,
+          courseTitle: r.courses?.title || 'Formation',
+          coursePrice: coursePrice,
+          buyerClientId: r.client_id,
+          buyerName: r.participant_name,
+          buyerEmail: r.participant_email,
+          buyerPhone: r.participant_phone,
+          paymentStatus: r.payment_status || 'pending',
+          registeredAt: r.registered_at,
+          promoCode: r.promo_code,
+          parrainClientId: '', // Will be matched locally or by promo_code lookup
+          parrainName: '',
+          commissionAmount: Math.round(coursePrice * 0.10)
+        };
+      });
+
+      const mergedMap = new Map<string, ReferralSale>();
+      
+      [...localSales, ...dbSales].forEach(sale => {
+        const key = sale.registrationId || `${sale.buyerEmail}_${sale.courseId}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, sale);
+        } else {
+          const existing = mergedMap.get(key)!;
+          if (sale.paymentStatus === 'approved' && existing.paymentStatus !== 'approved') {
+            mergedMap.set(key, sale);
+          }
+        }
+      });
+      
+      const allSales = Array.from(mergedMap.values());
+      saveLocalReferralSales(allSales);
+      return allSales;
+    }
+  } catch (e) {
+    // Fallback to local
+  }
+  return localSales;
+}
+
 export async function getParrainReferralSales(parrainClientId: string, parrainCode: string): Promise<{
   sales: ReferralSale[];
   totalReferredCount: number;

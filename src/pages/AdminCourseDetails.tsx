@@ -168,8 +168,8 @@ export default function AdminCourseDetails() {
       numericPhone = '237' + numericPhone;
     }
     const msg = name && course
-      ? `Bonjour ${name}, je vous me permets de vous contacter concernant la formation "${course.title}".`
-      : `Bonjour, je vous me permets de vous contacter concernant votre formation.`;
+      ? `Bonjour ${name} ! Je suis l'administrateur de Exceller chez Pierre. Je me permets de vous contacter concernant votre inscription à la formation "${course.title}".`
+      : `Bonjour ! Je me permets de vous contacter concernant votre parcours de formation sur Exceller chez Pierre.`;
     return `https://wa.me/${numericPhone}?text=${encodeURIComponent(msg)}`;
   };
 
