@@ -13,6 +13,7 @@ import {
   XCircle,
   Lightbulb,
   MessageSquare,
+  RefreshCw,
   MessageCircle,
   UserX,
   UserCheck,
@@ -2038,20 +2039,68 @@ export default function Dashboard() {
                 Attribuez un code promo personnalisé à chaque inscrit. Tout achat effectué avec son code génère une commission de 10% pour le commercial / parrain.
               </p>
             </div>
-            <button
-              onClick={() => {
-                if (studentsData.length > 0) {
-                  setEditingPromoStudent(studentsData[0]);
-                  setPromoCodeInput(studentsData[0].promo_code || '');
-                } else {
-                  alert("Aucun apprenant/inscrit dans la liste pour le moment.");
-                }
-              }}
-              className="px-5 py-3 bg-white text-amber-800 hover:bg-amber-50 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <PlusCircle className="w-4 h-4 text-amber-600" />
-              <span>Attribuer un Code Promo</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  try {
+                    const codes = await getAllReferralCodes();
+                    const codesValues = Object.values(codes);
+                    if (codesValues.length === 0) {
+                      alert("Aucun code promo commercial trouvé.");
+                      return;
+                    }
+                    setToast("Synchronisation des codes promo en cours...");
+                    
+                    const { data: courses } = await supabase.from('courses').select('id, promo_codes');
+                    if (courses && courses.length > 0) {
+                      for (const course of courses) {
+                        let coursePromos = course.promo_codes || [];
+                        let updated = false;
+                        for (const codeObj of codesValues) {
+                          if (!coursePromos.find((p: any) => p.code === codeObj.code)) {
+                            coursePromos.push({
+                              code: codeObj.code,
+                              discount_type: 'percentage',
+                              discount_value: 10,
+                              min_score: 0,
+                              max_score: 100,
+                              class_name: 'Parrainage',
+                              description: `Code commercial: ${codeObj.clientName}`
+                            });
+                            updated = true;
+                          }
+                        }
+                        if (updated) {
+                          await supabase.from('courses').update({ promo_codes: coursePromos }).eq('id', course.id);
+                        }
+                      }
+                    }
+                    setToast("Codes promo synchronisés avec les formations !");
+                    setTimeout(() => setToast(null), 3000);
+                  } catch (e: any) {
+                    alert("Erreur lors de la synchro: " + e.message);
+                  }
+                }}
+                className="px-4 py-3 bg-white text-indigo-600 hover:bg-indigo-50 font-bold text-xs rounded-2xl shadow-sm border border-indigo-100 transition-all flex items-center gap-2 shrink-0"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Synchroniser vers Formations</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (studentsData.length > 0) {
+                    setEditingPromoStudent(studentsData[0]);
+                    setPromoCodeInput(studentsData[0].promo_code || '');
+                  } else {
+                    alert("Aucun apprenant/inscrit dans la liste pour le moment.");
+                  }
+                }}
+                className="px-5 py-3 bg-white text-amber-800 hover:bg-amber-50 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <PlusCircle className="w-4 h-4 text-amber-600" />
+                <span>Attribuer un Code Promo</span>
+              </button>
+            </div>
           </div>
 
           {/* Commerciaux KPI Cards */}

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { extractCoursePromoCodes, PromoCode } from './promoUtils';
 
 export interface ReferralCodeInfo {
   clientId: string;
@@ -179,6 +180,30 @@ export async function setClientReferralCode(
     console.warn("Could not update promo_code in Supabase client_profiles:", err);
   }
 
+  // 3. Automatically add this referral code to all courses (as a general non-quiz promo code)
+  try {
+    const { data: courses } = await supabase.from('courses').select('id, promo_codes, guide_text');
+    if (courses && courses.length > 0) {
+      for (const course of courses) {
+        let coursePromos = extractCoursePromoCodes(course);
+        // Remove existing referral code if present to update it
+        coursePromos = coursePromos.filter(p => p.code !== cleanCode);
+        coursePromos.push({
+          code: cleanCode,
+          discount_type: 'percentage',
+          discount_value: 10, // Default 10%
+          min_score: 0,
+          max_score: 100,
+          class_name: 'Parrainage',
+          description: `Code commercial: ${clientInfo.name}`
+        });
+        await supabase.from('courses').update({ promo_codes: coursePromos }).eq('id', course.id);
+      }
+    }
+  } catch (err) {
+    console.error("Error auto-adding referral code to courses:", err);
+  }
+
   return { success: true, code: cleanCode };
 }
 
@@ -187,11 +212,20 @@ export async function setClientReferralCode(
  */
 export async function removeClientReferralCode(clientId: string): Promise<boolean> {
   const existingCodes = getLocalReferralCodes();
+  const codeToRemove = existingCodes[clientId]?.code;
   delete existingCodes[clientId];
   saveLocalReferralCodes(existingCodes);
 
   // Delete from dedicated 'promo_code' table
   try {
+    if (!codeToRemove) {
+      // Try to fetch it from DB just in case
+      const { data: dbPromo } = await supabase.from('promo_code').select('code').eq('client_id', clientId).maybeSingle();
+      if (dbPromo && dbPromo.code) {
+        // We'll use this below
+      }
+    }
+    
     await supabase
       .from('promo_code')
       .delete()
@@ -202,10 +236,27 @@ export async function removeClientReferralCode(clientId: string): Promise<boolea
 
   // Fallback update on client_profiles
   try {
+    const { data: profile } = await supabase.from('client_profiles').select('promo_code').eq('id', clientId).maybeSingle();
+    const code = codeToRemove || profile?.promo_code;
+    
     await supabase
       .from('client_profiles')
       .update({ promo_code: null })
       .eq('id', clientId);
+      
+    // Remove from courses
+    if (code) {
+      const { data: courses } = await supabase.from('courses').select('id, promo_codes, guide_text');
+      if (courses && courses.length > 0) {
+        for (const course of courses) {
+          const coursePromos = extractCoursePromoCodes(course);
+          const filteredPromos = coursePromos.filter(p => p.code !== code);
+          if (filteredPromos.length !== coursePromos.length) {
+            await supabase.from('courses').update({ promo_codes: filteredPromos }).eq('id', course.id);
+          }
+        }
+      }
+    }
   } catch (e) {
     // Ignore error if column not present
   }
