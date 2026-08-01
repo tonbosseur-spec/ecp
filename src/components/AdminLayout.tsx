@@ -111,15 +111,17 @@ export default function AdminLayout() {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-4 border-t border-gray-100">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
-          >
-            <LogOut className="w-5 h-5 stroke-2" />
-            <span>Se déconnecter</span>
-          </button>
-        </div>
+        {import.meta.env.VITE_APP_TARGET !== 'admin' && (
+          <div className="p-4 border-t border-gray-100">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+            >
+              <LogOut className="w-5 h-5 stroke-2" />
+              <span>Se déconnecter</span>
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Main Content Pane */}
@@ -155,13 +157,15 @@ export default function AdminLayout() {
                 </Link>
               );
             })}
-            <button
-              onClick={handleLogout}
-              className="flex flex-col items-center justify-center w-16 h-full gap-1 text-gray-400 hover:text-red-500 transition-colors"
-            >
-              <LogOut className="w-6 h-6 stroke-2" />
-              <span className="text-[10px] font-medium">Quitter</span>
-            </button>
+            {import.meta.env.VITE_APP_TARGET !== 'admin' && (
+              <button
+                onClick={handleLogout}
+                className="flex flex-col items-center justify-center w-16 h-full gap-1 text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <LogOut className="w-6 h-6 stroke-2" />
+                <span className="text-[10px] font-medium">Quitter</span>
+              </button>
+            )}
           </div>
         </nav>
       )}

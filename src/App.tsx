@@ -37,9 +37,20 @@ import { useNativeFeatures } from './hooks/useNativeFeatures';
 import { Capacitor } from '@capacitor/core';
 
 function RootRedirector() {
+  const target = import.meta.env.VITE_APP_TARGET;
+  
+  if (target === 'admin') {
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (target === 'client') {
+    return <Navigate to="/client/login" replace />;
+  }
+  
   if (Capacitor.isNativePlatform()) {
     return <Navigate to="/client/login" replace />;
   }
+  
   return <LandingPage />;
 }
 
@@ -75,6 +86,29 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Intercept external links for admin app target
+  useEffect(() => {
+    if (import.meta.env.VITE_APP_TARGET === 'admin' && Capacitor.isNativePlatform()) {
+      const handleLinkClick = async (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        const anchor = target.closest('a');
+        if (anchor && anchor.href && anchor.href.startsWith('http')) {
+          const url = new URL(anchor.href);
+          if (url.origin !== window.location.origin) {
+            e.preventDefault();
+            const { Browser } = await import('@capacitor/browser');
+            await Browser.open({ url: anchor.href });
+          }
+        }
+      };
+
+      document.addEventListener('click', handleLinkClick);
+      return () => {
+        document.removeEventListener('click', handleLinkClick);
+      };
+    }
   }, []);
 
   if (loading) {

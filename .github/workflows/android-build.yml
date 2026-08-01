@@ -9,7 +9,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        include:
+          - target: admin
+            app_name: "ECP admin"
+            app_id: "com.excellerchezpierre.admin"
+            artifact_name: "ECP-Admin-Android-APK"
+          - target: client
+            app_name: "Exceller chez Pierre"
+            app_id: "com.excellerchezpierre.app"
+            artifact_name: "Exceller-Chez-Pierre-Android-APK"
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -29,13 +40,18 @@ jobs:
         run: |
           rm -rf node_modules package-lock.json
           npm install --include=optional
-          # If still missing, try to force the specific binary
           npm install @tailwindcss/oxide-linux-x64-gnu || true
 
       - name: Create .env File
         run: |
           echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
           echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          echo "VITE_APP_TARGET=${{ matrix.target }}" >> .env
+
+      - name: Modify Capacitor Config
+        run: |
+          sed -i "s/appName: 'Exceller chez Pierre'/appName: '${{ matrix.app_name }}'/" capacitor.config.ts
+          sed -i "s/appId: 'com.excellerchezpierre.app'/appId: '${{ matrix.app_id }}'/" capacitor.config.ts
 
       - name: Build Web Application
         run: npm run build
@@ -56,7 +72,7 @@ jobs:
             cp android_config/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
           fi
           
-          # Copy Firebase google-services.json if present (check root and android_config, handle both spellings)
+          # Copy Firebase google-services.json if present
           for location in "google-services.json" "google-service.json" "android_config/google-services.json" "android_config/google-service.json"; do
             if [ -f "$location" ]; then
               echo "Found Firebase configuration at: $location"
@@ -65,13 +81,17 @@ jobs:
             fi
           done
           
-          STRINGS_FILE="android/app/src/main/res/values/strings.xml"
-          if [ -f "$STRINGS_FILE" ] && ! grep -q "default_notification_channel_id" "$STRINGS_FILE"; then
-            sed -i 's#</resources>#    <string name="default_notification_channel_id">default</string>\n</resources>#' "$STRINGS_FILE"
-          fi
-
           # Synchronize Web assets with Android Native directory
           npx cap sync android
+          
+          STRINGS_FILE="android/app/src/main/res/values/strings.xml"
+          if [ -f "$STRINGS_FILE" ]; then
+            if ! grep -q "default_notification_channel_id" "$STRINGS_FILE"; then
+              sed -i 's#</resources>#    <string name="default_notification_channel_id">default</string>\n</resources>#' "$STRINGS_FILE"
+            fi
+            # Also update app name in strings.xml just to be sure
+            sed -i "s#<string name=\"app_name\">.*</string>#<string name=\"app_name\">${{ matrix.app_name }}</string>#" "$STRINGS_FILE"
+          fi
 
       - name: Build Android APK
         working-directory: android
@@ -84,7 +104,7 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Exceller-Chez-Pierre-Android-APK
+          name: ${{ matrix.artifact_name }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
