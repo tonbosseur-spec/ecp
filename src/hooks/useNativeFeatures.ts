@@ -28,11 +28,9 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
       // Set Immersive Status Bar
       const setImmersiveStatusBar = async () => {
         try {
-          await StatusBar.setOverlaysWebView({ overlay: true });
-          // Typically the app uses light backgrounds (bg-gray-50, bg-white), so we need dark icons.
-          await StatusBar.setStyle({ style: Style.Light });
+          await StatusBar.hide();
         } catch (err) {
-          console.warn("Could not set status bar style:", err);
+          console.warn("Could not hide status bar:", err);
         }
       };
       setImmersiveStatusBar();

@@ -1,6 +1,6 @@
 {
 	"appId": "com.excellerchezpierre.app",
-	"appName": "Exceller chez Pierre",
+	"appName": "ECP Apprenant",
 	"webDir": "dist",
 	"server": {
 		"androidScheme": "https"
@@ -12,6 +12,10 @@
 				"sound",
 				"alert"
 			]
+		},
+		"StatusBar": {
+			"overlaysWebView": true,
+			"style": "LIGHT"
 		}
 	}
 }

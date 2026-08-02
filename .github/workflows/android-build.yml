@@ -53,6 +53,9 @@ jobs:
           sed -i "s/appName: 'Exceller chez Pierre'/appName: '${{ matrix.app_name }}'/" capacitor.config.ts
           sed -i "s/appId: 'com.excellerchezpierre.app'/appId: '${{ matrix.app_id }}'/" capacitor.config.ts
 
+      - name: Generate Native Assets
+        run: npm run generate-assets
+
       - name: Build Web Application
         run: npm run build
 

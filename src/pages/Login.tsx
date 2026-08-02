@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, ChevronRight, GraduationCap } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, ChevronRight, GraduationCap, Fingerprint } from 'lucide-react';
+import { NativeBiometric } from '@capgo/capacitor-native-biometric';
+import { Capacitor } from '@capacitor/core';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,6 +11,48 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [hasBiometrics, setHasBiometrics] = useState(false);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      NativeBiometric.isAvailable().then((result) => {
+        if (result.isAvailable) {
+          NativeBiometric.isCredentialsSaved({ server: 'admin_ecp' }).then((savedResult) => {
+            if (savedResult.isSaved) {
+              setHasBiometrics(true);
+            }
+          }).catch(console.error);
+        }
+      }).catch(console.error);
+    }
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await NativeBiometric.verifyIdentity({
+        reason: 'Connectez-vous à votre compte administrateur',
+        title: 'Connexion biométrique',
+      });
+      const credentials = await NativeBiometric.getCredentials({
+        server: 'admin_ecp',
+      });
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email: credentials.username,
+        password: credentials.password,
+      });
+
+      if (error) throw error;
+      navigate('/dashboard');
+    } catch (err: any) {
+       console.error("Biometric login failed", err);
+       setError("Échec de la connexion biométrique.");
+    } finally {
+       setLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +74,21 @@ export default function Login() {
       if (error) {
         setError(error.message);
       } else {
+        if (Capacitor.isNativePlatform()) {
+           try {
+               const available = await NativeBiometric.isAvailable();
+               if (available.isAvailable) {
+                   await NativeBiometric.setCredentials({
+                       server: 'admin_ecp',
+                       username: email,
+                       password: password
+                   });
+                   setHasBiometrics(true);
+               }
+           } catch (e) {
+               console.error("Biometric save error", e);
+           }
+        }
         navigate('/dashboard');
       }
     } catch (err: any) {
@@ -96,20 +155,34 @@ export default function Login() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                  Connexion...
-                </>
-              ) : (
-                'Se connecter'
+            <div className="pt-2 flex gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                    Connexion...
+                  </>
+                ) : (
+                  'Se connecter'
+                )}
+              </button>
+              
+              {hasBiometrics && (
+                <button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  disabled={loading}
+                  className="w-12 h-12 mt-2 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors border border-gray-200 shrink-0"
+                  title="Se connecter avec l'empreinte digitale"
+                >
+                  <Fingerprint className="w-5 h-5" />
+                </button>
               )}
-            </button>
+            </div>
           </form>
         </div>
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 text-center flex flex-col gap-2.5">

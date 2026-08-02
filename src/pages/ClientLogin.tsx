@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2, BookOpen, GraduationCap, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2, BookOpen, GraduationCap, Sparkles, ShieldCheck, ChevronRight, Fingerprint } from 'lucide-react';
+import { NativeBiometric } from '@capgo/capacitor-native-biometric';
+import { Capacitor } from '@capacitor/core';
 
 export default function ClientLogin() {
   const [email, setEmail] = useState('');
@@ -11,6 +13,53 @@ export default function ClientLogin() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectPath = searchParams.get('redirect');
+  const [hasBiometrics, setHasBiometrics] = useState(false);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      NativeBiometric.isAvailable().then((result) => {
+        if (result.isAvailable) {
+          NativeBiometric.isCredentialsSaved({ server: 'client_ecp' }).then((savedResult) => {
+            if (savedResult.isSaved) {
+              setHasBiometrics(true);
+            }
+          }).catch(console.error);
+        }
+      }).catch(console.error);
+    }
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await NativeBiometric.verifyIdentity({
+        reason: 'Connectez-vous à votre compte',
+        title: 'Connexion biométrique',
+      });
+      const credentials = await NativeBiometric.getCredentials({
+        server: 'client_ecp',
+      });
+      
+      const { error } = await supabase.auth.signInWithPassword({
+        email: credentials.username,
+        password: credentials.password,
+      });
+
+      if (error) throw error;
+      
+      if (redirectPath && !redirectPath.startsWith('http')) {
+        navigate(`/${redirectPath.replace(/^\/+/, '')}`);
+      } else {
+        navigate('/client/hub');
+      }
+    } catch (err: any) {
+       console.error("Biometric login failed", err);
+       setError("Échec de la connexion biométrique.");
+    } finally {
+       setLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +74,22 @@ export default function ClientLogin() {
 
       if (error) {
         throw error;
+      }
+
+      if (Capacitor.isNativePlatform()) {
+         try {
+             const available = await NativeBiometric.isAvailable();
+             if (available.isAvailable) {
+                 await NativeBiometric.setCredentials({
+                     server: 'client_ecp',
+                     username: email,
+                     password: password
+                 });
+                 setHasBiometrics(true);
+             }
+         } catch (e) {
+             console.error("Biometric save error", e);
+         }
       }
       
       // On success, go to redirect path or hub
@@ -173,11 +238,11 @@ export default function ClientLogin() {
               </div>
             </div>
             
-            <div className="pt-2">
+            <div className="pt-2 flex gap-3">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center items-center py-4 px-4 rounded-2xl shadow-lg shadow-blue-500/30 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex-1 flex justify-center items-center py-4 px-4 rounded-2xl shadow-lg shadow-blue-500/30 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 {loading ? (
                   <>
@@ -188,6 +253,18 @@ export default function ClientLogin() {
                   'Se connecter à mon compte'
                 )}
               </button>
+              
+              {hasBiometrics && (
+                <button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  disabled={loading}
+                  className="w-14 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-colors border border-gray-200 shrink-0"
+                  title="Se connecter avec l'empreinte digitale"
+                >
+                  <Fingerprint className="w-6 h-6" />
+                </button>
+              )}
             </div>
           </form>
           
