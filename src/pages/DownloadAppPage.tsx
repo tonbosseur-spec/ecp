@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 export default function DownloadAppPage() {
-  const apkUrl = "https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/public/APK/ECP%20Mobile.apk";
+  const apkUrl = "https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/public/APK/Exceller%20chez%20Pierre.apk";
 
   useEffect(() => {
     window.scrollTo(0, 0);

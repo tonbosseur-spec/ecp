@@ -56,6 +56,28 @@ export interface LivePresenceRecord {
 
 // Key for local storage fallback when Supabase table isn't created yet
 const LOCAL_SESSIONS_KEY = 'ecp_live_sessions_cache';
+const DELETED_SESSIONS_KEY = 'ecp_deleted_live_sessions';
+
+function getDeletedSessionIds(): Set<string> {
+  const local = localStorage.getItem(DELETED_SESSIONS_KEY);
+  if (local) {
+    try {
+      const arr = JSON.parse(local);
+      if (Array.isArray(arr)) return new Set(arr);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  return new Set();
+}
+
+function markSessionAsDeleted(...ids: (string | undefined)[]) {
+  const current = getDeletedSessionIds();
+  ids.forEach(id => {
+    if (id) current.add(id);
+  });
+  localStorage.setItem(DELETED_SESSIONS_KEY, JSON.stringify(Array.from(current)));
+}
 
 // Generate a readable unique room code like LIVE-7X9B2K
 export function generateRoomCode(): string {
@@ -69,6 +91,9 @@ export function generateRoomCode(): string {
 
 // Get stored sessions (Supabase with LocalStorage fallback only on table error)
 export async function fetchLiveSessions(): Promise<LiveSession[]> {
+  const deletedSet = getDeletedSessionIds();
+  let sessions: LiveSession[] = [];
+
   try {
     const { data, error } = await supabase
       .from('live_sessions')
@@ -76,28 +101,34 @@ export async function fetchLiveSessions(): Promise<LiveSession[]> {
       .order('scheduled_at', { ascending: true });
 
     if (!error && data !== null) {
-      return data as LiveSession[];
+      sessions = data as LiveSession[];
     }
   } catch (err) {
     console.warn('Live sessions table query fallback:', err);
   }
 
-  // Fallback to local storage only if table query fails
-  const local = localStorage.getItem(LOCAL_SESSIONS_KEY);
-  if (local) {
-    try {
-      const parsed = JSON.parse(local);
-      if (Array.isArray(parsed)) return parsed;
-    } catch (e) {
-      console.error(e);
+  if (sessions.length === 0) {
+    // Fallback to local storage only if table query fails or returns empty
+    const local = localStorage.getItem(LOCAL_SESSIONS_KEY);
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) sessions = parsed;
+      } catch (e) {
+        console.error(e);
+      }
     }
   }
 
-  return [];
+  // Filter out any sessions marked as deleted
+  return sessions.filter(s => !deletedSet.has(s.id) && !deletedSet.has(s.room_code));
 }
 
 // Fetch single session by room code
 export async function fetchLiveSessionByCode(roomCode: string): Promise<LiveSession | null> {
+  const deletedSet = getDeletedSessionIds();
+  if (deletedSet.has(roomCode)) return null;
+
   try {
     const { data, error } = await supabase
       .from('live_sessions')
@@ -106,6 +137,7 @@ export async function fetchLiveSessionByCode(roomCode: string): Promise<LiveSess
       .single();
 
     if (!error && data) {
+      if (deletedSet.has(data.id)) return null;
       return data as LiveSession;
     }
   } catch (err) {
@@ -182,17 +214,28 @@ export async function updateLiveSession(id: string, updates: Partial<LiveSession
 }
 
 // Delete Live Session
-export async function deleteLiveSession(sessionId: string): Promise<boolean> {
+export async function deleteLiveSession(sessionId: string, roomCode?: string): Promise<boolean> {
+  // Always mark deleted locally so it immediately disappears even if Supabase delete fails or has RLS restrictions
+  markSessionAsDeleted(sessionId, roomCode);
+
   try {
     // Delete child records first to prevent foreign key constraint violations
-    await supabase.from('live_participants').delete().eq('session_id', sessionId);
-    await supabase.from('live_messages').delete().eq('session_id', sessionId);
-    await supabase.from('live_presence').delete().eq('session_id', sessionId);
+    const targetFilter = roomCode
+      ? `session_id.eq.${sessionId},session_id.eq.${roomCode}`
+      : `session_id.eq.${sessionId}`;
+
+    await supabase.from('live_participants').delete().or(targetFilter);
+    await supabase.from('live_messages').delete().or(targetFilter);
+    await supabase.from('live_presence').delete().or(targetFilter);
+
+    const sessionFilter = roomCode
+      ? `id.eq.${sessionId},room_code.eq.${sessionId},room_code.eq.${roomCode}`
+      : `id.eq.${sessionId},room_code.eq.${sessionId}`;
 
     const { error } = await supabase
       .from('live_sessions')
       .delete()
-      .eq('id', sessionId);
+      .or(sessionFilter);
 
     if (error) {
       console.warn('Error deleting live session from Supabase:', error);
@@ -206,7 +249,7 @@ export async function deleteLiveSession(sessionId: string): Promise<boolean> {
   if (local) {
     try {
       const existing: LiveSession[] = JSON.parse(local);
-      const filtered = existing.filter(s => s.id !== sessionId);
+      const filtered = existing.filter(s => s.id !== sessionId && s.room_code !== sessionId && s.room_code !== roomCode);
       localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(filtered));
     } catch (e) {
       console.error(e);

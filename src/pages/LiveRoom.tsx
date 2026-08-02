@@ -64,6 +64,11 @@ export default function LiveRoom() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
+  // WebRTC P2P Streams & Connections
+  const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const iceCandidateQueuesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+
   // Local media stream references
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const testVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -294,6 +299,151 @@ export default function LiveRoom() {
     }
   };
 
+  const rtcConfig: RTCConfiguration = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+    ],
+  };
+
+  const createPeerConnection = (remoteUserId: string, channel: any, currentUserId: string) => {
+    if (peerConnectionsRef.current.has(remoteUserId)) {
+      return peerConnectionsRef.current.get(remoteUserId)!;
+    }
+
+    const pc = new RTCPeerConnection(rtcConfig);
+    peerConnectionsRef.current.set(remoteUserId, pc);
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => {
+        pc.addTrack(track, localStreamRef.current!);
+      });
+    }
+
+    pc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        const stream = event.streams[0];
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [remoteUserId]: stream,
+        }));
+      }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && channel) {
+        channel.send({
+          type: 'broadcast',
+          event: 'webrtc_ice_candidate',
+          payload: {
+            sender_id: currentUserId,
+            target_id: remoteUserId,
+            candidate: event.candidate.toJSON(),
+          },
+        });
+      }
+    };
+
+    return pc;
+  };
+
+  const initiateOffer = async (remoteUserId: string, channel: any, currentUserId: string) => {
+    try {
+      const pc = createPeerConnection(remoteUserId, channel, currentUserId);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      channel.send({
+        type: 'broadcast',
+        event: 'webrtc_offer',
+        payload: {
+          sender_id: currentUserId,
+          target_id: remoteUserId,
+          sdp: offer,
+        },
+      });
+    } catch (err) {
+      console.error('Error initiating WebRTC offer to', remoteUserId, err);
+    }
+  };
+
+  const handleWebRTCOffer = async (
+    payload: { sender_id: string; target_id: string; sdp: RTCSessionDescriptionInit },
+    channel: any,
+    currentUserId: string
+  ) => {
+    if (payload.target_id !== currentUserId) return;
+    const senderId = payload.sender_id;
+    try {
+      const pc = createPeerConnection(senderId, channel, currentUserId);
+      await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+      const queue = iceCandidateQueuesRef.current.get(senderId) || [];
+      for (const cand of queue) {
+        await pc.addIceCandidate(new RTCIceCandidate(cand));
+      }
+      iceCandidateQueuesRef.current.delete(senderId);
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      channel.send({
+        type: 'broadcast',
+        event: 'webrtc_answer',
+        payload: {
+          sender_id: currentUserId,
+          target_id: senderId,
+          sdp: answer,
+        },
+      });
+    } catch (err) {
+      console.error('Error handling WebRTC offer from', senderId, err);
+    }
+  };
+
+  const handleWebRTCAnswer = async (
+    payload: { sender_id: string; target_id: string; sdp: RTCSessionDescriptionInit },
+    currentUserId: string
+  ) => {
+    if (payload.target_id !== currentUserId) return;
+    const senderId = payload.sender_id;
+    const pc = peerConnectionsRef.current.get(senderId);
+    if (pc) {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        const queue = iceCandidateQueuesRef.current.get(senderId) || [];
+        for (const cand of queue) {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        }
+        iceCandidateQueuesRef.current.delete(senderId);
+      } catch (err) {
+        console.error('Error setting remote answer from', senderId, err);
+      }
+    }
+  };
+
+  const handleWebRTCCandidate = async (
+    payload: { sender_id: string; target_id: string; candidate: RTCIceCandidateInit },
+    currentUserId: string
+  ) => {
+    if (payload.target_id !== currentUserId) return;
+    const senderId = payload.sender_id;
+    const pc = peerConnectionsRef.current.get(senderId);
+    if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+      } catch (err) {
+        console.error('Error adding ICE candidate from', senderId, err);
+      }
+    } else {
+      const existing = iceCandidateQueuesRef.current.get(senderId) || [];
+      existing.push(payload.candidate);
+      iceCandidateQueuesRef.current.set(senderId, existing);
+    }
+  };
+
   const setupRealtimeChannel = (
     liveData: LiveSession,
     user: any,
@@ -369,6 +519,13 @@ export default function LiveRoom() {
         if (lobbyList.length > 0 && lobbyList[0]) {
           store.addToLobby(lobbyList[0]);
         }
+
+        // Establish WebRTC offer with peers
+        activeList.forEach((p) => {
+          if (p.user_id !== user.id && user.id < p.user_id) {
+            initiateOffer(p.user_id, channel, user.id);
+          }
+        });
       })
       .on('broadcast', { event: 'chat' }, (payload) => {
         if (payload.payload) {
@@ -404,9 +561,34 @@ export default function LiveRoom() {
           store.showToast('La réunion s\'est terminée.');
         }
       })
+      .on('broadcast', { event: 'webrtc_offer' }, (payload) => {
+        if (payload.payload) {
+          handleWebRTCOffer(payload.payload, channel, user.id);
+        }
+      })
+      .on('broadcast', { event: 'webrtc_answer' }, (payload) => {
+        if (payload.payload) {
+          handleWebRTCAnswer(payload.payload, user.id);
+        }
+      })
+      .on('broadcast', { event: 'webrtc_ice_candidate' }, (payload) => {
+        if (payload.payload) {
+          handleWebRTCCandidate(payload.payload, user.id);
+        }
+      })
+      .on('broadcast', { event: 'webrtc_request_offer' }, (payload) => {
+        if (payload.payload && payload.payload.sender_id && payload.payload.sender_id !== user.id) {
+          initiateOffer(payload.payload.sender_id, channel, user.id);
+        }
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track(meParticipant);
+          channel.send({
+            type: 'broadcast',
+            event: 'webrtc_request_offer',
+            payload: { sender_id: user.id },
+          });
         }
       });
   };
@@ -426,6 +608,15 @@ export default function LiveRoom() {
   };
 
   const cleanupRoom = async () => {
+    peerConnectionsRef.current.forEach((pc) => {
+      try {
+        pc.close();
+      } catch (e) {}
+    });
+    peerConnectionsRef.current.clear();
+    iceCandidateQueuesRef.current.clear();
+    setRemoteStreams({});
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
@@ -772,7 +963,12 @@ export default function LiveRoom() {
             >
               {store.isCamOn ? (
                 <video
-                  ref={localVideoRef}
+                  ref={(el) => {
+                    localVideoRef.current = el;
+                    if (el && localStreamRef.current) {
+                      el.srcObject = localStreamRef.current;
+                    }
+                  }}
                   autoPlay
                   playsInline
                   muted
@@ -836,18 +1032,38 @@ export default function LiveRoom() {
                       : 'border-slate-800'
                   }`}
                 >
-                  {p.is_camera_off ? (
+                  {/* Remote Audio Stream element */}
+                  {remoteStreams[p.user_id] && (
+                    <audio
+                      ref={(el) => {
+                        if (el && remoteStreams[p.user_id]) {
+                          el.srcObject = remoteStreams[p.user_id];
+                        }
+                      }}
+                      autoPlay
+                      playsInline
+                    />
+                  )}
+
+                  {!p.is_camera_off && remoteStreams[p.user_id] ? (
+                    <video
+                      ref={(el) => {
+                        if (el && remoteStreams[p.user_id]) {
+                          el.srcObject = remoteStreams[p.user_id];
+                        }
+                      }}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
                     <div className="flex flex-col items-center justify-center p-6 space-y-3">
                       <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-purple-600 to-pink-600 flex items-center justify-center text-2xl font-black text-white shadow-lg">
                         {p.user_name ? p.user_name.charAt(0).toUpperCase() : 'A'}
                       </div>
-                      <p className="text-xs font-bold text-slate-400">Caméra désactivée</p>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                      <div className="w-16 h-16 rounded-full bg-indigo-600/30 flex items-center justify-center text-xl font-bold text-indigo-300 animate-pulse">
-                        {p.user_name ? p.user_name.charAt(0).toUpperCase() : 'A'}
-                      </div>
+                      <p className="text-xs font-bold text-slate-400">
+                        {p.is_camera_off ? 'Caméra désactivée' : 'Connexion vidéo...'}
+                      </p>
                     </div>
                   )}
 

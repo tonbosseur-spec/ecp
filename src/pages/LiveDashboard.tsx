@@ -100,14 +100,14 @@ export default function LiveDashboard() {
     setTimeout(() => setCopiedCodeId(null), 2000);
   };
 
-  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+  const handleDeleteSession = async (session: LiveSession, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!window.confirm('Voulez-vous vraiment supprimer cette séance live ? Cette action est irréversible.')) {
       return;
     }
     try {
-      await deleteLiveSession(sessionId);
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      await deleteLiveSession(session.id, session.room_code);
+      setSessions((prev) => prev.filter((s) => s.id !== session.id && s.room_code !== session.room_code));
     } catch (err) {
       console.error('Erreur lors de la suppression de la session:', err);
     }
@@ -408,7 +408,7 @@ export default function LiveDashboard() {
                             <Edit3 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={(e) => handleDeleteSession(session.id, e)}
+                            onClick={(e) => handleDeleteSession(session, e)}
                             className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1"
                             title="Supprimer la séance"
                           >
