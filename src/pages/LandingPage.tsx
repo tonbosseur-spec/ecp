@@ -226,7 +226,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden pt-safe pb-safe">
       {/* 1. Mobile Smart Banner - Visible only on mobile/tablet */}
       <Link 
         to="/download" 

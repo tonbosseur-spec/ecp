@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.excellerchezpierre.app',
-  appName: 'Exceller chez Pierre',
+  appName: 'ECP Apprenant',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
@@ -10,6 +10,10 @@ const config: CapacitorConfig = {
   plugins: {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]
+    },
+    StatusBar: {
+      overlaysWebView: true,
+      style: 'LIGHT'
     }
   }
 };

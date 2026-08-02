@@ -390,7 +390,7 @@ export default function PublicQuizChallenge() {
   const displayDescription = quizSettings.quizDescription || course?.description || "Testez vos connaissances en situation réelle, découvrez votre niveau exact et débloquez un code promo exclusif pour la formation complète.";
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-100 flex flex-col justify-between pt-safe pb-safe">
       {/* Navigation Bar */}
       <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">

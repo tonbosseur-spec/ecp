@@ -58,7 +58,7 @@ export default function HowItWorksPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans selection:bg-blue-200">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans selection:bg-blue-200 pt-safe pb-safe">
       <ClientNavBar currentSession={currentSession} />
       
       <main className="flex-1">

@@ -24,7 +24,7 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
   };
 
   return (
-    <div className="sticky top-3 sm:top-4 z-50 px-3 sm:px-6 flex flex-col items-center pointer-events-none mb-3 sm:mb-5 mt-2 sm:mt-3">
+    <div className="sticky top-[calc(0.75rem+env(safe-area-inset-top))] sm:top-[calc(1rem+env(safe-area-inset-top))] z-50 px-3 sm:px-6 flex flex-col items-center pointer-events-none mb-3 sm:mb-5 mt-2 sm:mt-3">
       {/* Floating iOS Glass Ribbon */}
       <nav className="w-full max-w-5xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl backdrop-saturate-150 border border-white/60 dark:border-slate-800/80 shadow-[0_8px_32px_0_rgba(0,0,0,0.08)] rounded-full px-3.5 sm:px-5 py-2 flex items-center justify-between pointer-events-auto transition-all duration-300">
         

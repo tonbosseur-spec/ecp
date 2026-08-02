@@ -37,6 +37,15 @@
 }
 
 @layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .min-h-safe-screen {
+    min-height: calc(100vh + env(safe-area-inset-top));
+  }
   .pattern-dots {
     background-color: #f8fafc;
     background-image: radial-gradient(var(--theme-primary-light, #e2e8f0) 1.5px, transparent 1.5px);

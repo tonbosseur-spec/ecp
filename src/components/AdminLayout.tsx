@@ -125,7 +125,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content Pane */}
-      <main className={`flex-1 overflow-y-auto ${isFullScreenForm ? '' : 'pb-20 md:pb-0'}`}>
+      <main className={`flex-1 overflow-y-auto pt-safe ${isFullScreenForm ? '' : 'pb-20 md:pb-0'}`}>
         <Outlet />
       </main>
 

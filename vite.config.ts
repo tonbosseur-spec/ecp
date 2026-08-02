@@ -21,12 +21,12 @@ export default defineConfig(() => {
           display: 'standalone',
           icons: [
             {
-              src: 'https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/public/APK/ChatGPT%20Image%2018%20juil.%202026,%2017_51_54.png',
+              src: '/icon.png',
               sizes: '192x192',
               type: 'image/png'
             },
             {
-              src: 'https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/public/APK/ChatGPT%20Image%2018%20juil.%202026,%2017_51_54.png',
+              src: '/icon.png',
               sizes: '512x512',
               type: 'image/png'
             }

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { App } from '@capacitor/app';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { supabase } from '../lib/supabaseClient';
 
 export interface UseNativeFeaturesResult {
@@ -22,6 +23,20 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
   useEffect(() => {
     const isCapacitor = (window as any).Capacitor !== undefined;
     setIsNative(isCapacitor);
+    
+    if (isCapacitor) {
+      // Set Immersive Status Bar
+      const setImmersiveStatusBar = async () => {
+        try {
+          await StatusBar.setOverlaysWebView({ overlay: true });
+          // Typically the app uses light backgrounds (bg-gray-50, bg-white), so we need dark icons.
+          await StatusBar.setStyle({ style: Style.Light });
+        } catch (err) {
+          console.warn("Could not set status bar style:", err);
+        }
+      };
+      setImmersiveStatusBar();
+    }
   }, []);
 
   // A. Back Button Handler

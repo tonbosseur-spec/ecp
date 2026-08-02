@@ -591,7 +591,7 @@ END:VCALENDAR`;
   ];
 
   return (
-    <div className={`min-h-screen ${bgClass} font-sans pb-20 theme-page`}>
+    <div className={`min-h-screen ${bgClass} font-sans pb-20 pt-safe pb-safe theme-page`}>
       <style dangerouslySetInnerHTML={{__html: `
         @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@600;700&display=swap');
         .theme-page {

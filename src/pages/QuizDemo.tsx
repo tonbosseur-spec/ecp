@@ -51,7 +51,7 @@ export default function QuizDemo() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-6">
+    <div className="min-h-screen bg-slate-50 py-12 px-6 pt-[calc(3rem+env(safe-area-inset-top))] pb-safe">
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => navigate(-1)}

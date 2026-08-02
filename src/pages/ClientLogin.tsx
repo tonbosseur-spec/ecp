@@ -42,7 +42,7 @@ export default function ClientLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-gray-50 flex font-sans selection:bg-blue-100 selection:text-blue-900 pt-safe pb-safe">
       {/* Left panel - Benefits */}
       <div className="hidden lg:flex lg:w-1/2 bg-gray-900 relative flex-col justify-between overflow-hidden">
         {/* Background elements */}

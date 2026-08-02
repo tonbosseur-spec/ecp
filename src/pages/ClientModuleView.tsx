@@ -418,7 +418,7 @@ export default function ClientModuleView() {
   return (
     <div className={`min-h-screen ${theme.bgApp} ${theme.textMain} flex flex-col overflow-x-hidden animate-fade-in max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none]`}>
       {/* Immersive distraction-free status bar */}
-      <nav className={`${theme.bgNav} border-b px-4 sm:px-6 py-4 flex items-center justify-between shrink-0 gap-4 transition-colors`}>
+      <nav className={`${theme.bgNav} border-b px-4 sm:px-6 py-4 flex items-center justify-between shrink-0 gap-4 transition-colors pt-safe`}>
         <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <Link
             to={`/client/course/${courseId}`}

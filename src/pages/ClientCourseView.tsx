@@ -308,7 +308,7 @@ export default function ClientCourseView() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col animate-fade-in">
       {/* Top clean header bar */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 sm:px-6 py-4 shadow-xs shrink-0">
+      <header className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 sm:px-6 py-4 shadow-xs shrink-0 pt-safe">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 min-w-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
             <button

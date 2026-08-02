@@ -530,7 +530,7 @@ export default function ClientHub() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] overflow-y-auto h-screen">
       {/* Personalized Header */}
-      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20">
+      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20 pt-safe">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4 min-h-[4rem]">
             <div className="flex items-start gap-3">

@@ -40,7 +40,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans pt-safe pb-safe">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
         <div className="px-6 py-8 sm:px-10">
           <div className="text-center mb-8">
