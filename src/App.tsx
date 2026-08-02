@@ -30,6 +30,9 @@ import DownloadAppPage from './pages/DownloadAppPage';
 import QuizDemo from './pages/QuizDemo';
 import AdminHub from './pages/AdminHub';
 import AdminSessionsDashboard from './pages/AdminSessionsDashboard';
+import LiveDashboard from './pages/LiveDashboard';
+import LiveRoom from './pages/LiveRoom';
+import PublicLiveSessionPage from './pages/PublicLiveSessionPage';
 import AdminLayout from './components/AdminLayout';
 import { Loader2 } from 'lucide-react';
 
@@ -143,6 +146,12 @@ export default function App() {
       <Route path="/client/course/:courseId" element={<ClientCourseView />} />
       <Route path="/client/course/:courseId/module/:moduleId" element={<ClientModuleView />} />
       <Route path="/client/marketplace" element={<Marketplace />} />
+      
+      {/* Live Visioconference Module Routes */}
+      <Route path="/live" element={<LiveDashboard />} />
+      <Route path="/live/session/:roomCode" element={<PublicLiveSessionPage />} />
+      <Route path="/live/public/:roomCode" element={<PublicLiveSessionPage />} />
+      <Route path="/live/:roomCode" element={<LiveRoom />} />
       
       <Route 
         path="/login" 

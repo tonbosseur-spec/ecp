@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { LayoutDashboard, PlusCircle, LogOut, Users, Store, Shield, CalendarCheck } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, LogOut, Users, Store, Shield, CalendarCheck, Video } from 'lucide-react';
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -60,6 +60,7 @@ export default function AdminLayout() {
     { path: '/admin/hub', icon: Store, label: 'Espace Hub' },
     { path: '/trainers', icon: Users, label: 'Formateurs' },
     { path: '/admin/sessions', icon: CalendarCheck, label: 'Séances (Formateur)', showBadge: overdueSessionsCount > 0, badgeCount: overdueSessionsCount },
+    { path: '/live', icon: Video, label: 'Live' },
   ];
 
   const isFullScreenForm = location.pathname === '/courses/new' || location.pathname.startsWith('/edit-course');

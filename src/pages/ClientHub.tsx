@@ -588,6 +588,31 @@ export default function ClientHub() {
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
               
+              {/* Live Visioconférence - 2 cols */}
+              <button 
+                onClick={() => navigate('/live')}
+                className="md:col-span-2 bg-gradient-to-br from-red-600 via-rose-600 to-red-800 rounded-[2rem] p-6 md:p-8 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-red-900/20 hover:-translate-y-1 transition-all duration-300 text-white"
+              >
+                <div className="absolute top-0 right-0 p-8 opacity-15 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500">
+                  <Video className="w-40 h-40 text-white" />
+                </div>
+                <div className="relative z-10 flex flex-col h-full min-h-[160px] justify-between">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
+                      <Video className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm text-xs font-bold text-white shadow-sm flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                      Sessions Live en direct
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-white mb-2">Espace Live</h3>
+                    <p className="text-red-100 text-sm font-medium">Rejoignez vos visioconférences de groupe (5-6 pers max).</p>
+                  </div>
+                </div>
+              </button>
+
               {/* Mes formations - 2 cols */}
               <button 
                 onClick={() => setActiveSection('inscriptions')}

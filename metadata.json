@@ -1,6 +1,6 @@
 {
   "name": "Exceller chez Pierre",
   "description": "Application mobile de formation et d'excellence pour Exceller chez Pierre",
-  "requestFramePermissions": ["camera"],
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

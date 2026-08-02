@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { 
   CheckSquare, 
@@ -16,7 +17,8 @@ import {
   Grid,
   CalendarDays,
   AlertTriangle,
-  AlertCircle
+  AlertCircle,
+  Video
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ModuleSession } from '../types';
@@ -29,6 +31,7 @@ interface FlatSession extends ModuleSession {
 }
 
 export default function AdminSessionsDashboard() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<FlatSession[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -366,8 +369,17 @@ export default function AdminSessionsDashboard() {
           </p>
         </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => navigate('/live')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl shadow-md shadow-indigo-600/20 transition-all"
+          >
+            <Video className="w-4 h-4" />
+            <span>Créer / Lancer un Live</span>
+          </button>
+
+          {/* View Mode Switcher */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
           <button
             onClick={() => setViewMode('status')}
             className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition-all ${
@@ -403,6 +415,7 @@ export default function AdminSessionsDashboard() {
           </button>
         </div>
       </div>
+    </div>
 
       {/* Search Bar & Filters */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">

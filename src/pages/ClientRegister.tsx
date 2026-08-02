@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { User, Phone, Mail, Lock, Loader2, AlertCircle, CheckCircle2, ArrowLeft, Sparkles, BookOpen, GraduationCap, Gift, Tag } from 'lucide-react';
 import { findReferralCode, saveUserSponsor, ReferralCodeInfo } from '../lib/referralService';
+import { Capacitor } from '@capacitor/core';
 
 export default function ClientRegister() {
   const [firstName, setFirstName] = useState('');
@@ -151,10 +152,12 @@ export default function ClientRegister() {
 
         <div className="relative z-10 p-12 xl:p-16 flex flex-col h-full justify-between max-w-2xl mx-auto w-full">
           <div>
-            <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-16">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm font-semibold">Retour à l'accueil</span>
-            </Link>
+            {!Capacitor.isNativePlatform() && (
+              <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-16">
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-semibold">Retour à l'accueil</span>
+              </Link>
+            )}
 
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-extrabold text-xs uppercase tracking-wider mb-6">
               <Sparkles className="w-3.5 h-3.5" />
@@ -211,10 +214,12 @@ export default function ClientRegister() {
       {/* Right panel - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 lg:p-12 relative overflow-y-auto">
         {/* Mobile back button */}
-        <Link to="/" className="lg:hidden absolute top-6 left-6 inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors">
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm font-semibold">Accueil</span>
-        </Link>
+        {!Capacitor.isNativePlatform() && (
+          <Link to="/" className="lg:hidden absolute top-6 left-6 inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-semibold">Accueil</span>
+          </Link>
+        )}
 
         <div className="w-full max-w-md py-8">
           <div className="text-center mb-10 mt-10">
