@@ -68,6 +68,8 @@ export default function LiveRoom() {
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const iceCandidateQueuesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const offeredPeersRef = useRef<Set<string>>(new Set());
+  const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
 
   // Local media stream references
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -273,18 +275,57 @@ export default function LiveRoom() {
   const acquireMediaStream = async () => {
     try {
       setMediaError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+      } catch (e1) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        } catch (e2) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          } catch (e3) {
+            throw e1;
+          }
+        }
       }
-      if (testVideoRef.current) {
-        testVideoRef.current.srcObject = stream;
+
+      if (stream) {
+        localStreamRef.current = stream;
+
+        // Apply current store muted / camera off state to tracks
+        stream.getAudioTracks().forEach((t) => {
+          t.enabled = store.isMicOn;
+        });
+        stream.getVideoTracks().forEach((t) => {
+          t.enabled = store.isCamOn;
+        });
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.play().catch(() => {});
+        }
+        if (testVideoRef.current) {
+          testVideoRef.current.srcObject = stream;
+          testVideoRef.current.play().catch(() => {});
+        }
+        setupAudioAnalyser(stream);
+
+        // Add tracks to any established WebRTC peer connections
+        peerConnectionsRef.current.forEach((pc) => {
+          stream!.getTracks().forEach((track) => {
+            const senders = pc.getSenders();
+            const exists = senders.some((s) => s.track?.id === track.id || s.track?.kind === track.kind);
+            if (!exists) {
+              pc.addTrack(track, stream!);
+            }
+          });
+        });
       }
-      setupAudioAnalyser(stream);
+
       return stream;
     } catch (err: any) {
       console.warn('Could not acquire local video/audio:', err);
@@ -294,18 +335,54 @@ export default function LiveRoom() {
         ? 'Aucune caméra ou micro n\'a été détecté sur votre appareil.'
         : 'Impossible d\'accéder aux périphériques vidéo/audio.';
       setMediaError(errMsg);
-      store.toggleCam();
       return null;
     }
   };
 
+  const handleToggleMic = () => {
+    const nextMic = !store.isMicOn;
+    store.toggleMic();
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = nextMic;
+      });
+    }
+    broadcastStateUpdate({ is_muted: !nextMic });
+  };
+
+  const handleToggleCam = () => {
+    const nextCam = !store.isCamOn;
+    store.toggleCam();
+    if (localStreamRef.current) {
+      localStreamRef.current.getVideoTracks().forEach((track) => {
+        track.enabled = nextCam;
+      });
+    }
+    broadcastStateUpdate({ is_camera_off: !nextCam });
+  };
+
+  // TODO: replace with production TURN credentials
   const rtcConfig: RTCConfiguration = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
     ],
+    iceCandidatePoolSize: 10,
   };
 
   const createPeerConnection = (remoteUserId: string, channel: any, currentUserId: string) => {
@@ -316,20 +393,48 @@ export default function LiveRoom() {
     const pc = new RTCPeerConnection(rtcConfig);
     peerConnectionsRef.current.set(remoteUserId, pc);
 
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE state avec ${remoteUserId}:`, pc.iceConnectionState);
+    };
+    pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] Connection state avec ${remoteUserId}:`, pc.connectionState);
+    };
+
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
+        // Si on partage déjà l'écran, envoyer la piste écran au lieu de la caméra pour la vidéo
+        if (track.kind === 'video' && store.isScreenSharing && screenStreamRef.current) {
+          const screenTrack = screenStreamRef.current.getVideoTracks()[0];
+          if (screenTrack) {
+            pc.addTrack(screenTrack, screenStreamRef.current);
+            return;
+          }
+        }
         pc.addTrack(track, localStreamRef.current!);
       });
     }
 
     pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        const stream = event.streams[0];
-        setRemoteStreams((prev) => ({
+      let stream = event.streams && event.streams[0];
+      if (!stream) {
+        stream = new MediaStream([event.track]);
+      }
+      setRemoteStreams((prev) => {
+        const existingStream = prev[remoteUserId];
+        if (existingStream) {
+          if (!existingStream.getTracks().some((t) => t.id === event.track.id)) {
+            existingStream.addTrack(event.track);
+          }
+          return {
+            ...prev,
+            [remoteUserId]: new MediaStream(existingStream.getTracks()),
+          };
+        }
+        return {
           ...prev,
           [remoteUserId]: stream,
-        }));
-      }
+        };
+      });
     };
 
     pc.onicecandidate = (event) => {
@@ -522,7 +627,12 @@ export default function LiveRoom() {
 
         // Establish WebRTC offer with peers
         activeList.forEach((p) => {
-          if (p.user_id !== user.id && user.id < p.user_id) {
+          if (
+            p.user_id !== user.id &&
+            user.id < p.user_id &&
+            !offeredPeersRef.current.has(p.user_id)
+          ) {
+            offeredPeersRef.current.add(p.user_id);
             initiateOffer(p.user_id, channel, user.id);
           }
         });
@@ -614,6 +724,7 @@ export default function LiveRoom() {
       } catch (e) {}
     });
     peerConnectionsRef.current.clear();
+    offeredPeersRef.current.clear();
     iceCandidateQueuesRef.current.clear();
     setRemoteStreams({});
 
@@ -719,8 +830,17 @@ export default function LiveRoom() {
 
   const handleToggleScreenShare = async () => {
     if (store.isScreenSharing) {
+      // Arrêt du partage : revenir à la caméra sur toutes les connexions actives
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
+        screenStreamRef.current = null;
+      }
+      const camTrack = localStreamRef.current?.getVideoTracks()[0];
+      if (camTrack) {
+        peerConnectionsRef.current.forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(camTrack);
+        });
       }
       store.toggleScreenShare(false);
       broadcastStateUpdate({ is_camera_off: !store.isCamOn });
@@ -728,10 +848,19 @@ export default function LiveRoom() {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         screenStreamRef.current = stream;
+        const screenTrack = stream.getVideoTracks()[0];
+
+        // Remplacer la piste vidéo envoyée à CHAQUE pair déjà connecté
+        peerConnectionsRef.current.forEach((pc) => {
+          const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(screenTrack);
+        });
+
         store.toggleScreenShare(true);
 
-        stream.getVideoTracks()[0].onended = () => {
-          store.toggleScreenShare(false);
+        // Quand l'utilisateur arrête le partage depuis la barre native du navigateur
+        screenTrack.onended = () => {
+          handleToggleScreenShare();
         };
       } catch (err) {
         console.warn('Screen sharing cancelled or unsupported:', err);
@@ -961,18 +1090,26 @@ export default function LiveRoom() {
                   : 'border-slate-800'
               }`}
             >
-              {store.isCamOn ? (
+              {store.isCamOn || store.isScreenSharing ? (
                 <video
                   ref={(el) => {
                     localVideoRef.current = el;
-                    if (el && localStreamRef.current) {
-                      el.srcObject = localStreamRef.current;
+                    if (el) {
+                      const streamToUse = store.isScreenSharing && screenStreamRef.current
+                        ? screenStreamRef.current
+                        : localStreamRef.current;
+                      if (streamToUse) {
+                        el.srcObject = streamToUse;
+                        el.play().catch(() => {});
+                      }
                     }
                   }}
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover transform -scale-x-100"
+                  className={`w-full h-full object-cover ${
+                    store.isScreenSharing ? '' : 'transform -scale-x-100'
+                  }`}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center p-6 space-y-3">
@@ -1038,6 +1175,7 @@ export default function LiveRoom() {
                       ref={(el) => {
                         if (el && remoteStreams[p.user_id]) {
                           el.srcObject = remoteStreams[p.user_id];
+                          el.play().catch(() => setNeedsAudioUnlock(true));
                         }
                       }}
                       autoPlay
@@ -1050,6 +1188,7 @@ export default function LiveRoom() {
                       ref={(el) => {
                         if (el && remoteStreams[p.user_id]) {
                           el.srcObject = remoteStreams[p.user_id];
+                          el.play().catch(() => {});
                         }
                       }}
                       autoPlay
@@ -1313,7 +1452,7 @@ export default function LiveRoom() {
         <div className="flex items-center gap-3 mx-auto sm:mx-0">
           {/* Mic */}
           <button
-            onClick={store.toggleMic}
+            onClick={handleToggleMic}
             className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-md ${
               store.isMicOn
                 ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
@@ -1326,7 +1465,7 @@ export default function LiveRoom() {
 
           {/* Cam */}
           <button
-            onClick={store.toggleCam}
+            onClick={handleToggleCam}
             className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-md ${
               store.isCamOn
                 ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
@@ -1396,6 +1535,21 @@ export default function LiveRoom() {
           </button>
         </div>
       </footer>
+
+      {/* Audio Autoplay Unlock Alert */}
+      {needsAudioUnlock && (
+        <button
+          onClick={() => {
+            document.querySelectorAll('audio, video').forEach((el) => {
+              (el as HTMLMediaElement).play().catch(() => {});
+            });
+            setNeedsAudioUnlock(false);
+          }}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl animate-bounce"
+        >
+          🔊 Cliquez pour activer le son
+        </button>
+      )}
 
       {/* DEVICE TEST MODAL */}
       {showDeviceTestModal && (

@@ -54,29 +54,16 @@ export interface LivePresenceRecord {
   duration_seconds: number;
 }
 
-// Key for local storage fallback when Supabase table isn't created yet
+// Key for local storage fallback cleanup
 const LOCAL_SESSIONS_KEY = 'ecp_live_sessions_cache';
 const DELETED_SESSIONS_KEY = 'ecp_deleted_live_sessions';
 
-function getDeletedSessionIds(): Set<string> {
-  const local = localStorage.getItem(DELETED_SESSIONS_KEY);
-  if (local) {
-    try {
-      const arr = JSON.parse(local);
-      if (Array.isArray(arr)) return new Set(arr);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  return new Set();
-}
-
-function markSessionAsDeleted(...ids: (string | undefined)[]) {
-  const current = getDeletedSessionIds();
-  ids.forEach(id => {
-    if (id) current.add(id);
-  });
-  localStorage.setItem(DELETED_SESSIONS_KEY, JSON.stringify(Array.from(current)));
+// Clear legacy local storage caches on module load so ghost sessions don't persist
+try {
+  localStorage.removeItem(LOCAL_SESSIONS_KEY);
+  localStorage.removeItem(DELETED_SESSIONS_KEY);
+} catch (e) {
+  // ignore in non-browser environments
 }
 
 // Generate a readable unique room code like LIVE-7X9B2K
@@ -89,11 +76,8 @@ export function generateRoomCode(): string {
   return code;
 }
 
-// Get stored sessions (Supabase with LocalStorage fallback only on table error)
+// Get stored sessions directly from Supabase
 export async function fetchLiveSessions(): Promise<LiveSession[]> {
-  const deletedSet = getDeletedSessionIds();
-  let sessions: LiveSession[] = [];
-
   try {
     const { data, error } = await supabase
       .from('live_sessions')
@@ -101,55 +85,36 @@ export async function fetchLiveSessions(): Promise<LiveSession[]> {
       .order('scheduled_at', { ascending: true });
 
     if (!error && data !== null) {
-      sessions = data as LiveSession[];
+      return data as LiveSession[];
     }
   } catch (err) {
-    console.warn('Live sessions table query fallback:', err);
+    console.warn('Live sessions Supabase query error:', err);
   }
 
-  if (sessions.length === 0) {
-    // Fallback to local storage only if table query fails or returns empty
-    const local = localStorage.getItem(LOCAL_SESSIONS_KEY);
-    if (local) {
-      try {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) sessions = parsed;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }
-
-  // Filter out any sessions marked as deleted
-  return sessions.filter(s => !deletedSet.has(s.id) && !deletedSet.has(s.room_code));
+  return [];
 }
 
-// Fetch single session by room code
+// Fetch single session by room code directly from Supabase
 export async function fetchLiveSessionByCode(roomCode: string): Promise<LiveSession | null> {
-  const deletedSet = getDeletedSessionIds();
-  if (deletedSet.has(roomCode)) return null;
-
   try {
     const { data, error } = await supabase
       .from('live_sessions')
       .select('*')
-      .eq('room_code', roomCode)
-      .single();
+      .or(`room_code.eq.${roomCode},id.eq.${roomCode}`)
+      .limit(1)
+      .maybeSingle();
 
     if (!error && data) {
-      if (deletedSet.has(data.id)) return null;
       return data as LiveSession;
     }
   } catch (err) {
     console.warn('Error fetching room code:', err);
   }
 
-  // Fallback local search
-  const sessions = await fetchLiveSessions();
-  return sessions.find(s => s.room_code === roomCode || s.id === roomCode) || null;
+  return null;
 }
 
-// Create new Live Session
+// Create new Live Session in Supabase
 export async function createLiveSession(sessionData: Omit<LiveSession, 'id' | 'created_at' | 'status'>): Promise<LiveSession> {
   const newSession: LiveSession = {
     ...sessionData,
@@ -158,66 +123,44 @@ export async function createLiveSession(sessionData: Omit<LiveSession, 'id' | 'c
     created_at: new Date().toISOString(),
   };
 
-  try {
-    const { data, error } = await supabase
-      .from('live_sessions')
-      .insert([newSession])
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from('live_sessions')
+    .insert([newSession])
+    .select()
+    .single();
 
-    if (!error && data) {
-      return data as LiveSession;
-    }
-  } catch (err) {
-    console.warn('Could not insert live session into Supabase, saving locally:', err);
+  if (error) {
+    console.error('Failed to create session in Supabase:', error);
+    throw error;
   }
 
-  // Save to local cache fallback
-  const sessions = await fetchLiveSessions();
-  sessions.unshift(newSession);
-  localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions));
-  return newSession;
+  return data as LiveSession;
 }
 
-// Update Live Session
+// Update Live Session in Supabase
 export async function updateLiveSession(id: string, updates: Partial<LiveSession>): Promise<LiveSession | null> {
   const updatedData = {
     ...updates,
     updated_at: new Date().toISOString()
   };
 
-  try {
-    const { data, error } = await supabase
-      .from('live_sessions')
-      .update(updatedData)
-      .eq('id', id)
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from('live_sessions')
+    .update(updatedData)
+    .eq('id', id)
+    .select()
+    .single();
 
-    if (!error && data) {
-      return data as LiveSession;
-    }
-  } catch (err) {
-    console.warn('Could not update live session in Supabase:', err);
+  if (error) {
+    console.error('Could not update live session in Supabase:', error);
+    return null;
   }
 
-  // Local fallback update
-  const sessions = await fetchLiveSessions();
-  const idx = sessions.findIndex(s => s.id === id);
-  if (idx !== -1) {
-    const merged = { ...sessions[idx], ...updatedData };
-    sessions[idx] = merged;
-    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions));
-    return merged;
-  }
-  return null;
+  return data as LiveSession;
 }
 
-// Delete Live Session
+// Delete Live Session from Supabase
 export async function deleteLiveSession(sessionId: string, roomCode?: string): Promise<boolean> {
-  // Always mark deleted locally so it immediately disappears even if Supabase delete fails or has RLS restrictions
-  markSessionAsDeleted(sessionId, roomCode);
-
   try {
     // Delete child records first to prevent foreign key constraint violations
     const targetFilter = roomCode
@@ -244,22 +187,10 @@ export async function deleteLiveSession(sessionId: string, roomCode?: string): P
     console.warn('Failed to delete live session from Supabase:', err);
   }
 
-  // Update local storage cache directly
-  const local = localStorage.getItem(LOCAL_SESSIONS_KEY);
-  if (local) {
-    try {
-      const existing: LiveSession[] = JSON.parse(local);
-      const filtered = existing.filter(s => s.id !== sessionId && s.room_code !== sessionId && s.room_code !== roomCode);
-      localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(filtered));
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
   return true;
 }
 
-// Update session status
+// Update session status in Supabase
 export async function updateLiveSessionStatus(id: string, status: 'scheduled' | 'live' | 'ended'): Promise<void> {
   try {
     await supabase
@@ -268,14 +199,6 @@ export async function updateLiveSessionStatus(id: string, status: 'scheduled' | 
       .eq('id', id);
   } catch (err) {
     console.warn('Failed to update status in Supabase:', err);
-  }
-
-  const sessions = await fetchLiveSessions();
-  const idx = sessions.findIndex(s => s.id === id);
-  if (idx !== -1) {
-    sessions[idx].status = status;
-    sessions[idx].updated_at = new Date().toISOString();
-    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(sessions));
   }
 }
 
