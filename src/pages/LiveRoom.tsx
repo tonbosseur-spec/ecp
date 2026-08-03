@@ -446,24 +446,25 @@ export default function LiveRoom() {
     };
 
     if (localStreamRef.current) {
+      let hasVideo = false;
       localStreamRef.current.getTracks().forEach((track) => {
+        if (track.kind === 'video') hasVideo = true;
         // Si on partage déjà l'écran, envoyer la piste écran au lieu de la caméra pour la vidéo
         if (track.kind === 'video' && useLiveStore.getState().isScreenSharing && screenStreamRef.current) {
           const screenTrack = screenStreamRef.current.getVideoTracks()[0];
           if (screenTrack) {
-            pc.addTrack(screenTrack, screenStreamRef.current);
+            pc.addTrack(screenTrack, localStreamRef.current!);
             return;
           }
         }
         pc.addTrack(track, localStreamRef.current!);
       });
+      if (!hasVideo) {
+        pc.addTransceiver('video', { direction: 'sendrecv', streams: [localStreamRef.current] });
+      }
     }
 
     pc.ontrack = (event) => {
-      let stream = event.streams && event.streams[0];
-      if (!stream) {
-        stream = new MediaStream([event.track]);
-      }
       setRemoteStreams((prev) => {
         const existingStream = prev[remoteUserId];
         if (existingStream) {
@@ -472,8 +473,13 @@ export default function LiveRoom() {
           }
           return {
             ...prev,
-            [remoteUserId]: new MediaStream(existingStream.getTracks()),
+            [remoteUserId]: existingStream,
           };
+        }
+        
+        let stream = event.streams && event.streams[0];
+        if (!stream) {
+          stream = new MediaStream([event.track]);
         }
         return {
           ...prev,
@@ -894,8 +900,9 @@ export default function LiveRoom() {
       const camTrack = localStreamRef.current?.getVideoTracks()[0];
       if (camTrack) {
         peerConnectionsRef.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(camTrack);
+          const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video') || 
+                              pc.getTransceivers().find((t) => t.receiver?.track?.kind === 'video')?.sender;
+          if (videoSender) videoSender.replaceTrack(camTrack);
         });
       }
       store.toggleScreenShare(false);
@@ -908,8 +915,9 @@ export default function LiveRoom() {
 
         // Remplacer la piste vidéo envoyée à CHAQUE pair déjà connecté
         peerConnectionsRef.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack);
+          const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video') || 
+                              pc.getTransceivers().find((t) => t.receiver?.track?.kind === 'video')?.sender;
+          if (videoSender) videoSender.replaceTrack(screenTrack);
         });
 
         store.toggleScreenShare(true);

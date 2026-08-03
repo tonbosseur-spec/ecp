@@ -169,7 +169,7 @@ export async function deleteLiveSession(sessionId: string, roomCode?: string): P
       ? `session_id.eq.${sessionId},session_id.eq.${roomCode}`
       : `session_id.eq.${sessionId}`;
 
-    await supabase.from('live_participants').delete().or(targetFilter);
+    // await supabase.from('live_participants').delete().or(targetFilter);
     await supabase.from('live_messages').delete().or(targetFilter);
     await supabase.from('live_presence').delete().or(targetFilter);
 
