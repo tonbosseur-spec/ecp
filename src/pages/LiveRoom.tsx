@@ -45,19 +45,41 @@ import { useLiveStore } from '../stores/useLiveStore';
 
 const VideoPlayer = ({ stream, isLocal, isScreenSharing, muted, ...props }: any) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoTrack = stream?.getVideoTracks()[0];
+  const videoTrackId = videoTrack?.id;
 
   useEffect(() => {
-    if (videoRef.current) {
-      if (stream) {
-        if (videoRef.current.srcObject !== stream) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
-      } else {
-        videoRef.current.srcObject = null;
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (stream && videoTrack) {
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
       }
+      video.play().catch((err) => console.warn('Video play error:', err));
+
+      const handlePlay = () => {
+        if (video.paused) {
+          video.play().catch(() => {});
+        }
+      };
+
+      video.addEventListener('loadedmetadata', handlePlay);
+      video.addEventListener('resize', handlePlay);
+      video.addEventListener('canplay', handlePlay);
+
+      videoTrack.addEventListener('unmute', handlePlay);
+
+      return () => {
+        video.removeEventListener('loadedmetadata', handlePlay);
+        video.removeEventListener('resize', handlePlay);
+        video.removeEventListener('canplay', handlePlay);
+        videoTrack.removeEventListener('unmute', handlePlay);
+      };
+    } else {
+      video.srcObject = null;
     }
-  }, [stream]);
+  }, [stream, videoTrackId, videoTrack]);
 
   return (
     <video
@@ -65,7 +87,9 @@ const VideoPlayer = ({ stream, isLocal, isScreenSharing, muted, ...props }: any)
       autoPlay
       playsInline
       muted={muted}
-      className={`w-full h-full object-cover ${!isScreenSharing && isLocal ? 'transform -scale-x-100' : ''}`}
+      className={`w-full h-full ${
+        isScreenSharing ? 'object-contain bg-slate-950' : 'object-cover'
+      } ${!isScreenSharing && isLocal ? 'transform -scale-x-100' : ''}`}
       {...props}
     />
   );
@@ -424,7 +448,23 @@ export default function LiveRoom() {
         track.enabled = nextCam;
       });
     }
-    broadcastStateUpdate({ is_camera_off: !nextCam });
+
+    // Ne mettre à jour l'émetteur vidéo WebRTC que si le partage d'écran n'est PAS actif
+    if (!store.isScreenSharing) {
+      const camTrack = localStreamRef.current?.getVideoTracks()[0] || null;
+      peerConnectionsRef.current.forEach((pc) => {
+        let videoSender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (!videoSender) {
+          const transceiver = pc.getTransceivers().find((t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video' || t.mid !== null);
+          if (transceiver) videoSender = transceiver.sender;
+        }
+        if (videoSender) {
+          videoSender.replaceTrack(nextCam && camTrack ? camTrack : null).catch(() => {});
+        }
+      });
+    }
+
+    broadcastStateUpdate({ is_camera_off: !nextCam, is_screen_sharing: store.isScreenSharing });
   };
 
   // TODO: replace with production TURN credentials
@@ -466,45 +506,45 @@ export default function LiveRoom() {
       console.log(`[WebRTC] Connection state avec ${remoteUserId}:`, pc.connectionState);
     };
 
+    const isSharing = useLiveStore.getState().isScreenSharing;
+    const screenTrack = isSharing && screenStreamRef.current ? screenStreamRef.current.getVideoTracks()[0] : null;
+
     if (localStreamRef.current) {
-      let hasVideo = false;
-      localStreamRef.current.getTracks().forEach((track) => {
-        if (track.kind === 'video') hasVideo = true;
-        // Si on partage déjà l'écran, envoyer la piste écran au lieu de la caméra pour la vidéo
-        if (track.kind === 'video' && useLiveStore.getState().isScreenSharing && screenStreamRef.current) {
-          const screenTrack = screenStreamRef.current.getVideoTracks()[0];
-          if (screenTrack) {
-            pc.addTrack(screenTrack, localStreamRef.current!);
-            return;
-          }
-        }
-        pc.addTrack(track, localStreamRef.current!);
+      localStreamRef.current.getAudioTracks().forEach((audioTrack) => {
+        pc.addTrack(audioTrack, localStreamRef.current!);
       });
-      if (!hasVideo) {
-        pc.addTransceiver('video', { direction: 'sendrecv', streams: [localStreamRef.current] });
+
+      if (screenTrack) {
+        pc.addTrack(screenTrack, screenStreamRef.current!);
+      } else {
+        localStreamRef.current.getVideoTracks().forEach((videoTrack) => {
+          pc.addTrack(videoTrack, localStreamRef.current!);
+        });
       }
+    } else if (screenTrack) {
+      pc.addTrack(screenTrack, screenStreamRef.current!);
+    } else {
+      pc.addTransceiver('video', { direction: 'sendrecv' });
+      pc.addTransceiver('audio', { direction: 'sendrecv' });
     }
 
     pc.ontrack = (event) => {
       setRemoteStreams((prev) => {
         const existingStream = prev[remoteUserId];
+        let streamToUse: MediaStream;
         if (existingStream) {
           if (!existingStream.getTracks().some((t) => t.id === event.track.id)) {
             existingStream.addTrack(event.track);
           }
-          return {
-            ...prev,
-            [remoteUserId]: existingStream,
-          };
-        }
-        
-        let stream = event.streams && event.streams[0];
-        if (!stream) {
-          stream = new MediaStream([event.track]);
+          streamToUse = new MediaStream(existingStream.getTracks());
+        } else if (event.streams && event.streams[0]) {
+          streamToUse = new MediaStream(event.streams[0].getTracks());
+        } else {
+          streamToUse = new MediaStream([event.track]);
         }
         return {
           ...prev,
-          [remoteUserId]: stream,
+          [remoteUserId]: streamToUse,
         };
       });
     };
@@ -930,21 +970,26 @@ export default function LiveRoom() {
   const handleToggleScreenShare = async () => {
     const currentState = useLiveStore.getState();
     if (currentState.isScreenSharing) {
-      // Arrêt du partage : revenir à la caméra sur toutes les connexions actives
+      // Arrêt du partage : revenir à la caméra (si elle est allumée) sur toutes les connexions
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
         screenStreamRef.current = null;
       }
-      const camTrack = localStreamRef.current?.getVideoTracks()[0];
-      if (camTrack) {
-        peerConnectionsRef.current.forEach((pc) => {
-          const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video') || 
-                              pc.getTransceivers().find((t) => t.receiver?.track?.kind === 'video')?.sender;
-          if (videoSender) videoSender.replaceTrack(camTrack);
-        });
-      }
+      const camTrack = localStreamRef.current?.getVideoTracks()[0] || null;
+
+      peerConnectionsRef.current.forEach((pc) => {
+        let videoSender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (!videoSender) {
+          const transceiver = pc.getTransceivers().find((t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video' || t.mid !== null);
+          if (transceiver) videoSender = transceiver.sender;
+        }
+        if (videoSender) {
+          videoSender.replaceTrack(currentState.isCamOn && camTrack ? camTrack : null).catch(() => {});
+        }
+      });
+
       store.toggleScreenShare(false);
-      broadcastStateUpdate({ is_camera_off: !currentState.isCamOn, is_screen_sharing: false });
+      broadcastStateUpdate({ is_screen_sharing: false, is_camera_off: !currentState.isCamOn });
     } else {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -953,18 +998,24 @@ export default function LiveRoom() {
 
         // Remplacer la piste vidéo envoyée à CHAQUE pair déjà connecté
         peerConnectionsRef.current.forEach((pc) => {
-          const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video') || 
-                              pc.getTransceivers().find((t) => t.receiver?.track?.kind === 'video')?.sender;
-          if (videoSender) videoSender.replaceTrack(screenTrack);
+          let videoSender = pc.getSenders().find((s) => s.track?.kind === 'video');
+          if (!videoSender) {
+            const transceiver = pc.getTransceivers().find((t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video' || t.mid !== null);
+            if (transceiver) videoSender = transceiver.sender;
+          }
+          if (videoSender) {
+            videoSender.replaceTrack(screenTrack).catch((err) => console.warn('replaceTrack error:', err));
+          } else {
+            pc.addTrack(screenTrack, stream);
+          }
         });
 
         store.toggleScreenShare(true);
-        // Force remote peers to enable video display for this user
-        broadcastStateUpdate({ is_camera_off: false, is_screen_sharing: true });
+        // Garder le statut réel de la caméra (is_camera_off: !currentState.isCamOn)
+        broadcastStateUpdate({ is_screen_sharing: true, is_camera_off: !currentState.isCamOn });
 
         // Quand l'utilisateur arrête le partage depuis la barre native du navigateur
         screenTrack.onended = () => {
-          // Re-evaluate state when onended is called (to avoid stale closure)
           const stateAtEnd = useLiveStore.getState();
           if (stateAtEnd.isScreenSharing) {
             handleToggleScreenShare();
