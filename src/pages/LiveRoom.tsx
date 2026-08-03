@@ -39,6 +39,51 @@ import {
 } from '../lib/liveService';
 import { useLiveStore } from '../stores/useLiveStore';
 
+const VideoPlayer = ({ stream, isLocal, isScreenSharing, muted, ...props }: any) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (stream) {
+        if (videoRef.current.srcObject !== stream) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      } else {
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted={muted}
+      className={`w-full h-full object-cover ${!isScreenSharing && isLocal ? 'transform -scale-x-100' : ''}`}
+      {...props}
+    />
+  );
+};
+
+const AudioPlayer = ({ stream, onNeedsUnlock }: any) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  useEffect(() => {
+    if (audioRef.current && stream) {
+      if (audioRef.current.srcObject !== stream) {
+        audioRef.current.srcObject = stream;
+        audioRef.current.play().catch(() => {
+          if (onNeedsUnlock) onNeedsUnlock();
+        });
+      }
+    }
+  }, [stream, onNeedsUnlock]);
+
+  return <audio ref={audioRef} autoPlay playsInline />;
+};
+
 export default function LiveRoom() {
   const { roomCode } = useParams<{ roomCode: string }>();
   const navigate = useNavigate();
@@ -403,7 +448,7 @@ export default function LiveRoom() {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         // Si on partage déjà l'écran, envoyer la piste écran au lieu de la caméra pour la vidéo
-        if (track.kind === 'video' && store.isScreenSharing && screenStreamRef.current) {
+        if (track.kind === 'video' && useLiveStore.getState().isScreenSharing && screenStreamRef.current) {
           const screenTrack = screenStreamRef.current.getVideoTracks()[0];
           if (screenTrack) {
             pc.addTrack(screenTrack, screenStreamRef.current);
@@ -714,6 +759,16 @@ export default function LiveRoom() {
           ...updates,
         },
       });
+
+      // Update presence state for late joiners
+      const state = channelRef.current.presenceState();
+      const myState = state[currentUser.id]?.[0];
+      if (myState) {
+        channelRef.current.track({
+          ...myState,
+          ...updates
+        });
+      }
     }
   };
 
@@ -829,7 +884,8 @@ export default function LiveRoom() {
   };
 
   const handleToggleScreenShare = async () => {
-    if (store.isScreenSharing) {
+    const currentState = useLiveStore.getState();
+    if (currentState.isScreenSharing) {
       // Arrêt du partage : revenir à la caméra sur toutes les connexions actives
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -843,7 +899,7 @@ export default function LiveRoom() {
         });
       }
       store.toggleScreenShare(false);
-      broadcastStateUpdate({ is_camera_off: !store.isCamOn });
+      broadcastStateUpdate({ is_camera_off: !currentState.isCamOn });
     } else {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -857,10 +913,16 @@ export default function LiveRoom() {
         });
 
         store.toggleScreenShare(true);
+        // Force remote peers to enable video display for this user
+        broadcastStateUpdate({ is_camera_off: false });
 
         // Quand l'utilisateur arrête le partage depuis la barre native du navigateur
         screenTrack.onended = () => {
-          handleToggleScreenShare();
+          // Re-evaluate state when onended is called (to avoid stale closure)
+          const stateAtEnd = useLiveStore.getState();
+          if (stateAtEnd.isScreenSharing) {
+            handleToggleScreenShare();
+          }
         };
       } catch (err) {
         console.warn('Screen sharing cancelled or unsupported:', err);
@@ -1091,25 +1153,11 @@ export default function LiveRoom() {
               }`}
             >
               {store.isCamOn || store.isScreenSharing ? (
-                <video
-                  ref={(el) => {
-                    localVideoRef.current = el;
-                    if (el) {
-                      const streamToUse = store.isScreenSharing && screenStreamRef.current
-                        ? screenStreamRef.current
-                        : localStreamRef.current;
-                      if (streamToUse) {
-                        el.srcObject = streamToUse;
-                        el.play().catch(() => {});
-                      }
-                    }
-                  }}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`w-full h-full object-cover ${
-                    store.isScreenSharing ? '' : 'transform -scale-x-100'
-                  }`}
+                <VideoPlayer
+                  stream={store.isScreenSharing && screenStreamRef.current ? screenStreamRef.current : localStreamRef.current}
+                  isLocal={true}
+                  isScreenSharing={store.isScreenSharing}
+                  muted={true}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center p-6 space-y-3">
@@ -1171,29 +1219,18 @@ export default function LiveRoom() {
                 >
                   {/* Remote Audio Stream element */}
                   {remoteStreams[p.user_id] && (
-                    <audio
-                      ref={(el) => {
-                        if (el && remoteStreams[p.user_id]) {
-                          el.srcObject = remoteStreams[p.user_id];
-                          el.play().catch(() => setNeedsAudioUnlock(true));
-                        }
-                      }}
-                      autoPlay
-                      playsInline
+                    <AudioPlayer
+                      stream={remoteStreams[p.user_id]}
+                      onNeedsUnlock={() => setNeedsAudioUnlock(true)}
                     />
                   )}
 
                   {!p.is_camera_off && remoteStreams[p.user_id] ? (
-                    <video
-                      ref={(el) => {
-                        if (el && remoteStreams[p.user_id]) {
-                          el.srcObject = remoteStreams[p.user_id];
-                          el.play().catch(() => {});
-                        }
-                      }}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover"
+                    <VideoPlayer
+                      stream={remoteStreams[p.user_id]}
+                      isLocal={false}
+                      isScreenSharing={false}
+                      muted={false}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center p-6 space-y-3">
@@ -1596,16 +1633,11 @@ export default function LiveRoom() {
               </div>
               <div className="relative bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden h-48 flex items-center justify-center">
                 {store.isCamOn ? (
-                  <video
-                    ref={(el) => {
-                      if (el && localStreamRef.current) {
-                        el.srcObject = localStreamRef.current;
-                      }
-                    }}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover transform -scale-x-100"
+                  <VideoPlayer
+                    stream={localStreamRef.current}
+                    isLocal={true}
+                    isScreenSharing={false}
+                    muted={true}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-2 text-slate-500">

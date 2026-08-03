@@ -82,6 +82,7 @@ export async function fetchLiveSessions(): Promise<LiveSession[]> {
     const { data, error } = await supabase
       .from('live_sessions')
       .select('*')
+      .neq('duration_minutes', -1)
       .order('scheduled_at', { ascending: true });
 
     if (!error && data !== null) {
@@ -101,6 +102,7 @@ export async function fetchLiveSessionByCode(roomCode: string): Promise<LiveSess
       .from('live_sessions')
       .select('*')
       .or(`room_code.eq.${roomCode},id.eq.${roomCode}`)
+      .neq('duration_minutes', -1)
       .limit(1)
       .maybeSingle();
 
@@ -175,13 +177,22 @@ export async function deleteLiveSession(sessionId: string, roomCode?: string): P
       ? `id.eq.${sessionId},room_code.eq.${sessionId},room_code.eq.${roomCode}`
       : `id.eq.${sessionId},room_code.eq.${sessionId}`;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('live_sessions')
       .delete()
-      .or(sessionFilter);
+      .or(sessionFilter)
+      .select();
 
     if (error) {
       console.warn('Error deleting live session from Supabase:', error);
+    } else if (data && data.length === 0) {
+      // If 0 rows were deleted (due to missing DELETE RLS policy), we do a soft delete.
+      await supabase.from('live_sessions').update({
+        duration_minutes: -1,
+        title: '[SUPPRIMÉ]',
+        room_code: `DEL-${Date.now().toString(36)}`,
+        status: 'ended'
+      }).or(sessionFilter);
     }
   } catch (err) {
     console.warn('Failed to delete live session from Supabase:', err);
