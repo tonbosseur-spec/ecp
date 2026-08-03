@@ -29,6 +29,7 @@ export interface LiveParticipant {
   status: 'joined' | 'left' | 'waiting';
   is_muted: boolean;
   is_camera_off: boolean;
+  is_screen_sharing?: boolean;
   hand_raised: boolean;
   joined_at: string;
   left_at?: string;
@@ -295,3 +296,66 @@ export async function sendLiveMessage(message: LiveMessage): Promise<LiveMessage
   }
   return message;
 }
+
+// Upload recording file to Supabase Storage bucket
+export async function uploadSessionRecording(
+  sessionId: string,
+  blob: Blob,
+  fileName: string
+): Promise<string | null> {
+  const filePath = `${sessionId}/${fileName}`;
+  const bucketCandidates = ['live-recordings', 'recordings', 'public', 'videos'];
+
+  // Try creating 'live-recordings' bucket programmatically if missing
+  try {
+    await supabase.storage.createBucket('live-recordings', { public: true });
+  } catch (err) {
+    // Bucket might already exist or need admin privileges
+  }
+
+  for (const bucket of bucketCandidates) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, blob, {
+          contentType: blob.type || 'video/webm',
+          upsert: true,
+        });
+
+      if (!error && data) {
+        const { data: publicUrlData } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath);
+        return publicUrlData?.publicUrl || null;
+      }
+    } catch (err) {
+      console.warn(`Attempt to upload to bucket '${bucket}' failed:`, err);
+    }
+  }
+
+  return null;
+}
+
+// Save recording entry in Supabase database table
+export async function saveSessionRecordingMetadata(
+  sessionId: string,
+  recordingUrl: string,
+  durationSeconds: number,
+  title?: string
+): Promise<void> {
+  try {
+    await supabase.from('session_recordings').insert([
+      {
+        id: `rec-${Date.now()}`,
+        session_id: sessionId,
+        recording_url: recordingUrl,
+        duration_seconds: durationSeconds,
+        title: title || 'Enregistrement de la session',
+        created_at: new Date().toISOString(),
+      },
+    ]);
+  } catch (err) {
+    console.warn('Failed to save session recording metadata in Supabase:', err);
+  }
+}
+

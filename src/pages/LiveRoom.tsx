@@ -23,7 +23,9 @@ import {
   AlertCircle,
   Loader2,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Smile,
+  Disc
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { 
@@ -33,6 +35,8 @@ import {
   recordPresenceExit,
   fetchLiveMessages,
   sendLiveMessage,
+  uploadSessionRecording,
+  saveSessionRecordingMetadata,
   LiveSession, 
   LiveParticipant, 
   LiveMessage 
@@ -100,6 +104,23 @@ export default function LiveRoom() {
   const [chatInput, setChatInput] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showReactions, setShowReactions] = useState(false);
+
+  // MediaRecorder states & refs
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  const reactions = [
+    { emoji: '👏', label: 'Applaudir' },
+    { emoji: '🎉', label: 'Félicitations' },
+    { emoji: '👍', label: 'Pouce en l\'air' },
+    { emoji: '❤️', label: 'Cœur' },
+    { emoji: '😂', label: 'Rire' },
+  ];
 
   // Audio / Media testing states
   const [micVolume, setMicVolume] = useState(0);
@@ -640,6 +661,7 @@ export default function LiveRoom() {
       status: liveData.is_private && !isTrainerUser ? 'waiting' : 'joined',
       is_muted: !store.isMicOn,
       is_camera_off: !store.isCamOn,
+      is_screen_sharing: store.isScreenSharing,
       hand_raised: store.isHandRaised,
       joined_at: new Date().toISOString(),
     };
@@ -691,6 +713,12 @@ export default function LiveRoom() {
       .on('broadcast', { event: 'chat' }, (payload) => {
         if (payload.payload) {
           store.addMessage(payload.payload as LiveMessage);
+        }
+      })
+      .on('broadcast', { event: 'reaction' }, (payload) => {
+        if (payload.payload) {
+          const { user_name, emoji } = payload.payload;
+          store.showToast(`${user_name} a réagi avec ${emoji}`);
         }
       })
       .on('broadcast', { event: 'participant_update' }, (payload) => {
@@ -779,6 +807,16 @@ export default function LiveRoom() {
   };
 
   const cleanupRoom = async () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {}
+    }
+
     peerConnectionsRef.current.forEach((pc) => {
       try {
         pc.close();
@@ -906,7 +944,7 @@ export default function LiveRoom() {
         });
       }
       store.toggleScreenShare(false);
-      broadcastStateUpdate({ is_camera_off: !currentState.isCamOn });
+      broadcastStateUpdate({ is_camera_off: !currentState.isCamOn, is_screen_sharing: false });
     } else {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -922,7 +960,7 @@ export default function LiveRoom() {
 
         store.toggleScreenShare(true);
         // Force remote peers to enable video display for this user
-        broadcastStateUpdate({ is_camera_off: false });
+        broadcastStateUpdate({ is_camera_off: false, is_screen_sharing: true });
 
         // Quand l'utilisateur arrête le partage depuis la barre native du navigateur
         screenTrack.onended = () => {
@@ -935,6 +973,164 @@ export default function LiveRoom() {
       } catch (err) {
         console.warn('Screen sharing cancelled or unsupported:', err);
       }
+    }
+  };
+
+  const handleSendReaction = (emoji: string, label: string) => {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'reaction',
+      payload: { 
+        user_name: userProfile?.fullName || 'Vous',
+        emoji,
+        label
+      },
+    });
+    store.showToast(`Vous avez réagi avec ${emoji}`);
+    setShowReactions(false);
+  };
+
+  const handleStartRecording = async () => {
+    try {
+      const tracks: MediaStreamTrack[] = [];
+
+      // 1. Video track: Screen stream if active, else local video track
+      if (store.isScreenSharing && screenStreamRef.current) {
+        const vTrack = screenStreamRef.current.getVideoTracks()[0];
+        if (vTrack) tracks.push(vTrack);
+      } else if (localStreamRef.current && store.isCamOn) {
+        const vTrack = localStreamRef.current.getVideoTracks()[0];
+        if (vTrack) tracks.push(vTrack);
+      }
+
+      // If no video track found yet, prompt for screen capture
+      if (tracks.length === 0) {
+        try {
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          displayStream.getTracks().forEach((t) => tracks.push(t));
+        } catch (e) {
+          if (localStreamRef.current) {
+            localStreamRef.current.getTracks().forEach((t) => tracks.push(t));
+          }
+        }
+      }
+
+      // 2. Audio tracks (local mic + remote audio if available)
+      if (localStreamRef.current && store.isMicOn) {
+        localStreamRef.current.getAudioTracks().forEach((t) => {
+          if (!tracks.includes(t)) tracks.push(t);
+        });
+      }
+
+      Object.values(remoteStreams).forEach((stream: any) => {
+        if (stream && stream.getAudioTracks) {
+          stream.getAudioTracks().forEach((t: MediaStreamTrack) => {
+            if (!tracks.includes(t)) tracks.push(t);
+          });
+        }
+      });
+
+      if (tracks.length === 0) {
+        store.showToast('Impossible de démarrer l\'enregistrement : aucune piste vidéo ou audio disponible.');
+        return;
+      }
+
+      const streamToRecord = new MediaStream(tracks);
+
+      let mimeType = 'video/webm;codecs=vp9,opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm;codecs=vp8,opus';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/mp4';
+      }
+
+      const recorderOptions = MediaRecorder.isTypeSupported(mimeType) ? { mimeType } : undefined;
+      const mediaRecorder = new MediaRecorder(streamToRecord, recorderOptions);
+
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType || 'video/webm' });
+        if (blob.size === 0) {
+          store.showToast('Enregistrement vide.');
+          setIsRecording(false);
+          setRecordingDuration(0);
+          return;
+        }
+
+        setIsUploadingRecording(true);
+        store.showToast('⏳ Enregistrement terminé. Sauvegarde dans Supabase...');
+
+        const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `recording-${session?.id || 'live'}-${dateStr}.webm`;
+        const dur = recordingDuration;
+
+        const publicUrl = await uploadSessionRecording(session?.id || 'live', blob, fileName);
+
+        if (publicUrl) {
+          await saveSessionRecordingMetadata(session?.id || 'live', publicUrl, dur, session?.title);
+          store.showToast('✅ Vidéo sauvegardée dans le bucket Supabase avec succès !');
+        } else {
+          store.showToast('ℹ️ Envoi Supabase effectué / Téléchargement local de secours.');
+        }
+
+        // Automatic local download trigger for convenience
+        try {
+          const downloadUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = downloadUrl;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+          }, 200);
+        } catch (e) {
+          console.warn('Local download trigger error:', e);
+        }
+
+        setIsUploadingRecording(false);
+        setIsRecording(false);
+        setRecordingDuration(0);
+      };
+
+      mediaRecorder.start(1000);
+      mediaRecorderRef.current = mediaRecorder;
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+
+      store.showToast('🔴 Enregistrement de la session démarré !');
+    } catch (err) {
+      console.error('Error starting MediaRecorder:', err);
+      store.showToast('Erreur lors du démarrage de l\'enregistrement.');
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      store.showToast('Arrêt de l\'enregistrement...');
     }
   };
 
@@ -1044,6 +1240,7 @@ export default function LiveRoom() {
   // MAIN LIVE ROOM UI
   // ----------------------------------------------------
   const participants = store.participants;
+  const screenSharingParticipant = participants.find((p) => p.is_screen_sharing);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
@@ -1142,9 +1339,34 @@ export default function LiveRoom() {
             </div>
           )}
 
+          {/* Presentation View */}
+          {screenSharingParticipant && (
+            <div className="flex-1 w-full max-w-6xl mb-4 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden relative shadow-xl shrink-0 min-h-[300px]">
+              <VideoPlayer
+                stream={
+                  screenSharingParticipant.user_id === currentUser?.id
+                    ? screenStreamRef.current
+                    : remoteStreams[screenSharingParticipant.user_id]
+                }
+                isLocal={screenSharingParticipant.user_id === currentUser?.id}
+                isScreenSharing={true}
+                muted={true}
+              />
+              <div className="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700/60 flex items-center gap-2">
+                <Monitor className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-bold text-white">
+                  Écran partagé par {screenSharingParticipant.user_name} {screenSharingParticipant.user_id === currentUser?.id ? "(Vous)" : ""}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Video Grid layout based on participant count */}
           <div
-            className={`w-full max-w-5xl grid gap-3 sm:gap-4 transition-all ${
+            className={
+              screenSharingParticipant 
+              ? "flex gap-3 overflow-x-auto pb-2 shrink-0 h-[160px] sm:h-[220px] w-full max-w-6xl snap-x custom-scrollbar"
+              : `w-full max-w-5xl grid gap-3 sm:gap-4 transition-all ${
               participants.length <= 1
                 ? 'grid-cols-1 max-w-2xl'
                 : participants.length === 2
@@ -1154,17 +1376,17 @@ export default function LiveRoom() {
           >
             {/* Local Video Tile (Current User) */}
             <div
-              className={`relative bg-slate-900 border-2 rounded-3xl overflow-hidden flex flex-col items-center justify-center min-h-[180px] sm:min-h-[240px] shadow-xl ${
+              className={`relative bg-slate-900 border-2 rounded-3xl overflow-hidden flex flex-col items-center justify-center ${screenSharingParticipant ? 'min-w-[160px] sm:min-w-[240px] h-full shrink-0 snap-center' : 'min-h-[180px] sm:min-h-[240px]'} shadow-xl ${
                 store.activeSpeakerId === currentUser?.id
                   ? 'border-emerald-400 ring-4 ring-emerald-400/20'
                   : 'border-slate-800'
               }`}
             >
-              {store.isCamOn || store.isScreenSharing ? (
+              {store.isCamOn && !store.isScreenSharing ? (
                 <VideoPlayer
-                  stream={store.isScreenSharing && screenStreamRef.current ? screenStreamRef.current : localStreamRef.current}
+                  stream={localStreamRef.current}
                   isLocal={true}
-                  isScreenSharing={store.isScreenSharing}
+                  isScreenSharing={false}
                   muted={true}
                 />
               ) : (
@@ -1172,7 +1394,9 @@ export default function LiveRoom() {
                   <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-2xl font-black text-white shadow-lg">
                     {userProfile?.fullName ? userProfile.fullName.charAt(0).toUpperCase() : 'U'}
                   </div>
-                  <p className="text-xs font-bold text-slate-400">Caméra désactivée</p>
+                  <p className="text-xs font-bold text-slate-400">
+                    {store.isScreenSharing ? 'En train de présenter' : 'Caméra désactivée'}
+                  </p>
                 </div>
               )}
 
@@ -1219,7 +1443,7 @@ export default function LiveRoom() {
               .map((p) => (
                 <div
                   key={p.user_id}
-                  className={`relative bg-slate-900 border-2 rounded-3xl overflow-hidden flex flex-col items-center justify-center min-h-[180px] sm:min-h-[240px] shadow-xl ${
+                  className={`relative bg-slate-900 border-2 rounded-3xl overflow-hidden flex flex-col items-center justify-center ${screenSharingParticipant ? 'min-w-[160px] sm:min-w-[240px] h-full shrink-0 snap-center' : 'min-h-[180px] sm:min-h-[240px]'} shadow-xl ${
                     store.activeSpeakerId === p.user_id
                       ? 'border-emerald-400 ring-4 ring-emerald-400/20'
                       : 'border-slate-800'
@@ -1233,12 +1457,12 @@ export default function LiveRoom() {
                     />
                   )}
 
-                  {!p.is_camera_off && remoteStreams[p.user_id] ? (
+                  {!p.is_camera_off && !p.is_screen_sharing && remoteStreams[p.user_id] ? (
                     <VideoPlayer
                       stream={remoteStreams[p.user_id]}
                       isLocal={false}
                       isScreenSharing={false}
-                      muted={false}
+                      muted={true}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center p-6 space-y-3">
@@ -1246,7 +1470,7 @@ export default function LiveRoom() {
                         {p.user_name ? p.user_name.charAt(0).toUpperCase() : 'A'}
                       </div>
                       <p className="text-xs font-bold text-slate-400">
-                        {p.is_camera_off ? 'Caméra désactivée' : 'Connexion vidéo...'}
+                        {p.is_screen_sharing ? 'En train de présenter' : p.is_camera_off ? 'Caméra désactivée' : 'Connexion vidéo...'}
                       </p>
                     </div>
                   )}
@@ -1470,23 +1694,52 @@ export default function LiveRoom() {
       {/* BOTTOM CONTROL TOOLBAR */}
       <footer className="h-20 bg-slate-900 border-t border-slate-800 px-4 flex items-center justify-between shrink-0">
         {/* Left Trainer status */}
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {isTrainer && (
             <div className="flex items-center gap-2">
               {session?.status !== 'live' ? (
                 <button
                   onClick={handleStartMeeting}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all"
+                  className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition-all"
                 >
                   <Play className="w-4 h-4 fill-white" />
-                  <span>Démarrer</span>
+                  <span className="hidden md:inline">Démarrer</span>
                 </button>
               ) : (
                 <button
                   onClick={handleEndMeeting}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-red-950/70 hover:bg-red-900 text-red-300 border border-red-800 text-xs font-bold rounded-xl transition-all"
+                  className="flex items-center gap-2 px-3 py-2 bg-red-950/70 hover:bg-red-900 text-red-300 border border-red-800 text-xs font-bold rounded-xl transition-all"
                 >
-                  <span>Terminer la réunion</span>
+                  <span className="hidden md:inline">Terminer</span>
+                </button>
+              )}
+
+              {/* Record session button for trainer */}
+              {isRecording ? (
+                <button
+                  onClick={handleStopRecording}
+                  disabled={isUploadingRecording}
+                  className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-red-600/30 transition-all animate-pulse"
+                  title="Arrêter l'enregistrement de la session"
+                >
+                  <Disc className="w-4 h-4 animate-spin text-white" />
+                  <span>
+                    {isUploadingRecording
+                      ? 'Envoi...'
+                      : `REC (${Math.floor(recordingDuration / 60)}:${(recordingDuration % 60)
+                          .toString()
+                          .padStart(2, '0')})`}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartRecording}
+                  disabled={isUploadingRecording}
+                  className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-red-400 border border-slate-700 hover:border-red-500/50 text-xs font-bold rounded-xl transition-all shadow-sm"
+                  title="Enregistrer la session avec MediaRecorder"
+                >
+                  <Disc className="w-4 h-4 text-red-500 fill-red-500/20" />
+                  <span className="hidden sm:inline">Enregistrer la session</span>
                 </button>
               )}
             </div>
@@ -1546,6 +1799,31 @@ export default function LiveRoom() {
           >
             <Hand className="w-5 h-5" />
           </button>
+
+          {/* Reactions */}
+          <div className="relative">
+            <button
+              onClick={() => setShowReactions(!showReactions)}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition-all shadow-md"
+              title="Réagir"
+            >
+              <Smile className="w-5 h-5" />
+            </button>
+            {showReactions && (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 rounded-xl p-2 flex gap-2 shadow-2xl z-50">
+                {reactions.map((r) => (
+                  <button
+                    key={r.emoji}
+                    onClick={() => handleSendReaction(r.emoji, r.label)}
+                    className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-700 text-xl transition-all"
+                    title={r.label}
+                  >
+                    {r.emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Drawer Toggles */}
