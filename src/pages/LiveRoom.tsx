@@ -169,6 +169,7 @@ export default function LiveRoom() {
 
   // Realtime Broadcast Channel
   const channelRef = useRef<any>(null);
+  const meParticipantRef = useRef<LiveParticipant | null>(null);
 
   useEffect(() => {
     initRoom();
@@ -196,6 +197,7 @@ export default function LiveRoom() {
         track.enabled = store.isMicOn;
       });
       broadcastStateUpdate({ is_muted: !store.isMicOn });
+      updateMyPresence({ is_muted: !store.isMicOn });
     }
   }, [store.isMicOn]);
 
@@ -205,11 +207,13 @@ export default function LiveRoom() {
         track.enabled = store.isCamOn;
       });
       broadcastStateUpdate({ is_camera_off: !store.isCamOn });
+      updateMyPresence({ is_camera_off: !store.isCamOn });
     }
   }, [store.isCamOn]);
 
   useEffect(() => {
     broadcastStateUpdate({ hand_raised: store.isHandRaised });
+    updateMyPresence({ hand_raised: store.isHandRaised });
   }, [store.isHandRaised]);
 
   const initRoom = async () => {
@@ -438,6 +442,7 @@ export default function LiveRoom() {
       });
     }
     broadcastStateUpdate({ is_muted: !nextMic });
+    updateMyPresence({ is_muted: !nextMic });
   };
 
   const handleToggleCam = () => {
@@ -465,6 +470,7 @@ export default function LiveRoom() {
     }
 
     broadcastStateUpdate({ is_camera_off: !nextCam, is_screen_sharing: store.isScreenSharing });
+    updateMyPresence({ is_camera_off: !nextCam, is_screen_sharing: store.isScreenSharing });
   };
 
   // TODO: replace with production TURN credentials
@@ -706,6 +712,8 @@ export default function LiveRoom() {
       joined_at: new Date().toISOString(),
     };
 
+    meParticipantRef.current = meParticipant;
+
     // Presence tracking
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -726,8 +734,8 @@ export default function LiveRoom() {
         });
 
         // Ensure current user is always included
-        if (!activeList.some((p) => p.user_id === user.id) && meParticipant.status === 'joined') {
-          activeList.unshift(meParticipant);
+        if (!activeList.some((p) => p.user_id === user.id) && meParticipantRef.current?.status === 'joined') {
+          activeList.unshift(meParticipantRef.current);
         }
 
         // Trainer always listed first
@@ -820,6 +828,12 @@ export default function LiveRoom() {
           });
         }
       });
+  };
+
+  const updateMyPresence = (updates: Partial<LiveParticipant>) => {
+    if (!meParticipantRef.current || !channelRef.current) return;
+    meParticipantRef.current = { ...meParticipantRef.current, ...updates };
+    channelRef.current.track(meParticipantRef.current);
   };
 
   const broadcastStateUpdate = (updates: Partial<LiveParticipant>) => {
@@ -990,6 +1004,7 @@ export default function LiveRoom() {
 
       store.toggleScreenShare(false);
       broadcastStateUpdate({ is_screen_sharing: false, is_camera_off: !currentState.isCamOn });
+      updateMyPresence({ is_screen_sharing: false, is_camera_off: !currentState.isCamOn });
     } else {
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -1013,6 +1028,7 @@ export default function LiveRoom() {
         store.toggleScreenShare(true);
         // Garder le statut réel de la caméra (is_camera_off: !currentState.isCamOn)
         broadcastStateUpdate({ is_screen_sharing: true, is_camera_off: !currentState.isCamOn });
+        updateMyPresence({ is_screen_sharing: true, is_camera_off: !currentState.isCamOn });
 
         // Quand l'utilisateur arrête le partage depuis la barre native du navigateur
         screenTrack.onended = () => {
