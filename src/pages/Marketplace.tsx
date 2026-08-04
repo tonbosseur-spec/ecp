@@ -426,7 +426,7 @@ export default function Marketplace() {
                     {course.cover_image_url ? (
                       <img 
                         src={course.cover_image_url} 
-                        alt={course.title} 
+                        alt={`Image de couverture : ${course.title}`} 
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -511,7 +511,7 @@ export default function Marketplace() {
                       {course.trainers?.photo_url ? (
                         <img 
                           src={course.trainers.photo_url} 
-                          alt={course.trainers.name} 
+                          alt={`Photo de ${course.trainers.name}`} 
                           className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
                         />
                       ) : (

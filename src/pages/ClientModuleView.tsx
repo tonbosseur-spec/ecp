@@ -738,6 +738,18 @@ export default function ClientModuleView() {
           moduleTitle={module.title}
           onPass={async (score) => {
             setIsCompleted(true);
+
+            if (userId) {
+              try {
+                const scoresKey = `quiz_scores_${userId}`;
+                const raw = localStorage.getItem(scoresKey);
+                const scoresMap = raw ? JSON.parse(raw) : {};
+                scoresMap[moduleId!] = score;
+                localStorage.setItem(scoresKey, JSON.stringify(scoresMap));
+              } catch (e) {
+                console.warn("Could not save score in localStorage", e);
+              }
+            }
             
             if (userId && !isOfflineMode) {
               try {
@@ -750,10 +762,16 @@ export default function ClientModuleView() {
                 if (!progress || progress.length === 0) {
                   await supabase
                     .from('module_progress')
-                    .insert([{ client_id: userId, module_id: moduleId }]);
+                    .insert([{ client_id: userId, module_id: moduleId, score: score }]);
+                } else {
+                  await supabase
+                    .from('module_progress')
+                    .update({ score: score, completed_at: new Date().toISOString() })
+                    .eq('client_id', userId)
+                    .eq('module_id', moduleId);
                 }
               } catch (dbErr) {
-                console.warn("Could not sync quiz completion to server, saving locally:", dbErr);
+                console.warn("Could not sync quiz completion score to server, saving locally:", dbErr);
                 setIsOfflineMode(true);
               }
             }

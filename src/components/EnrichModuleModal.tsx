@@ -32,6 +32,7 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import { QuizEditorModal } from './QuizEditorModal';
 import { ModuleSession } from '../types';
+import { useToast } from './Toast';
 
 interface DownloadFile {
   name: string;
@@ -339,6 +340,7 @@ export function EnrichModuleModal({
   initialData,
   onSave,
 }: EnrichModuleModalProps) {
+  const { toast } = useToast();
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -473,7 +475,7 @@ export function EnrichModuleModal({
         i === index ? { name: currentName, url: publicUrl } : f
       ));
     } catch (err: any) {
-      alert(`Erreur de téléversement: ${err.message}`);
+      toast.error(`Erreur de téléversement: ${err.message}`);
     } finally {
       setUploadingIndex(null);
     }

@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import { BrowserRouter as Router } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
+import { ToastProvider } from './components/Toast.tsx';
 
 // Register Service Worker for offline PWA features in production
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -20,7 +21,9 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Router>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </Router>
   </StrictMode>,
 );

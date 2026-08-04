@@ -95,7 +95,7 @@ export default function DownloadAppPage() {
                   <div key={i} className="w-10 h-10 rounded-full border-2 border-slate-950 bg-slate-800 flex items-center justify-center overflow-hidden">
                     <img 
                       src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i + 20}`} 
-                      alt="Avatar" 
+                      alt={`Avatar de l'apprenant ${i}`} 
                       referrerPolicy="no-referrer"
                     />
                   </div>

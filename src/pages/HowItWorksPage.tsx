@@ -129,7 +129,7 @@ export default function HowItWorksPage() {
                         {/* Screen Content */}
                         <img 
                           src={step.image} 
-                          alt={step.title}
+                          alt={`Aperçu de l'étape : ${step.title}`}
                           className="w-full h-[500px] sm:h-[600px] object-cover rounded-[1.5rem] sm:rounded-[2rem]"
                           loading="lazy"
                         />

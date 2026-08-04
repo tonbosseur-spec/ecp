@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Check, AlertCircle, Award, RefreshCw, ChevronRight, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useToast } from './Toast';
 
 interface Question {
   text: string;
@@ -28,6 +29,7 @@ export function ClientQuizOverlay({
   moduleTitle,
   onPass,
 }: ClientQuizOverlayProps) {
+  const { toast } = useToast();
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState<number[]>([]);
   const [quizState, setQuizState] = useState<'playing' | 'success' | 'failed'>('playing');
@@ -47,7 +49,7 @@ export function ClientQuizOverlay({
 
   const handleNext = () => {
     if (selectedOptions[currentQuestionIdx] === undefined) {
-      alert("Veuillez sélectionner une réponse.");
+      toast.info("Veuillez sélectionner une réponse.");
       return;
     }
 

@@ -29,6 +29,8 @@ import CGUPage from './pages/CGUPage';
 import DownloadAppPage from './pages/DownloadAppPage';
 import QuizDemo from './pages/QuizDemo';
 import AdminHub from './pages/AdminHub';
+import AdminFormations from './pages/AdminFormations';
+import AdminClients from './pages/AdminClients';
 import AdminSessionsDashboard from './pages/AdminSessionsDashboard';
 import LiveDashboard from './pages/LiveDashboard';
 import LiveRoom from './pages/LiveRoom';
@@ -161,6 +163,8 @@ export default function App() {
       {isAdmin ? (
         <Route element={<AdminLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin/formations" element={<AdminFormations />} />
+          <Route path="/admin/clients" element={<AdminClients />} />
           <Route path="/courses/new" element={<CreateCourse />} />
           <Route path="/edit-course/:id" element={<EditCourse />} />
           <Route path="/courses/:id" element={<AdminCourseDetails />} />

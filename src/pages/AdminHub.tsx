@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useToast } from '../components/Toast';
+import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft } from 'lucide-react';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
 
 export default function AdminHub() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<any[]>([]);
   const [pendingPayments, setPendingPayments] = useState<any[]>([]);
@@ -45,7 +48,7 @@ export default function AdminHub() {
       setCourses(prev => prev.map(c => c.id === editingQuizCourse.id ? { ...c, guide_text: updatedGuideText } : c));
       setEditingQuizCourse(null);
     } catch (err: any) {
-      alert("Erreur lors de la sauvegarde : " + err.message);
+      toast.error("Erreur lors de la sauvegarde : " + err.message);
     } finally {
       setSavingQuizSettings(false);
     }
@@ -112,7 +115,7 @@ export default function AdminHub() {
   const copyQuizLink = (courseId: string) => {
     const url = window.location.origin + '/challenge/' + courseId;
     navigator.clipboard.writeText(url);
-    alert('Lien du challenge copié : ' + url);
+    toast.info('Lien du challenge copié : ' + url);
   };
 
   const handleApprovePayment = async (paymentId: string, registrationId: string) => {
@@ -138,7 +141,7 @@ export default function AdminHub() {
       await fetchData();
     } catch (err) {
       console.error('Erreur approbation:', err);
-      alert('Erreur lors de la validation du paiement');
+      toast.error('Erreur lors de la validation du paiement');
     } finally {
       setActionLoading(null);
     }
@@ -255,14 +258,27 @@ export default function AdminHub() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 font-sans pb-24 w-full">
-      <div className="max-w-3xl md:max-w-none w-full mx-auto">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-gray-900 text-white rounded-xl flex items-center justify-center">
-            <Store className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Espace Hub & Marketplace</h1>
-            <p className="text-sm text-gray-500">Gérez vos formations actives et vos clients</p>
+      <div className="max-w-6xl w-full mx-auto space-y-6">
+        
+        {/* Header with Back Button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all flex items-center justify-center shrink-0"
+              title="Retour à l'accueil admin"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-50 text-purple-700 border border-purple-100">
+                  Espace Hub
+                </span>
+              </div>
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Hub & Marketplace</h1>
+              <p className="text-xs sm:text-sm text-gray-500">Catalogue marketplace, validation des paiements et quizz publics</p>
+            </div>
           </div>
         </div>
 

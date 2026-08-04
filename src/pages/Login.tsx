@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, ChevronRight, GraduationCap, Fingerprint } from 'lucide-react';
+import { Mail, Lock, AlertCircle, ChevronRight, GraduationCap, Fingerprint } from 'lucide-react';
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 import { Capacitor } from '@capacitor/core';
+import { Button, Input } from '../components/ui';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -115,72 +116,48 @@ export default function Login() {
           )}
 
           <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="email">
-                Adresse email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                  placeholder="admin@example.com"
-                />
-              </div>
-            </div>
+            <Input
+              id="email"
+              label="Adresse email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@example.com"
+              icon={<Mail className="h-5 w-5" />}
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="password">
-                Mot de passe
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
+            <Input
+              id="password"
+              label="Mot de passe"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              icon={<Lock className="h-5 w-5" />}
+            />
 
             <div className="pt-2 flex gap-3">
-              <button
+              <Button
                 type="submit"
-                disabled={loading}
-                className="flex-1 flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2"
+                isLoading={loading}
+                className="flex-1 mt-2"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                    Connexion...
-                  </>
-                ) : (
-                  'Se connecter'
-                )}
-              </button>
+                {loading ? 'Connexion...' : 'Se connecter'}
+              </Button>
               
               {hasBiometrics && (
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={handleBiometricLogin}
                   disabled={loading}
-                  className="w-12 h-12 mt-2 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors border border-gray-200 shrink-0"
+                  className="w-12 h-12 mt-2 p-0 flex items-center justify-center shrink-0"
                   title="Se connecter avec l'empreinte digitale"
                 >
                   <Fingerprint className="w-5 h-5" />
-                </button>
+                </Button>
               )}
             </div>
           </form>

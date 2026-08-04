@@ -162,7 +162,7 @@ export function NativeImageUploader({
           <div className="relative w-36 h-36 rounded-2xl overflow-hidden shadow-md group border border-gray-100">
             <img 
               src={currentPreview} 
-              alt="Aperçu" 
+              alt="Aperçu de l'image sélectionnée" 
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
             />
             {loading && (

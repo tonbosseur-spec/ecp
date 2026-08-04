@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { useToast } from '../components/Toast';
 import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send, Archive, ArchiveRestore, UserX, UserCheck, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ShareCourseButton from '../components/ShareCourseButton';
@@ -27,6 +28,7 @@ interface Registration {
 }
 
 export default function AdminCourseDetails() {
+  const { toast } = useToast();
   const { id } = useParams();
   const navigate = useNavigate();
   const [course, setCourse] = useState<Course | null>(null);
@@ -103,7 +105,7 @@ export default function AdminCourseDetails() {
       const clientsWithAccounts = registrations.filter(reg => reg.client_id);
       
       if (clientsWithAccounts.length === 0) {
-        alert("Aucun inscrit n'a de compte utilisateur associé pour recevoir ce message.");
+        toast.info("Aucun inscrit n'a de compte utilisateur associé pour recevoir ce message.");
         setBroadcasting(false);
         return;
       }
@@ -121,11 +123,11 @@ export default function AdminCourseDetails() {
       
       if (msgError) throw msgError;
 
-      alert(`Message envoyé avec succès à ${clientsWithAccounts.length} participant(s).`);
+      toast.success(`Message envoyé avec succès à ${clientsWithAccounts.length} participant(s).`);
       setBroadcastMessage('');
       setShowBroadcastModal(false);
     } catch (err: any) {
-      alert("Erreur lors de l'envoi : " + err.message);
+      toast.error("Erreur lors de l'envoi : " + err.message);
     } finally {
       setBroadcasting(false);
     }
@@ -158,7 +160,7 @@ export default function AdminCourseDetails() {
       
       navigate('/dashboard');
     } catch (err: any) {
-      alert("Erreur lors de la suppression : " + err.message);
+      toast.error("Erreur lors de la suppression : " + err.message);
     }
   };
 
@@ -232,7 +234,7 @@ export default function AdminCourseDetails() {
       
       setCourse({ ...course, is_active: newStatus });
     } catch (err: any) {
-      alert("Erreur lors de la modification de l'état : " + err.message);
+      toast.error("Erreur lors de la modification de l'état : " + err.message);
     }
   };
 
@@ -251,7 +253,7 @@ export default function AdminCourseDetails() {
       
       setCourse({ ...course, is_archived: newStatus });
     } catch (err: any) {
-      alert("Erreur lors de la modification du statut d'archivage : " + err.message);
+      toast.error("Erreur lors de la modification du statut d'archivage : " + err.message);
     }
   };
 

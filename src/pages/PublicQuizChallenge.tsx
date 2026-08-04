@@ -475,7 +475,7 @@ export default function PublicQuizChallenge() {
                   {course.trainers.photo_url ? (
                     <img
                       src={course.trainers.photo_url}
-                      alt={course.trainers.name}
+                      alt={`Photo de ${course.trainers.name}`}
                       className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md shrink-0"
                     />
                   ) : (
@@ -1053,7 +1053,7 @@ export default function PublicQuizChallenge() {
                   {course.trainers.photo_url ? (
                     <img 
                       src={course.trainers.photo_url} 
-                      alt={course.trainers.name} 
+                      alt={`Photo de ${course.trainers.name}`} 
                       className="w-10 h-10 rounded-full object-cover border border-slate-700"
                     />
                   ) : (

@@ -4,6 +4,7 @@ import { motion, useInView } from 'motion/react';
 import { supabase } from '../lib/supabaseClient';
 import ClientNavBar from '../components/ClientNavBar';
 import Footer from '../components/Footer';
+import { useToast } from '../components/Toast';
 import { 
   GraduationCap, 
   Flame, 
@@ -66,6 +67,7 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
 }
 
 export default function LandingPage() {
+  const { toast } = useToast();
   const adminWhatsAppPhone = "237698389030"; // Pierre's phone number
 
   const stats = [
@@ -186,7 +188,7 @@ export default function LandingPage() {
   const handleAddTestimonial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newStatus.trim() || !newComment.trim()) {
-      alert("Veuillez remplir tous les champs obligatoires.");
+      toast.info("Veuillez remplir tous les champs obligatoires.");
       return;
     }
 
@@ -219,7 +221,7 @@ export default function LandingPage() {
 
     } catch (err: any) {
       console.error("Erreur d'envoi du témoignage:", err);
-      alert("Une erreur est survenue lors de l'enregistrement de votre témoignage : " + err.message);
+      toast.error("Une erreur est survenue lors de l'enregistrement de votre témoignage : " + err.message);
     } finally {
       setSubmittingTestimonial(false);
     }

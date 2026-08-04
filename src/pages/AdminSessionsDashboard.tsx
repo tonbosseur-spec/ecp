@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { useToast } from '../components/Toast';
 import { 
   CheckSquare, 
   Calendar as CalendarIcon, 
@@ -18,7 +19,8 @@ import {
   CalendarDays,
   AlertTriangle,
   AlertCircle,
-  Video
+  Video,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ModuleSession } from '../types';
@@ -31,6 +33,7 @@ interface FlatSession extends ModuleSession {
 }
 
 export default function AdminSessionsDashboard() {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<FlatSession[]>([]);
@@ -111,7 +114,7 @@ export default function AdminSessionsDashboard() {
       setSessions(allSessions);
     } catch (err: any) {
       console.error(err);
-      alert('Erreur lors du chargement des séances: ' + err.message);
+      toast.error('Erreur lors du chargement des séances: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -149,7 +152,7 @@ export default function AdminSessionsDashboard() {
       setSessions(prev => prev.map(s => s.id === session.id ? { ...s, isCompleted: !s.isCompleted } : s));
       
     } catch (err: any) {
-      alert("Erreur lors de la mise à jour : " + err.message);
+      toast.error("Erreur lors de la mise à jour : " + err.message);
     } finally {
       setUpdatingId(null);
     }
@@ -359,14 +362,23 @@ export default function AdminSessionsDashboard() {
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <CalendarDays className="w-8 h-8 text-orange-500" />
-            Tableau de Bord des Séances
-          </h1>
-          <p className="text-slate-500 mt-1 text-sm">
-            Suivez, organisez et cochez les séances programmées pour vos formations.
-          </p>
+        <div className="flex items-start gap-4">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl transition-all flex items-center justify-center shrink-0 border border-slate-200 hover:border-slate-300 group"
+            title="Retour au tableau de bord"
+          >
+            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
+          </button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <CalendarDays className="w-8 h-8 text-orange-500" />
+              Tableau de Bord des Séances
+            </h1>
+            <p className="text-slate-500 mt-1 text-sm">
+              Suivez, organisez et cochez les séances programmées pour vos formations.
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

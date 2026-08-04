@@ -645,7 +645,7 @@ END:VCALENDAR`;
               {course.cover_image_url ? (
                 <img 
                   src={course.cover_image_url} 
-                  alt={course.title} 
+                  alt={`Image de couverture : ${course.title}`} 
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform hover:scale-105 duration-500"
                 />
@@ -1024,7 +1024,7 @@ END:VCALENDAR`;
               {course.trainers.photo_url ? (
                 <img 
                   src={course.trainers.photo_url} 
-                  alt={course.trainers.name} 
+                  alt={`Photo de ${course.trainers.name}`} 
                   className="w-24 h-24 rounded-full object-cover shadow-md border-4 border-white" 
                 />
               ) : (

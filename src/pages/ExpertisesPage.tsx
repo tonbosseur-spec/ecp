@@ -109,7 +109,7 @@ export default function ExpertisesPage() {
                   <div className="w-full lg:w-1/2 rounded-[2.5rem] overflow-hidden shadow-2xl border border-gray-200 bg-white">
                     <img 
                       src={exp.image} 
-                      alt={exp.title}
+                      alt={`Illustration du domaine d'expertise : ${exp.title}`}
                       className="w-full h-[300px] sm:h-[400px] object-cover hover:scale-105 transition-transform duration-700"
                       loading="lazy"
                     />
