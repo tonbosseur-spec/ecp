@@ -355,10 +355,10 @@ export default function ClientCourseView() {
       )}
 
       {/* Main Container */}
-      <main className="flex-grow max-w-7xl mx-auto w-full px-6 py-8">
+      <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 py-5 sm:py-8">
         
         {/* Banner with Progress and Details */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sm:p-8 mb-8 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 sm:p-8 mb-6 sm:mb-8 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
           <div className="space-y-4 max-w-xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-100 uppercase tracking-wider">

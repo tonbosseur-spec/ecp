@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
+import VerifiedBadge from '../components/VerifiedBadge';
+import NotificationBell from '../components/NotificationBell';
 import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft } from 'lucide-react';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
 
@@ -233,7 +235,10 @@ export default function AdminHub() {
                       return (
                         <div key={`${reg.id}-${index}`} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl text-sm">
                           <div>
-                            <p className="font-medium text-gray-900">{clientName || 'Client inconnu'}</p>
+                            <p className="font-medium text-gray-900 flex items-center gap-1.5">
+                              <span>{clientName || 'Client inconnu'}</span>
+                              <VerifiedBadge size="xs" />
+                            </p>
                             <p className="text-gray-500 text-xs">{reg.participant_email}</p>
                           </div>
                           <div className="text-gray-600 text-xs font-medium">
@@ -257,11 +262,11 @@ export default function AdminHub() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 font-sans pb-24 w-full">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-6 lg:p-8 font-sans pb-24 w-full">
       <div className="max-w-6xl w-full mx-auto space-y-6">
         
         {/* Header with Back Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/dashboard')}
@@ -276,17 +281,20 @@ export default function AdminHub() {
                   Espace Hub
                 </span>
               </div>
-              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Hub & Marketplace</h1>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Hub & Marketplace</h1>
               <p className="text-xs sm:text-sm text-gray-500">Catalogue marketplace, validation des paiements et quizz publics</p>
             </div>
+          </div>
+          <div className="shrink-0 self-end sm:self-center">
+            <NotificationBell userRole="admin" />
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-8">
+        <div className="flex border-b border-gray-200 mb-8 overflow-x-auto no-scrollbar whitespace-nowrap scroll-smooth">
           <button
             onClick={() => setActiveTab('formations')}
-            className={`px-6 py-3 font-bold text-sm transition-all relative ${
+            className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative shrink-0 ${
               activeTab === 'formations' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -295,7 +303,7 @@ export default function AdminHub() {
           </button>
           <button
             onClick={() => setActiveTab('paiements')}
-            className={`px-6 py-3 font-bold text-sm transition-all relative flex items-center gap-2 ${
+            className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative flex items-center gap-2 shrink-0 ${
               activeTab === 'paiements' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -309,7 +317,7 @@ export default function AdminHub() {
           </button>
           <button
             onClick={() => setActiveTab('quizz')}
-            className={`px-6 py-3 font-bold text-sm transition-all relative flex items-center gap-2 ${
+            className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative flex items-center gap-2 shrink-0 ${
               activeTab === 'quizz' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -593,7 +601,10 @@ export default function AdminHub() {
                       </div>
                       <h4 className="font-bold text-gray-900 text-lg">{payment.registrations?.courses?.title}</h4>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1 text-sm text-gray-500 font-medium">
-                        <span className="text-gray-900 font-bold">{payment.registrations?.participant_name}</span>
+                        <span className="text-gray-900 font-bold flex items-center gap-1">
+                          <span>{payment.registrations?.participant_name}</span>
+                          <VerifiedBadge size="xs" />
+                        </span>
                         <span>{payment.registrations?.participant_email}</span>
                       </div>
                     </div>

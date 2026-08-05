@@ -18,8 +18,25 @@ import {
   Loader2, 
   CheckCircle2,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  AlertCircle,
+  Eye
 } from 'lucide-react';
+import AdminModuleViewerModal from '../components/AdminModuleViewerModal';
+
+interface ModuleData {
+  id: string;
+  title: string;
+  description?: string;
+  long_summary?: string;
+  youtube_url?: string;
+  download_files?: any[];
+  scheduled_date?: string;
+  order_index?: number;
+}
 
 interface Course {
   id: string;
@@ -31,6 +48,7 @@ interface Course {
   is_active: boolean;
   is_archived?: boolean;
   registrations: { count: number }[];
+  course_modules?: ModuleData[];
 }
 
 export default function AdminFormations() {
@@ -46,6 +64,13 @@ export default function AdminFormations() {
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past' | 'archived'>('all');
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Module viewer state
+  const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
+  const [selectedCourseForViewer, setSelectedCourseForViewer] = useState<Course | null>(null);
+  const [selectedModuleForViewer, setSelectedModuleForViewer] = useState<ModuleData | null>(null);
+  const [viewerInitialTab, setViewerInitialTab] = useState<'content' | 'sessions' | 'add-session'>('content');
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   useEffect(() => {
     fetchCourses();
@@ -65,7 +90,17 @@ export default function AdminFormations() {
           product_type,
           is_active,
           is_archived,
-          registrations (count)
+          registrations (count),
+          course_modules (
+            id,
+            title,
+            description,
+            long_summary,
+            youtube_url,
+            download_files,
+            scheduled_date,
+            order_index
+          )
         `)
         .order('date_time', { ascending: false });
 
@@ -81,7 +116,17 @@ export default function AdminFormations() {
             price_fcfa,
             product_type,
             is_active,
-            registrations (count)
+            registrations (count),
+            course_modules (
+              id,
+              title,
+              description,
+              long_summary,
+              youtube_url,
+              download_files,
+              scheduled_date,
+              order_index
+            )
           `)
           .order('date_time', { ascending: false });
         
@@ -439,6 +484,10 @@ export default function AdminFormations() {
                 
                 const registrationCount = course.registrations?.[0]?.count || 0;
 
+                const modules = course.course_modules || [];
+                const modulesCount = modules.length;
+                const isExpanded = expandedCourseId === course.id;
+
                 return (
                   <div key={course.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-shadow">
                     <div className={`absolute top-0 left-0 w-1.5 h-full ${isEbook ? 'bg-purple-600' : 'bg-indigo-600'}`}></div>
@@ -459,9 +508,9 @@ export default function AdminFormations() {
                         )}
                       </div>
 
-                      <h3 className="text-base font-bold text-gray-900 mb-3 line-clamp-2">{course.title}</h3>
+                      <h3 className="text-base font-bold text-gray-900 mb-2 line-clamp-2">{course.title}</h3>
                       
-                      <div className="space-y-2 mb-4 text-xs text-gray-600">
+                      <div className="space-y-2 mb-3 text-xs text-gray-600">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           <span>{formattedDate}</span>
@@ -471,9 +520,100 @@ export default function AdminFormations() {
                           <span>{registrationCount} {isEbook ? 'vente(s)' : 'inscrit(s)'}</span>
                         </div>
                       </div>
+
+                      {/* Module Expand Toggle Button */}
+                      <div className="my-3">
+                        <button
+                          onClick={() => setExpandedCourseId(isExpanded ? null : course.id)}
+                          className="w-full flex items-center justify-between p-2.5 bg-gray-50 hover:bg-indigo-50/50 rounded-xl text-xs font-bold text-gray-700 border border-gray-100 transition-colors group"
+                        >
+                          <span className="flex items-center gap-2">
+                            <BookOpen className="w-4 h-4 text-indigo-600" />
+                            <span>Programme : {modulesCount} module(s)</span>
+                          </span>
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-gray-400 group-hover:text-indigo-600" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-indigo-600" />
+                          )}
+                        </button>
+
+                        {/* Expandable Module List */}
+                        {isExpanded && (
+                          <div className="mt-2 p-3 bg-gray-50/80 rounded-xl border border-gray-100 space-y-2 max-h-60 overflow-y-auto">
+                            {modules.length === 0 ? (
+                              <p className="text-[11px] text-gray-400 italic text-center py-2">
+                                Aucun module créé pour cette formation.
+                              </p>
+                            ) : (
+                              modules.map((m, idx) => {
+                                const rawFiles = m.download_files || [];
+                                const sessions = rawFiles.filter((f: any) => f.type === 'session');
+                                const hasRichContent = !!m.long_summary || !!m.description;
+
+                                return (
+                                  <div 
+                                    key={m.id || idx}
+                                    className="p-2.5 bg-white rounded-lg border border-gray-200/60 shadow-2xs hover:border-indigo-200 transition-all text-xs"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-bold text-gray-900 truncate flex-1">
+                                        {idx + 1}. {m.title}
+                                      </span>
+                                      
+                                      <button
+                                        onClick={() => {
+                                          setSelectedCourseForViewer(course);
+                                          setSelectedModuleForViewer(m);
+                                          setViewerInitialTab('content');
+                                          setIsViewerOpen(true);
+                                        }}
+                                        className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[10px] shrink-0 flex items-center gap-1 transition-colors"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                        <span>Lire</span>
+                                      </button>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px]">
+                                      {hasRichContent && (
+                                        <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold border border-purple-100">
+                                          Enrichi
+                                        </span>
+                                      )}
+                                      {m.youtube_url && (
+                                        <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-semibold border border-rose-100">
+                                          Vidéo
+                                        </span>
+                                      )}
+                                      {sessions.length > 0 ? (
+                                        <span className="px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 font-semibold border border-orange-100">
+                                          {sessions.length} séance(s)
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => {
+                                            setSelectedCourseForViewer(course);
+                                            setSelectedModuleForViewer(m);
+                                            setViewerInitialTab('add-session');
+                                            setIsViewerOpen(true);
+                                          }}
+                                          className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold border border-amber-200 underline"
+                                        >
+                                          + Ajouter séance
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="pt-4 border-t border-gray-100 flex items-center justify-between mt-2">
+                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between mt-2">
                       <span className="font-extrabold text-gray-900 text-sm">
                         {course.price_fcfa.toLocaleString('fr-FR')} FCFA
                       </span>
@@ -505,7 +645,7 @@ export default function AdminFormations() {
                           to={`/courses/${course.id}`}
                           className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-colors ml-1"
                         >
-                          Gérer
+                          Détails & Modules
                         </Link>
                       </div>
                     </div>
@@ -517,6 +657,19 @@ export default function AdminFormations() {
         </div>
 
       </div>
+
+      {/* Module Content & Sessions Viewer Modal */}
+      {selectedCourseForViewer && (
+        <AdminModuleViewerModal
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+          courseId={selectedCourseForViewer.id}
+          courseTitle={selectedCourseForViewer.title}
+          module={selectedModuleForViewer}
+          initialTab={viewerInitialTab}
+          onRefreshCourse={fetchCourses}
+        />
+      )}
     </div>
   );
 }

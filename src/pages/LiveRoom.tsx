@@ -28,6 +28,7 @@ import {
   Disc
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import VerifiedBadge from '../components/VerifiedBadge';
 import { 
   fetchLiveSessionByCode, 
   updateLiveSessionStatus, 
@@ -658,8 +659,9 @@ export default function LiveRoom() {
                   {/* Participant Name Overlay */}
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
                     <div className="bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-xl border border-slate-700/60 flex items-center gap-2">
-                      <span className="text-xs font-bold text-white truncate max-w-[120px]">
-                        {p.user_name}
+                      <span className="text-xs font-bold text-white truncate max-w-[120px] flex items-center gap-1">
+                        <span>{p.user_name}</span>
+                        <VerifiedBadge size="xs" />
                       </span>
                       {p.role === 'trainer' && (
                         <span className="bg-indigo-600 text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md">
@@ -762,8 +764,9 @@ export default function LiveRoom() {
                           {p.user_name ? p.user_name.charAt(0).toUpperCase() : 'U'}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-white truncate">
-                            {p.user_name} {p.user_id === currentUser?.id ? '(Vous)' : ''}
+                          <p className="text-xs font-bold text-white truncate flex items-center gap-1">
+                            <span>{p.user_name} {p.user_id === currentUser?.id ? '(Vous)' : ''}</span>
+                            <VerifiedBadge size="xs" />
                           </p>
                           <span className="text-[10px] text-slate-400 block">
                             {p.role === 'trainer' ? 'Formateur' : 'Apprenant'}
@@ -823,7 +826,10 @@ export default function LiveRoom() {
                         }`}
                       >
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
-                          <span className="font-bold">{m.user_name}</span>
+                          <span className="font-bold flex items-center gap-1">
+                            <span>{m.user_name}</span>
+                            <VerifiedBadge size="xs" />
+                          </span>
                           <span>•</span>
                           <span>
                             {new Date(m.created_at).toLocaleTimeString('fr-FR', {

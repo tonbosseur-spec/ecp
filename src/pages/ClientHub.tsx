@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import VerifiedBadge from '../components/VerifiedBadge';
+import NotificationBell from '../components/NotificationBell';
 import { 
   Loader2, 
   Calendar, 
@@ -528,7 +530,7 @@ export default function ClientHub() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] overflow-y-auto h-screen">
+    <div className="min-h-screen bg-gray-50 font-sans max-md:[&::-webkit-scrollbar]:hidden max-md:[-ms-overflow-style:none] max-md:[scrollbar-width:none] overflow-y-auto">
       {/* Personalized Header */}
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20 pt-safe">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -549,9 +551,16 @@ export default function ClientHub() {
                 </button>
               )}
               <div className="min-w-0">
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight truncate">
-                  Bonjour, {firstName} 👋
-                </h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold text-gray-900 tracking-tight truncate flex items-center gap-1.5">
+                    <span>Bonjour, {firstName}</span>
+                    <VerifiedBadge size="md" />
+                    <span>👋</span>
+                  </h1>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs">
+                    Compte Vérifié
+                  </span>
+                </div>
                 {dailyTip && (
                   <p className="text-[11px] text-gray-500 mt-1 italic line-clamp-2 md:line-clamp-1 pr-2 leading-tight">
                     💡 {dailyTip}
@@ -559,10 +568,11 @@ export default function ClientHub() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <NotificationBell userId={profile?.id} userRole="client" />
               <button 
                 onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-colors"
                 title="Déconnexion"
               >
                 <LogOut className="w-5 h-5" />

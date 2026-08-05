@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
-import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send, Archive, ArchiveRestore, UserX, UserCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Banknote, Phone, Mail, MessageCircle, Edit, Trash2, Power, X, Send, Archive, ArchiveRestore, UserX, UserCheck, CheckCircle2, BookOpen, Calendar, Sparkles, Video, FileText, Award, AlertCircle, PlusCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ShareCourseButton from '../components/ShareCourseButton';
+import AdminModuleViewerModal from '../components/AdminModuleViewerModal';
+import VerifiedBadge from '../components/VerifiedBadge';
 
 interface Course {
   id: string;
@@ -38,6 +40,11 @@ export default function AdminCourseDetails() {
   const [courseModules, setCourseModules] = useState<any[]>([]);
   const [progressMap, setProgressMap] = useState<Record<string, string[]>>({});
   
+  // Module viewer modal state
+  const [selectedModuleForViewer, setSelectedModuleForViewer] = useState<any | null>(null);
+  const [viewerInitialTab, setViewerInitialTab] = useState<'content' | 'sessions' | 'add-session'>('content');
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+
   // Broadcast message state
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('');
@@ -54,7 +61,7 @@ export default function AdminCourseDetails() {
       const [courseResponse, registrationsResponse, modulesResponse] = await Promise.all([
         supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active, product_type, is_archived').eq('id', id).single(),
         supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, payment_status, registered_at').eq('course_id', id).order('registered_at', { ascending: false }),
-        supabase.from('course_modules').select('id, title').eq('course_id', id)
+        supabase.from('course_modules').select('id, title, description, long_summary, youtube_url, download_files, scheduled_date, order_index').eq('course_id', id).order('order_index', { ascending: true })
       ]);
 
       if (courseResponse.error) throw courseResponse.error;
@@ -64,18 +71,27 @@ export default function AdminCourseDetails() {
       setRegistrations(registrationsResponse.data || []);
       
       const modules = modulesResponse.data || [];
-      setCourseModules(modules);
-
+      
       if (modules.length > 0) {
         const moduleIds = modules.map(m => m.id);
-        const { data: progressData, error: progressError } = await supabase
-          .from('module_progress')
-          .select('client_id, module_id')
-          .in('module_id', moduleIds);
+        
+        // Fetch quizzes and progress parallelly
+        const [progressRes, quizzesRes] = await Promise.all([
+          supabase.from('module_progress').select('client_id, module_id').in('module_id', moduleIds),
+          supabase.from('quizzes').select('*').in('module_id', moduleIds)
+        ]);
 
-        if (!progressError && progressData) {
+        const quizzesData = quizzesRes.data || [];
+        const modulesWithQuiz = modules.map(mod => {
+          const q = quizzesData.find(quiz => quiz.module_id === mod.id);
+          return { ...mod, quiz: q || null };
+        });
+
+        setCourseModules(modulesWithQuiz);
+
+        if (!progressRes.error && progressRes.data) {
           const map: Record<string, string[]> = {};
-          progressData.forEach(p => {
+          progressRes.data.forEach(p => {
             if (!map[p.client_id]) {
               map[p.client_id] = [];
             }
@@ -85,12 +101,20 @@ export default function AdminCourseDetails() {
           });
           setProgressMap(map);
         }
+      } else {
+        setCourseModules([]);
       }
     } catch (err: any) {
       setError(err.message || 'Erreur lors du chargement des données.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const openModuleViewer = (moduleItem: any, initialTab: 'content' | 'sessions' | 'add-session' = 'content') => {
+    setSelectedModuleForViewer(moduleItem);
+    setViewerInitialTab(initialTab);
+    setIsViewerOpen(true);
   };
 
   const handleBroadcast = async () => {
@@ -313,34 +337,34 @@ export default function AdminCourseDetails() {
   const grossRevenue = totalRegistrations * course.price_fcfa;
 
   return (
-    <div className="p-4 sm:p-6 max-w-lg mx-auto pb-24">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto pb-24 font-sans">
       {/* Back Button Row */}
       <div className="mb-4">
         <button 
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/admin/formations')}
           className="p-2 -ml-2 text-gray-500 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100 flex items-center gap-1.5 text-sm font-medium"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Retour</span>
+          <span>Retour aux formations</span>
         </button>
       </div>
 
       {/* Title & Badge Column - Centered */}
       <div className="flex flex-col items-center text-center gap-2 mb-4">
-        <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight max-w-md">
+        <h1 className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight leading-tight max-w-2xl">
           {course.title}
         </h1>
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
           course.product_type === 'ebook' 
             ? 'bg-purple-100 text-purple-800 border border-purple-200' 
-            : 'bg-blue-100 text-blue-800 border border-blue-200'
+            : 'bg-indigo-100 text-indigo-800 border border-indigo-200'
         }`}>
           {course.product_type === 'ebook' ? 'E-book' : 'Formation'}
         </span>
       </div>
 
       {/* Actions Row - Just below the title and centered */}
-      <div className="flex flex-wrap items-center justify-center gap-2 mb-8 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm max-w-md mx-auto">
+      <div className="flex flex-wrap items-center justify-center gap-2 mb-8 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm max-w-xl mx-auto">
         {/* Active Button */}
         <button
           onClick={toggleActive}
@@ -381,7 +405,7 @@ export default function AdminCourseDetails() {
         <button
           onClick={() => navigate(`/edit-course/${course.id}`)}
           className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-sm shrink-0"
-          title="Modifier"
+          title="Formulaire de modification"
         >
           <Edit className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Modifier</span>
@@ -419,6 +443,151 @@ export default function AdminCourseDetails() {
             {grossRevenue.toLocaleString('fr-FR')} <span className="text-sm font-medium text-gray-500">FCFA</span>
           </div>
         </div>
+      </div>
+
+      {/* Modules et Contenus Section */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-sm border border-gray-100 mb-8 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
+                Contenu Pédagogique
+              </span>
+            </div>
+            <h2 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-indigo-600" />
+              Modules et Programme de la Formation ({courseModules.length})
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Consultez les contenus enrichis (textes, vidéos, supports) et les séances associées sans ouvrir le formulaire.
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate(`/edit-course/${course.id}`)}
+            className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors border border-indigo-200 flex items-center gap-1.5 shrink-0"
+          >
+            <Edit className="w-4 h-4" />
+            <span>Formulaire de modification</span>
+          </button>
+        </div>
+
+        {courseModules.length === 0 ? (
+          <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 space-y-3">
+            <BookOpen className="w-8 h-8 text-gray-400 mx-auto" />
+            <p className="text-sm font-bold text-gray-700">Aucun module n'a encore été créé pour cette formation.</p>
+            <button
+              onClick={() => navigate(`/edit-course/${course.id}`)}
+              className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 transition-colors"
+            >
+              Ajouter le premier module
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {courseModules.map((mod, idx) => {
+              const rawFiles = mod.download_files || [];
+              const resourcesCount = rawFiles.filter((f: any) => f.type !== 'session').length;
+              const sessions = rawFiles.filter((f: any) => f.type === 'session');
+              const hasSessions = sessions.length > 0;
+              const hasRichSummary = !!mod.long_summary || !!mod.description;
+              const hasVideo = !!mod.youtube_url;
+
+              return (
+                <div 
+                  key={mod.id || idx}
+                  className="p-4 bg-gray-50/70 hover:bg-white hover:shadow-md border border-gray-100 rounded-2xl transition-all space-y-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-gray-900 text-sm truncate">{mod.title}</h3>
+                        {mod.description && (
+                          <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{mod.description}</p>
+                        )}
+
+                        {/* Badges row */}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          {hasRichSummary && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-100">
+                              <Sparkles className="w-3 h-3 text-purple-600" />
+                              Contenu enrichi
+                            </span>
+                          )}
+
+                          {hasVideo && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-100">
+                              <Video className="w-3 h-3 text-rose-600" />
+                              Vidéo YouTube
+                            </span>
+                          )}
+
+                          {resourcesCount > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                              <FileText className="w-3 h-3 text-blue-600" />
+                              {resourcesCount} fichier(s)
+                            </span>
+                          )}
+
+                          {mod.quiz && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                              <Award className="w-3 h-3 text-emerald-600" />
+                              Quiz inclus
+                            </span>
+                          )}
+
+                          {hasSessions ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                              <Calendar className="w-3 h-3 text-orange-600" />
+                              {sessions.length} séance(s)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              <AlertCircle className="w-3 h-3 text-amber-600" />
+                              Aucune séance
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 sm:pt-0">
+                      <button
+                        onClick={() => openModuleViewer(mod, 'content')}
+                        className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Lire le contenu</span>
+                      </button>
+
+                      {hasSessions ? (
+                        <button
+                          onClick={() => openModuleViewer(mod, 'sessions')}
+                          className="px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Séances ({sessions.length})</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openModuleViewer(mod, 'add-session')}
+                          className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                        >
+                          <PlusCircle className="w-3.5 h-3.5" />
+                          <span>Ajouter séance</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Participants List */}
@@ -473,8 +642,9 @@ export default function AdminCourseDetails() {
             return (
               <div key={`${participant.id}-${index}`} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <h3 className="font-bold text-gray-900 text-sm">{participant.participant_name}</h3>
+                    <VerifiedBadge size="xs" />
                     {isApproved ? (
                       <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -656,6 +826,19 @@ export default function AdminCourseDetails() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Module Content & Sessions Viewer Modal */}
+      {course && (
+        <AdminModuleViewerModal
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+          courseId={course.id}
+          courseTitle={course.title}
+          module={selectedModuleForViewer}
+          initialTab={viewerInitialTab}
+          onRefreshCourse={fetchCourseData}
+        />
+      )}
     </div>
   );
 }

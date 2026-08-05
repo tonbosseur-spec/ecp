@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
+import VerifiedBadge from '../components/VerifiedBadge';
 import { 
   ArrowLeft, 
   CreditCard, 
@@ -703,6 +704,7 @@ export default function AdminClients() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-gray-900 text-base">{p.participant_name}</span>
+                        <VerifiedBadge size="sm" />
                         <span className="text-xs text-gray-400">• {p.participant_email}</span>
                       </div>
                       <p className="text-xs font-bold text-indigo-600 mb-1">{p.courses?.title || 'Formation'}</p>
@@ -928,8 +930,9 @@ export default function AdminClients() {
                     <div key={student.id} className="py-4 space-y-3">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className="font-bold text-gray-900 text-sm">{student.participant_name}</span>
+                            <VerifiedBadge size="xs" />
                             <span className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-full ${
                               student.payment_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                             }`}>
@@ -1127,7 +1130,10 @@ export default function AdminClients() {
                         <span className="text-xs font-black uppercase text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg">
                           {student.promo_code}
                         </span>
-                        <h4 className="font-bold text-gray-900 text-sm mt-2">{student.participant_name}</h4>
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <h4 className="font-bold text-gray-900 text-sm">{student.participant_name}</h4>
+                          <VerifiedBadge size="xs" />
+                        </div>
                         <p className="text-xs text-gray-500">{student.participant_email}</p>
                       </div>
 

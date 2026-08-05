@@ -245,14 +245,14 @@ export default function LandingPage() {
       {/* Top Notification Bar */}
       {latestCourse && (
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white text-xs sm:text-sm font-semibold py-2.5 px-4 shadow-sm relative overflow-hidden transition-all text-center">
-          <Link to={`/course/${latestCourse.id}`} className="hover:underline flex items-center justify-center gap-2 flex-wrap">
-            <span className="bg-white/20 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+          <Link to={`/course/${latestCourse.id}`} className="hover:underline flex items-center justify-center gap-2 flex-wrap mx-auto max-w-2xl">
+            <span className="bg-white/20 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 mx-auto sm:mx-0">
               Du nouveau
             </span>
-            <span className="font-semibold text-center leading-normal max-w-xl line-clamp-2">
+            <span className="font-semibold text-center leading-normal line-clamp-2">
               {latestCourse.title}
             </span>
-            <ArrowRight className="w-3.5 h-3.5 shrink-0 transition-transform hover:translate-x-1" />
+            <ArrowRight className="w-3.5 h-3.5 shrink-0 transition-transform hover:translate-x-1 hidden sm:inline-block" />
           </Link>
         </div>
       )}

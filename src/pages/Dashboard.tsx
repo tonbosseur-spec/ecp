@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import NotificationBell from '../components/NotificationBell';
 import { 
   BookOpen, 
   Users, 
@@ -99,9 +100,14 @@ export default function Dashboard() {
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-200 mb-3">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Espace Administrateur</span>
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-200">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Espace Administrateur</span>
+                </div>
+                <div className="md:hidden">
+                  <NotificationBell userRole="admin" />
+                </div>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
                 Accueil Administration
@@ -111,28 +117,33 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {/* Quick Metrics Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center">
-                <span className="text-xl font-extrabold text-white block">
-                  {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : coursesCount}
-                </span>
-                <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider mt-0.5 block">Formations</span>
+            {/* Quick Metrics Bar & Bell */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="hidden md:block">
+                <NotificationBell userRole="admin" />
               </div>
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center relative">
-                <span className="text-xl font-extrabold text-white block">
-                  {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : pendingPaymentsCount}
-                </span>
-                <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider mt-0.5 block">Paiements</span>
-                {pendingPaymentsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
-                )}
-              </div>
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center col-span-2 sm:col-span-1">
-                <span className="text-xl font-extrabold text-white block">
-                  {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : trainersCount}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider mt-0.5 block">Formateurs</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center">
+                  <span className="text-xl font-extrabold text-white block">
+                    {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : coursesCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider mt-0.5 block">Formations</span>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center relative">
+                  <span className="text-xl font-extrabold text-white block">
+                    {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : pendingPaymentsCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider mt-0.5 block">Paiements</span>
+                  {pendingPaymentsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+                  )}
+                </div>
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center col-span-2 sm:col-span-1">
+                  <span className="text-xl font-extrabold text-white block">
+                    {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : trainersCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider mt-0.5 block">Formateurs</span>
+                </div>
               </div>
             </div>
           </div>

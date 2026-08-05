@@ -391,41 +391,41 @@ export default function AdminSessionsDashboard() {
           </button>
 
           {/* View Mode Switcher */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-          <button
-            onClick={() => setViewMode('status')}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition-all ${
-              viewMode === 'status'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Clock className="w-4 h-4 text-orange-500" />
-            Par Statut
-          </button>
-          <button
-            onClick={() => setViewMode('course')}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition-all ${
-              viewMode === 'course'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-purple-600" />
-            Par Formation
-          </button>
-          <button
-            onClick={() => setViewMode('calendar')}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition-all ${
-              viewMode === 'calendar'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CalendarIcon className="w-4 h-4 text-emerald-600" />
-            Calendrier
-          </button>
-        </div>
+          <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto no-scrollbar max-w-full">
+            <button
+              onClick={() => setViewMode('status')}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs font-bold rounded-xl transition-all shrink-0 ${
+                viewMode === 'status'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Clock className="w-4 h-4 text-orange-500" />
+              <span>Par Statut</span>
+            </button>
+            <button
+              onClick={() => setViewMode('course')}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs font-bold rounded-xl transition-all shrink-0 ${
+                viewMode === 'course'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-4 h-4 text-purple-600" />
+              <span>Par Formation</span>
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 text-xs font-bold rounded-xl transition-all shrink-0 ${
+                viewMode === 'calendar'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CalendarIcon className="w-4 h-4 text-emerald-600" />
+              <span>Calendrier</span>
+            </button>
+          </div>
       </div>
     </div>
 

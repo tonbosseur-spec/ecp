@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Send, Loader2, MessageSquare, AlertCircle, CheckCircle2, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import VerifiedBadge from './VerifiedBadge';
 
 interface ClientChatProps {
   courseId?: string;
@@ -342,7 +343,10 @@ export const ClientChat: React.FC<ClientChatProps> = ({ courseId, registrationId
           A
         </div>
         <div>
-          <h3 className="font-bold text-gray-900 text-lg leading-tight">Astral (Administrateur)</h3>
+          <h3 className="font-bold text-gray-900 text-lg leading-tight flex items-center gap-1.5">
+            <span>Astral (Administrateur)</span>
+            <VerifiedBadge size="sm" />
+          </h3>
           <p className="text-sm text-indigo-600 font-medium">{getSubjectBanner()}</p>
         </div>
       </div>

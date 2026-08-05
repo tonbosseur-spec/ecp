@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Send, Loader2, MessageSquare, ChevronLeft, Phone, User, Clock, CheckCircle2, CheckCheck, AlertCircle, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import VerifiedBadge from './VerifiedBadge';
 
 interface Message {
   id: string;
@@ -409,8 +410,9 @@ export const AdminChat = ({ onBack }: { onBack?: () => void }) => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-1">
-                      <h3 className={`font-semibold truncate pr-2 ${selectedClientId === conv.client_id ? 'text-indigo-900' : 'text-gray-900'}`}>
-                        {conv.first_name} {conv.last_name}
+                      <h3 className={`font-semibold truncate pr-2 flex items-center gap-1 ${selectedClientId === conv.client_id ? 'text-indigo-900' : 'text-gray-900'}`}>
+                        <span>{conv.first_name} {conv.last_name}</span>
+                        <VerifiedBadge size="xs" />
                       </h3>
                       {conv.last_message && (
                         <span className="text-xs text-gray-400 whitespace-nowrap">
@@ -461,7 +463,10 @@ export const AdminChat = ({ onBack }: { onBack?: () => void }) => {
                   {selectedConversation?.first_name.charAt(0)}{selectedConversation?.last_name.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-lg leading-tight">{selectedConversation?.first_name} {selectedConversation?.last_name}</h3>
+                  <h3 className="font-bold text-gray-900 text-lg leading-tight flex items-center gap-1.5">
+                    <span>{selectedConversation?.first_name} {selectedConversation?.last_name}</span>
+                    <VerifiedBadge size="sm" />
+                  </h3>
                   <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
                     Sélectionnez un contexte de discussion
                   </p>
@@ -513,7 +518,10 @@ export const AdminChat = ({ onBack }: { onBack?: () => void }) => {
                   {selectedConversation?.first_name.charAt(0)}{selectedConversation?.last_name.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-lg leading-tight">{selectedConversation?.first_name} {selectedConversation?.last_name}</h3>
+                  <h3 className="font-bold text-gray-900 text-lg leading-tight flex items-center gap-1.5">
+                    <span>{selectedConversation?.first_name} {selectedConversation?.last_name}</span>
+                    <VerifiedBadge size="sm" />
+                  </h3>
                   <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
                     <User className="w-3.5 h-3.5" /> Profil Client
                   </p>
