@@ -119,18 +119,18 @@ export default function Dashboard() {
             </div>
 
             {/* Quick Metrics Bar & Bell */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
               <div className="hidden md:block">
                 <NotificationBell userRole="admin" />
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 sm:p-3.5 rounded-2xl text-center">
                   <span className="text-xl font-extrabold text-white block">
                     {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : coursesCount}
                   </span>
                   <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider mt-0.5 block">Formations</span>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center relative">
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 sm:p-3.5 rounded-2xl text-center relative">
                   <span className="text-xl font-extrabold text-white block">
                     {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : pendingPaymentsCount}
                   </span>
@@ -139,7 +139,7 @@ export default function Dashboard() {
                     <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
                   )}
                 </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl text-center col-span-2 sm:col-span-1">
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 sm:p-3.5 rounded-2xl text-center">
                   <span className="text-xl font-extrabold text-white block">
                     {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : trainersCount}
                   </span>

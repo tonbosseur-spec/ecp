@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Activity, Users, CreditCard, BookOpen, Clock, ArrowRight, Loader2, Calendar, MessageSquare, TrendingUp, Search, Filter } from 'lucide-react';
+import { 
+  Activity, Users, CreditCard, BookOpen, Clock, ArrowRight, ArrowLeft, 
+  Loader2, Calendar, MessageSquare, TrendingUp, Search, Filter, 
+  CheckCircle2, Video, HelpCircle 
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function AdminActivityFeed() {
@@ -17,8 +21,9 @@ export default function AdminActivityFeed() {
     newClients: 0,
     newRegistrations: 0,
     newPayments: 0,
-    newSessions: 0,
-    quizMagnets: 0
+    courseQuizzes: 0,
+    publicQuizzes: 0,
+    newSessions: 0
   });
 
   useEffect(() => {
@@ -42,130 +47,277 @@ export default function AdminActivityFeed() {
         since = d.toISOString();
       }
 
-      const buildQuery = (table: string, select: string) => {
-        let q = supabase.from(table).select(select);
-        if (since) {
-          q = q.gte('created_at', since);
-        }
-        return q;
-      };
-
-      // Fetch profiles
-      const { data: profiles } = await buildQuery('client_profiles', 'id, first_name, last_name, created_at');
-      // Fetch registrations
-      const { data: registrations } = await buildQuery('registrations', 'id, client_id, course_id, payment_status, created_at');
-      // Fetch sessions
-      const { data: sessions } = await buildQuery('course_sessions', 'id, title, date, created_at');
-      // Fetch quiz results
-      const { data: quizResults } = await buildQuery('quiz_results', 'id, participant_name, score, max_score, created_at');
-      // Fetch quiz leads
-      let quizLeadsQuery = supabase.from('course_proposals').select('id, client_profiles(first_name, last_name), created_at').eq('status', 'quiz_lead');
-      if (since) quizLeadsQuery = quizLeadsQuery.gte('created_at', since);
-      const { data: quizLeads } = await quizLeadsQuery;
-      
       const mixed: any[] = [];
-      
       let clientCount = 0;
       let regCount = 0;
       let payCount = 0;
+      let courseQuizCount = 0;
+      let publicQuizCount = 0;
       let sessCount = 0;
-      let quizCount = 0;
 
-      if (profiles) {
-        clientCount = profiles.length;
-        profiles.forEach(p => {
-          mixed.push({
-            id: `client-${p.id}`,
-            type: 'client',
-            title: 'Nouveau client inscrit',
-            description: `${p.first_name || ''} ${p.last_name || ''} a rejoint la plateforme.`,
-            date: p.created_at,
-            icon: <Users className="w-5 h-5 text-indigo-600" />,
-            bgColor: 'bg-indigo-100',
-            link: '/admin/clients'
+      const sinceTime = since ? new Date(since).getTime() : 0;
+
+      const isAfterSince = (dateStr?: string) => {
+        if (!sinceTime) return true;
+        if (!dateStr) return false;
+        return new Date(dateStr).getTime() >= sinceTime;
+      };
+
+      // Pre-fetch lookup maps
+      const profilesMap = new Map<string, any>();
+      try {
+        const { data: profiles, error } = await supabase.from('client_profiles').select('*');
+        if (error) console.warn('Error fetching client_profiles:', error);
+        if (profiles) {
+          profiles.forEach(p => {
+            profilesMap.set(p.id, p);
+            if (isAfterSince(p.created_at)) {
+              clientCount++;
+              const name = `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email || 'Nouveau client';
+              mixed.push({
+                id: `client-${p.id}`,
+                type: 'client',
+                title: 'Nouveau client inscrit',
+                description: `${name} a créé son compte sur la plateforme.`,
+                date: p.created_at || new Date().toISOString(),
+                icon: <Users className="w-5 h-5 text-indigo-600" />,
+                bgColor: 'bg-indigo-100',
+                link: '/admin/clients'
+              });
+            }
           });
-        });
+        }
+      } catch (e) {
+        console.warn('client_profiles query exception:', e);
       }
 
-      if (registrations) {
-        regCount = registrations.length;
-        payCount = registrations.filter(r => r.payment_status === 'pending' || r.payment_status === 'completed').length;
-        
-        registrations.forEach(r => {
-          mixed.push({
-            id: `reg-${r.id}`,
-            type: 'registration',
-            title: 'Nouvelle Inscription',
-            description: `Une nouvelle inscription à une formation (Statut: ${r.payment_status}).`,
-            date: r.created_at,
-            icon: <BookOpen className="w-5 h-5 text-emerald-600" />,
-            bgColor: 'bg-emerald-100',
-            link: '/admin/hub'
-          });
-        });
+      const coursesMap = new Map<string, string>();
+      const modulesMap = new Map<string, { title: string; course_id: string }>();
+      try {
+        const { data: coursesData } = await supabase.from('courses').select('id, title');
+        coursesData?.forEach(c => coursesMap.set(c.id, c.title));
+
+        const { data: modsData } = await supabase.from('course_modules').select('id, title, course_id');
+        modsData?.forEach(m => modulesMap.set(m.id, { title: m.title, course_id: m.course_id }));
+      } catch (e) {
+        console.warn('courses/modules lookup exception:', e);
       }
 
-      if (sessions) {
-        sessCount = sessions.length;
-        sessions.forEach(s => {
-          mixed.push({
-            id: `sess-${s.id}`,
-            type: 'session',
-            title: 'Nouvelle Session Programmée',
-            description: `Session "${s.title}" prévue pour le ${new Date(s.date).toLocaleDateString()}.`,
-            date: s.created_at,
-            icon: <Calendar className="w-5 h-5 text-amber-600" />,
-            bgColor: 'bg-amber-100',
-            link: '/admin/sessions'
+      // 2. Registrations
+      try {
+        const { data: registrations, error } = await supabase
+          .from('registrations')
+          .select('*, courses(title)')
+          .order('registered_at', { ascending: false });
+
+        if (error) {
+          console.warn('Error fetching registrations:', error);
+        } else if (registrations) {
+          registrations.forEach(r => {
+            const dateVal = r.registered_at || r.created_at;
+            if (isAfterSince(dateVal)) {
+              regCount++;
+              const clientName = r.participant_name || r.participant_email || 'Un étudiant';
+              const courseTitle = r.courses?.title || coursesMap.get(r.course_id) || 'une formation';
+              const statusText = r.payment_status === 'completed' ? 'Paiement effectué' : r.payment_status === 'pending' ? 'Paiement en attente' : (r.payment_status || 'Inscrit');
+
+              mixed.push({
+                id: `reg-${r.id}`,
+                type: 'registration',
+                title: 'Inscription à une formation',
+                description: `${clientName} s'est inscrit(e) à "${courseTitle}" (Statut: ${statusText}).`,
+                date: dateVal || new Date().toISOString(),
+                icon: <BookOpen className="w-5 h-5 text-emerald-600" />,
+                bgColor: 'bg-emerald-100',
+                link: '/admin/hub'
+              });
+            }
           });
-        });
+        }
+      } catch (e) {
+        console.warn('registrations exception:', e);
       }
 
-      if (quizResults) {
-        quizCount = quizResults.length;
-        quizResults.forEach(qr => {
-          mixed.push({
-            id: `quiz-${qr.id}`,
-            type: 'quiz_result',
-            title: 'Nouveau Lead (Quiz Magnet)',
-            description: `${qr.participant_name || 'Un visiteur'} a terminé le quiz magnet avec un score de ${qr.score}/${qr.max_score}.`,
-            date: qr.created_at,
-            icon: <Activity className="w-5 h-5 text-blue-600" />,
-            bgColor: 'bg-blue-100',
-            link: '/admin/hub'
+      // 3. Payments
+      try {
+        const { data: payments, error } = await supabase
+          .from('payments')
+          .select('*, registrations(participant_name, participant_email, courses(title))')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.warn('Error fetching payments:', error);
+        } else if (payments) {
+          payments.forEach(p => {
+            const dateVal = p.paid_at || p.created_at;
+            if (isAfterSince(dateVal)) {
+              payCount++;
+              const reg = p.registrations as any;
+              const clientName = reg?.participant_name || reg?.participant_email || 'Un client';
+              const courseTitle = reg?.courses?.title || 'la formation';
+              const formattedAmount = p.amount ? `${Number(p.amount).toLocaleString('fr-FR')} FCFA` : '';
+              const isPaid = p.status === 'paid' || p.status === 'completed';
+
+              mixed.push({
+                id: `pay-${p.id}`,
+                type: 'payment',
+                title: isPaid ? 'Paiement validé' : 'Paiement enregistré',
+                description: `Paiement ${formattedAmount ? `de ${formattedAmount} ` : ''}par ${clientName} pour "${courseTitle}" (Statut: ${p.status || 'en attente'}).`,
+                date: dateVal || new Date().toISOString(),
+                icon: <CreditCard className="w-5 h-5 text-amber-600" />,
+                bgColor: 'bg-amber-100',
+                link: '/admin/hub'
+              });
+            }
           });
-        });
+        }
+      } catch (e) {
+        console.warn('payments exception:', e);
       }
 
-      if (quizLeads) {
-        quizLeads.forEach(ql => {
-          const clientName = ql.client_profiles ? `${(ql.client_profiles as any).first_name || ''} ${(ql.client_profiles as any).last_name || ''}` : 'Nouveau client';
-          mixed.push({
-            id: `lead-${ql.id}`,
-            type: 'quiz_lead',
-            title: 'Nouveau Lead Magnet (Quiz)',
-            description: `${clientName} a manifesté un intérêt suite à un quiz lead magnet.`,
-            date: ql.created_at,
-            icon: <MessageSquare className="w-5 h-5 text-rose-600" />,
-            bgColor: 'bg-rose-100',
-            link: '/admin/hub'
+      // 4. Course Quizzes (module_progress)
+      try {
+        const { data: progressData, error } = await supabase
+          .from('module_progress')
+          .select('*');
+
+        if (error) {
+          console.warn('Error fetching module_progress:', error);
+        } else if (progressData) {
+          progressData.forEach(mp => {
+            const dateVal = mp.completed_at || mp.created_at || mp.updated_at;
+            if (mp.score !== null && mp.score !== undefined && isAfterSince(dateVal)) {
+              courseQuizCount++;
+              const profile = mp.client_id ? profilesMap.get(mp.client_id) : null;
+              const clientName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email : 'Un étudiant';
+              const modInfo = mp.module_id ? modulesMap.get(mp.module_id) : null;
+              const moduleTitle = modInfo?.title || 'un module';
+              const courseTitle = modInfo?.course_id ? coursesMap.get(modInfo.course_id) : null;
+
+              mixed.push({
+                id: `course-quiz-${mp.id}`,
+                type: 'course_quiz',
+                title: 'Quiz de cours validé',
+                description: `${clientName} a validé le quiz du module "${moduleTitle}"${courseTitle ? ` (${courseTitle})` : ''} avec un score de ${mp.score}%.`,
+                date: dateVal || new Date().toISOString(),
+                icon: <CheckCircle2 className="w-5 h-5 text-purple-600" />,
+                bgColor: 'bg-purple-100',
+                link: '/admin/courses'
+              });
+            }
           });
-        });
+        }
+      } catch (e) {
+        console.warn('module_progress exception:', e);
+      }
+
+      // 5. Public Quiz Results (quiz_results)
+      try {
+        const { data: quizResults, error } = await supabase
+          .from('quiz_results')
+          .select('*, courses(title)')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.warn('Error fetching quiz_results:', error);
+        } else if (quizResults) {
+          quizResults.forEach(qr => {
+            if (isAfterSince(qr.created_at)) {
+              publicQuizCount++;
+              const participant = qr.participant_name || qr.client_email || qr.participant_email || 'Un visiteur';
+              const courseTitle = qr.courses?.title || (qr.course_id ? coursesMap.get(qr.course_id) : null);
+              mixed.push({
+                id: `quiz-res-${qr.id}`,
+                type: 'public_quiz',
+                title: 'Quiz public validé',
+                description: `${participant} a terminé un quiz public${courseTitle ? ` (${courseTitle})` : ''} avec un score de ${qr.score}/${qr.max_score || 100}.`,
+                date: qr.created_at || new Date().toISOString(),
+                icon: <Activity className="w-5 h-5 text-blue-600" />,
+                bgColor: 'bg-blue-100',
+                link: '/admin/hub'
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('quiz_results exception:', e);
+      }
+
+      // 6. Public Quiz Leads (quiz_leads table & course_proposals)
+      try {
+        const { data: quizLeads, error } = await supabase
+          .from('quiz_leads')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && quizLeads) {
+          quizLeads.forEach(ql => {
+            if (isAfterSince(ql.created_at)) {
+              const name = `${ql.first_name || ''} ${ql.last_name || ''}`.trim() || ql.email || 'Nouveau prospect';
+              mixed.push({
+                id: `quiz-lead-${ql.id}`,
+                type: 'public_quiz',
+                title: 'Prospect Quiz Public',
+                description: `${name} a complété le quiz d'évaluation lead magnet.`,
+                date: ql.created_at || new Date().toISOString(),
+                icon: <MessageSquare className="w-5 h-5 text-teal-600" />,
+                bgColor: 'bg-teal-100',
+                link: '/admin/hub'
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('quiz_leads exception:', e);
+      }
+
+      // 7. Live Sessions
+      try {
+        const { data: lives, error } = await supabase
+          .from('live_sessions')
+          .select('*, courses(title)')
+          .order('created_at', { ascending: false });
+
+        if (!error && lives) {
+          lives.forEach(l => {
+            const dateVal = l.created_at || l.scheduled_at;
+            if (isAfterSince(dateVal)) {
+              sessCount++;
+              const courseTitle = l.courses?.title || (l.course_id ? coursesMap.get(l.course_id) : null);
+              const dateStr = l.scheduled_at ? new Date(l.scheduled_at).toLocaleDateString('fr-FR') : '';
+              const timeStr = l.scheduled_at ? new Date(l.scheduled_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+
+              mixed.push({
+                id: `live-${l.id}`,
+                type: 'session',
+                title: 'Session Live programmée',
+                description: `Live "${l.title}"${courseTitle ? ` (${courseTitle})` : ''} prévu le ${dateStr}${timeStr ? ` à ${timeStr}` : ''}.`,
+                date: dateVal || new Date().toISOString(),
+                icon: <Video className="w-5 h-5 text-rose-600" />,
+                bgColor: 'bg-rose-100',
+                link: '/live'
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('live_sessions exception:', e);
       }
 
       setStats({
         newClients: clientCount,
         newRegistrations: regCount,
         newPayments: payCount,
-        newSessions: sessCount,
-        quizMagnets: quizCount
+        courseQuizzes: courseQuizCount,
+        publicQuizzes: publicQuizCount,
+        newSessions: sessCount
       });
 
       mixed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setActivities(mixed);
-      
+
     } catch (err) {
-      console.error(err);
+      console.error('Error fetching activity:', err);
     } finally {
       setLoading(false);
     }
@@ -187,20 +339,31 @@ export default function AdminActivityFeed() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
+      {/* Back Button */}
+      <div>
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-2xl text-sm font-bold shadow-xs transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 text-gray-500" />
+          <span>Retour à l'accueil</span>
+        </Link>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-6">
         <div className="flex items-center gap-4">
-          <Link to="/admin/dashboard" className="bg-sky-100 p-3 rounded-2xl text-sky-600 hover:bg-sky-200 transition-colors">
+          <div className="bg-sky-100 p-3 rounded-2xl text-sky-600">
             <Activity className="w-8 h-8" />
-          </Link>
+          </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Du nouveau (Activité)</h1>
-            <p className="text-gray-500 text-sm mt-1">Surveillez l'activité récente de votre plateforme.</p>
+            <p className="text-gray-500 text-sm mt-1">Historique complet des activités et événements de la plateforme.</p>
           </div>
         </div>
         
         {/* Date Filter Selection */}
-        <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 p-1">
+        <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 p-1 shadow-xs">
           <button 
             onClick={() => setDateFilter('today')} 
             className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${dateFilter === 'today' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
@@ -228,55 +391,65 @@ export default function AdminActivityFeed() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="bg-indigo-50 p-4 rounded-full text-indigo-600">
-            <Users className="w-6 h-6" />
+      {/* KPIs Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center gap-3">
+          <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600 shrink-0">
+            <Users className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-500">Nouveaux Clients</p>
-            <p className="text-2xl font-black text-gray-900">{stats.newClients}</p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500 truncate">Clients</p>
+            <p className="text-xl font-black text-gray-900">{stats.newClients}</p>
           </div>
         </div>
         
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="bg-emerald-50 p-4 rounded-full text-emerald-600">
-            <BookOpen className="w-6 h-6" />
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center gap-3">
+          <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600 shrink-0">
+            <BookOpen className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-500">Nouvelles Inscriptions</p>
-            <p className="text-2xl font-black text-gray-900">{stats.newRegistrations}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="bg-amber-50 p-4 rounded-full text-amber-600">
-            <CreditCard className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-500">Paiements / Tranches</p>
-            <p className="text-2xl font-black text-gray-900">{stats.newPayments}</p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500 truncate">Inscriptions</p>
+            <p className="text-xl font-black text-gray-900">{stats.newRegistrations}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="bg-orange-50 p-4 rounded-full text-orange-600">
-            <Calendar className="w-6 h-6" />
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center gap-3">
+          <div className="bg-amber-50 p-3 rounded-xl text-amber-600 shrink-0">
+            <CreditCard className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-500">Sessions Programmées</p>
-            <p className="text-2xl font-black text-gray-900">{stats.newSessions}</p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500 truncate">Paiements</p>
+            <p className="text-xl font-black text-gray-900">{stats.newPayments}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="bg-rose-50 p-4 rounded-full text-rose-600">
-            <MessageSquare className="w-6 h-6" />
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center gap-3">
+          <div className="bg-purple-50 p-3 rounded-xl text-purple-600 shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-500">Leads (Quiz Magnet)</p>
-            <p className="text-2xl font-black text-gray-900">{stats.quizMagnets}</p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500 truncate">Quiz Cours</p>
+            <p className="text-xl font-black text-gray-900">{stats.courseQuizzes}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center gap-3">
+          <div className="bg-blue-50 p-3 rounded-xl text-blue-600 shrink-0">
+            <Activity className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500 truncate">Quiz Publics</p>
+            <p className="text-xl font-black text-gray-900">{stats.publicQuizzes}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs flex items-center gap-3">
+          <div className="bg-orange-50 p-3 rounded-xl text-orange-600 shrink-0">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-500 truncate">Sessions</p>
+            <p className="text-xl font-black text-gray-900">{stats.newSessions}</p>
           </div>
         </div>
       </div>
@@ -292,27 +465,28 @@ export default function AdminActivityFeed() {
               placeholder="Rechercher une activité..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm"
+              className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-xs"
             />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Filter className="w-5 h-5 text-gray-400" />
+            <Filter className="w-5 h-5 text-gray-400 shrink-0" />
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full sm:w-auto px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+              className="w-full sm:w-auto px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs"
             >
-              <option value="all">Toutes les activités</option>
+              <option value="all">Toutes les activités ({activities.length})</option>
+              <option value="registration">Inscriptions aux formations</option>
+              <option value="course_quiz">Quiz de cours validés</option>
+              <option value="public_quiz">Quiz publics (Leads)</option>
+              <option value="payment">Paiements & Tranches</option>
+              <option value="session">Sessions & Lives</option>
               <option value="client">Nouveaux clients</option>
-              <option value="registration">Inscriptions</option>
-              <option value="session">Sessions</option>
-              <option value="quiz_result">Quiz complétés</option>
-              <option value="quiz_lead">Leads (Quiz)</option>
             </select>
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-gray-400" /> Fil d'actualité {filteredActivities.length > 0 && `(${filteredActivities.length})`}
           </h2>
@@ -323,22 +497,22 @@ export default function AdminActivityFeed() {
             </div>
           ) : filteredActivities.length > 0 ? (
             <div className="relative border-l-2 border-gray-100 ml-4 space-y-8 pb-4">
-              {filteredActivities.map((activity, index) => (
+              {filteredActivities.map((activity) => (
                 <div key={activity.id} className="relative pl-8">
                   <div className={`absolute -left-[21px] top-1 p-2 rounded-full border-4 border-white ${activity.bgColor}`}>
                     {activity.icon}
                   </div>
-                  <div className="bg-gray-50 hover:bg-gray-100 transition-colors rounded-2xl p-5 border border-gray-100">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-gray-900">{activity.title}</h3>
-                      <div className="flex items-center gap-1 text-xs font-semibold text-gray-400 bg-white px-2 py-1 rounded-lg border border-gray-100">
+                  <div className="bg-gray-50 hover:bg-gray-100 transition-colors rounded-2xl p-4 sm:p-5 border border-gray-100">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 mb-2">
+                      <h3 className="font-bold text-gray-900 text-base">{activity.title}</h3>
+                      <div className="flex items-center gap-1 text-xs font-semibold text-gray-400 bg-white px-2 py-1 rounded-lg border border-gray-100 w-fit">
                         <Clock className="w-3 h-3" />
                         {new Date(activity.date).toLocaleDateString('fr-FR', {
-                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                         })}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mb-4">{activity.description}</p>
+                    <p className="text-sm text-gray-600 mb-4 leading-relaxed">{activity.description}</p>
                     <Link
                       to={activity.link}
                       className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
@@ -361,7 +535,7 @@ export default function AdminActivityFeed() {
               <h3 className="text-lg font-bold text-gray-900 mb-2">
                 {searchQuery || typeFilter !== 'all' ? "Aucun résultat" : "Aucune activité récente"}
               </h3>
-              <p className="text-gray-500 max-w-sm mx-auto">
+              <p className="text-gray-500 max-w-sm mx-auto text-sm">
                 {searchQuery || typeFilter !== 'all' 
                   ? "Aucune activité ne correspond à vos critères de recherche."
                   : "Il n'y a pas eu d'activité sur la plateforme pour la période sélectionnée."}

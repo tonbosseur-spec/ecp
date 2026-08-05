@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @theme {
+  --font-sans: "Geist", sans-serif;
+  --font-serif: "Geist", sans-serif;
+  --font-mono: "Geist", sans-serif;
+  --font-heading: "Manrope", sans-serif;
   --color-blue-50: #f0fdf4;
   --color-blue-100: #dcfce7;
   --color-blue-200: #bbf7d0;
@@ -27,6 +31,12 @@
 }
 
 @layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading) !important;
+  }
+  body {
+    font-family: var(--font-sans) !important;
+  }
   *::-webkit-scrollbar {
     display: none !important;
   }

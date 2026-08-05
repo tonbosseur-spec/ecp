@@ -604,9 +604,6 @@ END:VCALENDAR`;
         .theme-border-light { border-color: var(--theme-primary-light) !important; }
         .theme-gradient { background: linear-gradient(to right, var(--theme-primary), var(--theme-primary-light)) !important; }
         .theme-bg-light { background-color: var(--theme-primary-light) !important; color: #111827 !important; }
-        .font-handwritten {
-          font-family: 'Dancing Script', 'Caveat', cursive, sans-serif !important;
-        }
       `}} />
 
       {/* Header */}
