@@ -24,6 +24,7 @@ import {
   ExternalLink,
   RefreshCw,
   Check,
+  Settings,
   Lock,
   Users,
   Share2,
@@ -34,6 +35,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
+import ClientSettings from '../components/ClientSettings';
 import { dailyTips } from '../data/tips';
 import { getClientReferralCode, getParrainReferralSales, ReferralCodeInfo, ReferralSale } from '../lib/referralService';
 import { loadFromCache, saveToCache } from '../lib/offlineSync';
@@ -56,7 +58,7 @@ export default function ClientHub() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage'>('hub');
+  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage' | 'settings'>('hub');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -770,6 +772,20 @@ export default function ClientHub() {
                   </div>
                 </button>
               )}
+
+              {/* Paramètres - 1 col */}
+              <button 
+                onClick={() => setActiveSection('settings')}
+                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-indigo-900/5 hover:-translate-y-1 hover:border-indigo-100 transition-all duration-300 min-h-[180px]"
+              >
+                <div className="bg-slate-50 p-4 rounded-2xl text-slate-600 group-hover:bg-slate-100 group-hover:scale-110 transition-all mb-6">
+                  <Settings className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Paramètres</h3>
+                  <p className="text-gray-500 text-xs font-medium">Profil & Sécurité</p>
+                </div>
+              </button>
 
               {/* Catalogue - 1 col */}
               <Link 
@@ -2151,6 +2167,10 @@ export default function ClientHub() {
               </>
             )}
           </div>
+        )}
+        {/* Paramètres Section */}
+        {activeSection === 'settings' && (
+          <ClientSettings profile={profile} referralCode={referralCode} onUpdateProfile={setProfile} />
         )}
       </main>
     </div>
