@@ -562,14 +562,14 @@ export default function NotificationBell({ userId, userRole = 'client', classNam
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Mobile Backdrop */}
+            {/* Backdrop overlay (Mobile & Desktop) */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 sm:hidden"
+              className="fixed inset-0 bg-slate-950/30 sm:bg-slate-950/20 backdrop-blur-xs z-[9998]"
             />
 
             {/* Main Panel Container */}
@@ -578,7 +578,7 @@ export default function NotificationBell({ userId, userRole = 'client', classNam
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: -16 }}
               transition={{ type: 'spring', damping: 26, stiffness: 340 }}
-              className="fixed top-20 left-1/2 -translate-x-1/2 sm:absolute sm:top-full sm:right-0 sm:left-auto sm:translate-x-0 sm:mt-3 w-[calc(100vw-2rem)] max-w-sm sm:w-96 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl z-50 overflow-hidden max-h-[calc(100vh-6.5rem)] sm:max-h-[85vh] flex flex-col"
+              className="fixed top-20 left-1/2 -translate-x-1/2 sm:top-16 sm:right-6 lg:right-10 sm:left-auto sm:translate-x-0 w-[calc(100vw-2rem)] max-w-sm sm:w-96 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl z-[9999] overflow-hidden max-h-[calc(100vh-6.5rem)] sm:max-h-[85vh] flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
