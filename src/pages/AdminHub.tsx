@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
 import VerifiedBadge from '../components/VerifiedBadge';
 import NotificationBell from '../components/NotificationBell';
-import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft, Activity } from 'lucide-react';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
+
+import AdminActivities from '../components/AdminActivities';
 
 export default function AdminHub() {
   const navigate = useNavigate();
@@ -13,7 +15,7 @@ export default function AdminHub() {
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<any[]>([]);
   const [pendingPayments, setPendingPayments] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'formations' | 'paiements' | 'quizz'>('formations');
+  const [activeTab, setActiveTab] = useState<'nouveau' | 'formations' | 'paiements' | 'quizz'>('nouveau');
   const [quizLeads, setQuizLeads] = useState<any[]>([]);
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -293,6 +295,16 @@ export default function AdminHub() {
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-8 overflow-x-auto no-scrollbar whitespace-nowrap scroll-smooth">
           <button
+            onClick={() => setActiveTab('nouveau')}
+            className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative shrink-0 flex items-center gap-2 ${
+              activeTab === 'nouveau' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            Du nouveau
+            {activeTab === 'nouveau' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>}
+          </button>
+          <button
             onClick={() => setActiveTab('formations')}
             className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative shrink-0 ${
               activeTab === 'formations' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
@@ -331,6 +343,10 @@ export default function AdminHub() {
           </button>
         </div>
 
+
+        {activeTab === 'nouveau' && (
+          <AdminActivities setActiveTab={setActiveTab} />
+        )}
 
         {/* Share Section (only on formations tab) */}
         {activeTab === 'formations' && (

@@ -53,8 +53,8 @@ export default function AdminClients() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const tabParam = searchParams.get('tab') as 'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages' | null;
-  const [activeTab, setActiveTab] = useState<'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages'>(tabParam || 'payments');
+  const tabParam = searchParams.get('tab') as 'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients' | null;
+  const [activeTab, setActiveTab] = useState<'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients'>(tabParam || 'payments');
 
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
@@ -64,6 +64,8 @@ export default function AdminClients() {
   const [loadingPayments, setLoadingPayments] = useState(false);
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [allClientsData, setAllClientsData] = useState<any[]>([]);
+  const [loadingAllClients, setLoadingAllClients] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Proposal filter
@@ -110,6 +112,9 @@ export default function AdminClients() {
     if (activeTab === 'students' || activeTab === 'commerciaux') {
       fetchStudentsData();
     }
+    if (activeTab === 'all_clients') {
+      fetchAllClientsData();
+    }
   }, [activeTab]);
 
   const showNotification = (msg: string) => {
@@ -117,7 +122,7 @@ export default function AdminClients() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const changeTab = (tab: 'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages') => {
+  const changeTab = (tab: 'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients') => {
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -424,6 +429,39 @@ export default function AdminClients() {
     }
   };
 
+  const fetchAllClientsData = async () => {
+    try {
+      setLoadingAllClients(true);
+      const { data: clients, error: clientsError } = await supabase
+        .from('client_profiles')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          phone,
+          created_at
+        `)
+        .order('created_at', { ascending: false });
+
+      if (clientsError) throw clientsError;
+
+      // Map phone numbers for whatsapp links
+      const formattedClients = (clients || []).map(c => {
+        let cleanPhone = c.phone ? c.phone.replace(/[^0-9]/g, '') : '';
+        return {
+          ...c,
+          cleanPhone
+        };
+      });
+
+      setAllClientsData(formattedClients);
+    } catch (err: any) {
+      console.error('Erreur chargement de tous les clients:', err);
+    } finally {
+      setLoadingAllClients(false);
+    }
+  };
+
   const handleDeleteStudent = async (student: any) => {
     if (!window.confirm(`Supprimer définitivement l'inscription de "${student.participant_name}" ?`)) return;
 
@@ -568,7 +606,7 @@ export default function AdminClients() {
         </div>
 
         {/* Navigation Tabs Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <button
             onClick={() => changeTab('payments')}
             className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 relative ${
@@ -662,6 +700,20 @@ export default function AdminClients() {
               <p className={`text-[11px] ${activeTab === 'messages' ? 'text-gray-300' : 'text-gray-500'}`}>
                 {unreadMessagesCount > 0 ? `${unreadMessagesCount} non lu(s)` : 'Messagerie'}
               </p>
+            </div>
+          </button>
+          <button
+            onClick={() => changeTab('all_clients')}
+            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 col-span-2 sm:col-span-1 ${
+              activeTab === 'all_clients'
+                ? 'bg-sky-900 text-white border-sky-900 shadow-md ring-2 ring-sky-600'
+                : 'bg-white text-gray-900 border-gray-100 hover:border-sky-200 shadow-sm'
+            }`}
+          >
+            <Users className={`w-5 h-5 ${activeTab === 'all_clients' ? 'text-white' : 'text-sky-600'}`} />
+            <div>
+              <h3 className="font-bold text-sm">Inscrits</h3>
+              <p className={`text-[11px] ${activeTab === 'all_clients' ? 'text-sky-200' : 'text-gray-500'}`}>Base de données</p>
             </div>
           </button>
         </div>
@@ -1151,6 +1203,87 @@ export default function AdminClients() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'all_clients' && (
+          <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-sky-600" />
+                  Base de données clients
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">Tous les utilisateurs inscrits sur la plateforme, y compris sans achat</p>
+              </div>
+              <button
+                onClick={fetchAllClientsData}
+                disabled={loadingAllClients}
+                className="flex items-center gap-2 px-4 py-2 bg-sky-50 text-sky-600 rounded-xl hover:bg-sky-100 transition-colors text-sm font-bold"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingAllClients ? 'animate-spin' : ''}`} />
+                Actualiser
+              </button>
+            </div>
+
+            {loadingAllClients ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-sky-600" />
+              </div>
+            ) : allClientsData.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
+                <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">Aucun client trouvé.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="py-3 px-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Client</th>
+                      <th className="py-3 px-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Date d'inscription</th>
+                      <th className="py-3 px-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {allClientsData.map(client => (
+                      <tr key={client.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold uppercase">
+                              {client.first_name?.[0]}{client.last_name?.[0]}
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-gray-900">{client.first_name} {client.last_name}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {new Date(client.created_at).toLocaleDateString('fr-FR', {
+                            day: 'numeric', month: 'long', year: 'numeric'
+                          })}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {client.cleanPhone ? (
+                            <a 
+                              href={`https://wa.me/${client.cleanPhone}?text=${encodeURIComponent("Bonjour " + client.first_name + ", bienvenue sur notre plateforme ! Êtes-vous intéressé(e) par l'une de nos formations ?")}`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 rounded-lg text-xs font-bold transition-colors"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              WhatsApp
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Pas de numéro</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

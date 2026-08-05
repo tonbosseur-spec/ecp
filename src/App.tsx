@@ -32,6 +32,7 @@ import AdminHub from './pages/AdminHub';
 import AdminFormations from './pages/AdminFormations';
 import AdminClients from './pages/AdminClients';
 import AdminSessionsDashboard from './pages/AdminSessionsDashboard';
+import AdminActivityFeed from './pages/AdminActivityFeed';
 import LiveDashboard from './pages/LiveDashboard';
 import LiveRoom from './pages/LiveRoom';
 import PublicLiveSessionPage from './pages/PublicLiveSessionPage';
@@ -171,6 +172,7 @@ export default function App() {
           <Route path="/trainers" element={<ManageTrainers />} />
           <Route path="/admin/hub" element={<AdminHub />} />
           <Route path="/admin/sessions" element={<AdminSessionsDashboard />} />
+          <Route path="/admin/activity" element={<AdminActivityFeed />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       ) : (
