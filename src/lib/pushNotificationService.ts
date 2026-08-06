@@ -49,50 +49,90 @@ export async function registerNativePushNotifications(userId?: string): Promise<
   try {
     await setupFCMNotificationChannel();
 
-    let permStatus: PermissionStatus = await PushNotifications.checkPermissions();
-    if (permStatus.receive !== 'granted') {
-      permStatus = await PushNotifications.requestPermissions();
+    let permStatus: PermissionStatus;
+    try {
+      permStatus = await PushNotifications.checkPermissions();
+      if (permStatus.receive !== 'granted') {
+        permStatus = await PushNotifications.requestPermissions();
+      }
+    } catch (permErr: any) {
+      console.warn('[FCM Push] Permission check/request warning:', permErr);
+      return { token: null, error: permErr?.message || 'Erreur lors de la demande de permission' };
     }
 
-    if (permStatus.receive !== 'granted') {
-      return { token: null, error: 'Permission de notification refusée sur cet appareil.' };
+    if (permStatus?.receive !== 'granted') {
+      return { token: null, error: 'Permission de notification non accordée.' };
     }
-
-    await PushNotifications.register();
 
     return new Promise((resolve) => {
-      // Listener for token registration
-      PushNotifications.addListener('registration', async (token) => {
-        const deviceToken = token.value;
-        console.log('[FCM Push] Device Token Registered:', deviceToken);
-
-        if (userId) {
-          try {
-            await supabase
-              .from('client_profiles')
-              .update({
-                fcm_token: deviceToken,
-                expo_push_token: deviceToken,
-                updated_at: new Date().toISOString(),
-              } as any)
-              .eq('id', userId);
-          } catch (dbErr) {
-            console.warn('[FCM Push] Failed to update user token in database:', dbErr);
-          }
+      let isResolved = false;
+      const timeout = setTimeout(() => {
+        if (!isResolved) {
+          isResolved = true;
+          console.warn('[FCM Push] Registration timed out safely');
+          resolve({ token: null, error: 'Délai d\'attente dépassé lors de l\'enregistrement FCM.' });
         }
+      }, 8000);
 
-        resolve({ token: deviceToken, error: null });
-      });
+      // Attach listeners BEFORE calling PushNotifications.register()
+      try {
+        PushNotifications.addListener('registration', async (token) => {
+          if (isResolved) return;
+          isResolved = true;
+          clearTimeout(timeout);
+          const deviceToken = token.value;
+          console.log('[FCM Push] Device Token Registered:', deviceToken);
 
-      // Listener for registration error
-      PushNotifications.addListener('registrationError', (error: any) => {
-        console.error('[FCM Push] Registration Error:', error);
-        resolve({ token: null, error: error?.error || "Erreur d'enregistrement auprès du service FCM" });
-      });
+          if (userId) {
+            try {
+              await supabase
+                .from('client_profiles')
+                .update({
+                  fcm_token: deviceToken,
+                  expo_push_token: deviceToken,
+                  updated_at: new Date().toISOString(),
+                } as any)
+                .eq('id', userId);
+            } catch (dbErr) {
+              console.warn('[FCM Push] Failed to update user token in database:', dbErr);
+            }
+          }
+
+          resolve({ token: deviceToken, error: null });
+        }).catch((err) => console.warn('[FCM Push] registration listener attach error:', err));
+
+        PushNotifications.addListener('registrationError', (error: any) => {
+          if (isResolved) return;
+          isResolved = true;
+          clearTimeout(timeout);
+          console.error('[FCM Push] Registration Error:', error);
+          resolve({ token: null, error: error?.error || "Erreur d'enregistrement auprès du service FCM" });
+        }).catch((err) => console.warn('[FCM Push] registrationError listener attach error:', err));
+      } catch (listenerErr) {
+        console.warn('[FCM Push] Error adding registration listeners:', listenerErr);
+      }
+
+      // Call register safely
+      try {
+        PushNotifications.register().catch((regErr) => {
+          if (isResolved) return;
+          isResolved = true;
+          clearTimeout(timeout);
+          console.warn('[FCM Push] Native PushNotifications.register failed:', regErr);
+          resolve({ token: null, error: regErr?.message || "Échec de l'enregistrement push natif" });
+        });
+      } catch (regEx: any) {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          console.warn('[FCM Push] Register exception:', regEx);
+          resolve({ token: null, error: regEx?.message || 'Erreur lors du démarrage FCM' });
+        }
+      }
     });
   } catch (err: any) {
     console.error('[FCM Push] Exception during registration:', err);
-    return { token: null, error: err.message || 'Impossible d’initialiser les notifications push native' };
+    return { token: null, error: err?.message || 'Impossible d’initialiser les notifications push native' };
   }
 }
 
@@ -105,31 +145,44 @@ export function initPushNotificationListeners(
 ) {
   if (!Capacitor.isNativePlatform()) return () => {};
 
-  // 1. Received while app is in foreground
-  const receivedListener = PushNotifications.addListener('pushNotificationReceived', (notification) => {
-    console.log('[FCM Push] Notification reçue (Foreground):', notification);
-    playNotificationSound();
+  let receivedHandle: any = null;
+  let actionHandle: any = null;
 
-    if (onNotificationReceived) {
-      onNotificationReceived(notification);
-    }
-  });
+  try {
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      console.log('[FCM Push] Notification reçue (Foreground):', notification);
+      try {
+        playNotificationSound();
+      } catch (e) {
+        console.warn('Play sound error:', e);
+      }
 
-  // 2. User tapped on notification in notification bar
-  const actionListener = PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-    console.log('[FCM Push] Notification cliquée (Action):', action);
-    const data = action.notification.data;
+      if (onNotificationReceived) {
+        onNotificationReceived(notification);
+      }
+    }).then((h) => { receivedHandle = h; }).catch((e) => console.warn('[FCM Push] listener error:', e));
 
-    if (onNotificationAction) {
-      onNotificationAction(action);
-    } else if (data?.url) {
-      window.location.href = data.url;
-    }
-  });
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      console.log('[FCM Push] Notification cliquée (Action):', action);
+      const data = action.notification?.data;
+
+      if (onNotificationAction) {
+        onNotificationAction(action);
+      } else if (data?.url) {
+        window.location.href = data.url;
+      }
+    }).then((h) => { actionHandle = h; }).catch((e) => console.warn('[FCM Push] listener error:', e));
+  } catch (err) {
+    console.warn('[FCM Push] Failed to initialize push listeners:', err);
+  }
 
   return () => {
-    receivedListener.then((l) => l.remove());
-    actionListener.then((l) => l.remove());
+    try {
+      if (receivedHandle?.remove) receivedHandle.remove();
+      if (actionHandle?.remove) actionHandle.remove();
+    } catch (err) {
+      console.warn('[FCM Push] Error removing listeners:', err);
+    }
   };
 }
 

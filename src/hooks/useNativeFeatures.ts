@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { App } from '@capacitor/app';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { StatusBar } from '@capacitor/status-bar';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { supabase } from '../lib/supabaseClient';
 import { registerNativePushNotifications, initPushNotificationListeners } from '../lib/pushNotificationService';
 
@@ -25,15 +25,18 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
     setIsNative(isCapacitor);
     
     if (isCapacitor) {
-      // Set Immersive Status Bar
-      const setImmersiveStatusBar = async () => {
+      // Set Green Status Bar
+      const setGreenStatusBar = async () => {
         try {
-          await StatusBar.hide();
+          await StatusBar.show();
+          await StatusBar.setOverlaysWebView({ overlay: false });
+          await StatusBar.setBackgroundColor({ color: '#16a34a' });
+          await StatusBar.setStyle({ style: Style.Light });
         } catch (err) {
-          console.warn("Could not hide status bar:", err);
+          console.warn("Could not set status bar color:", err);
         }
       };
-      setImmersiveStatusBar();
+      setGreenStatusBar();
 
       // Listen for push notifications when app is active or when user clicks a notification
       const cleanupListeners = initPushNotificationListeners(

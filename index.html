@@ -3,6 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#16a34a" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/png" href="https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/public/APK/ChatGPT%20Image%2018%20juil.%202026,%2017_51_54.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,7 +12,29 @@
     <title>Exceller chez Pierre</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: space-between; background-color: #000; overflow: hidden; font-family: system-ui, -apple-system, sans-serif;">
+        <div style="position: absolute; inset: 0; z-index: 0;">
+          <img 
+            src="https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/public/Fichiers%20de%20formation%20&%20guides/file_00000000aa4481f4a37733d7a02e28c6.png" 
+            alt="Chargement" 
+            style="width: 100%; height: 100%; object-fit: cover; object-position: center;"
+          />
+          <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.3), rgba(0,0,0,0.4));"></div>
+        </div>
+        <div></div>
+        <div style="position: relative; z-index: 10; padding-bottom: 64px; padding-left: 24px; padding-right: 24px; display: flex; flex-direction: column; align-items: center;">
+          <div style="background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); padding: 20px 28px; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.15); display: flex; flex-direction: column; align-items: center; gap: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+            <svg style="width: 32px; height: 32px; color: #ffffff; animation: spin 1s linear infinite;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>
+            <span style="color: #ffffff; font-size: 14px; font-weight: 600; letter-spacing: 0.025em;">Chargement en cours...</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

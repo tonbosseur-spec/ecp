@@ -37,6 +37,7 @@ import LiveDashboard from './pages/LiveDashboard';
 import LiveRoom from './pages/LiveRoom';
 import PublicLiveSessionPage from './pages/PublicLiveSessionPage';
 import AdminLayout from './components/AdminLayout';
+import SplashScreen from './components/SplashScreen';
 import { Loader2 } from 'lucide-react';
 
 import { useNativeFeatures } from './hooks/useNativeFeatures';
@@ -75,7 +76,11 @@ export default function App() {
       
       // Auto-enregistrement des notifications si l'utilisateur est connecté
       if (session?.user?.id) {
-        registerPushNotifications(session.user.id).catch(console.error);
+        setTimeout(() => {
+          registerPushNotifications(session.user.id).catch((err) =>
+            console.warn('[Push Reg Warning]:', err)
+          );
+        }, 1200);
       }
     });
 
@@ -87,7 +92,11 @@ export default function App() {
       
       // Re-vérifier lors du changement d'état (login)
       if (session?.user?.id) {
-        registerPushNotifications(session.user.id).catch(console.error);
+        setTimeout(() => {
+          registerPushNotifications(session.user.id).catch((err) =>
+            console.warn('[Push Reg Warning]:', err)
+          );
+        }, 1200);
       }
     });
 
@@ -118,11 +127,7 @@ export default function App() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-      </div>
-    );
+    return <SplashScreen message="Chargement en cours..." />;
   }
 
   const isAdmin = session?.user?.email === 'pmbom@ecp.cm';

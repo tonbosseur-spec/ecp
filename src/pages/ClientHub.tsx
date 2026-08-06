@@ -32,10 +32,12 @@ import {
   Gift,
   DollarSign,
   TrendingUp,
-  Wallet
+  Wallet,
+  LayoutGrid
 } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
 import ClientSettings from '../components/ClientSettings';
+import SplashScreen from '../components/SplashScreen';
 import { dailyTips } from '../data/tips';
 import { getClientReferralCode, getParrainReferralSales, ReferralCodeInfo, ReferralSale } from '../lib/referralService';
 import { loadFromCache, saveToCache } from '../lib/offlineSync';
@@ -58,7 +60,7 @@ export default function ClientHub() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage' | 'settings'>('hub');
+  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage' | 'settings' | 'more'>('hub');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -431,11 +433,7 @@ export default function ClientHub() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-      </div>
-    );
+    return <SplashScreen message="Chargement de votre espace..." />;
   }
 
   const firstName = profile?.first_name || 'Client';
@@ -598,244 +596,249 @@ export default function ClientHub() {
           <div className="animate-fade-in">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Aperçu de votre espace</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
               
-              {/* Live Visioconférence - 2 cols */}
+              {/* Live Visioconférence */}
               <button 
                 onClick={() => navigate('/live')}
-                className="md:col-span-2 bg-gradient-to-br from-red-600 via-rose-600 to-red-800 rounded-[2rem] p-6 md:p-8 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-red-900/20 hover:-translate-y-1 transition-all duration-300 text-white"
+                className="col-span-1 md:col-span-2 bg-gradient-to-br from-red-600 via-rose-600 to-red-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-red-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between aspect-square md:aspect-auto md:min-h-[160px]"
               >
-                <div className="absolute top-0 right-0 p-8 opacity-15 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500">
-                  <Video className="w-40 h-40 text-white" />
+                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-15 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
+                  <Video className="w-24 h-24 md:w-40 md:h-40 text-white" />
                 </div>
-                <div className="relative z-10 flex flex-col h-full min-h-[160px] justify-between">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
-                      <Video className="w-6 h-6 text-white" />
-                    </div>
-                    <span className="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm text-xs font-bold text-white shadow-sm flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                      Sessions Live en direct
-                    </span>
+                <div className="relative z-10 flex justify-between items-start w-full">
+                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <Video className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-white mb-2">Espace Live</h3>
-                    <p className="text-red-100 text-sm font-medium">Rejoignez vos visioconférences de groupe (5-6 pers max).</p>
-                  </div>
+                  <span className="bg-white/20 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                    <span className="hidden sm:inline">Live Direct</span>
+                    <span className="sm:hidden">Live</span>
+                  </span>
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">Espace Live</h3>
+                  <p className="text-red-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">Visioconférences groupe</p>
                 </div>
               </button>
 
-              {/* Mes formations - 2 cols */}
+              {/* Mes formations */}
               <button 
                 onClick={() => setActiveSection('inscriptions')}
-                className="md:col-span-2 bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-800 rounded-[2rem] p-6 md:p-8 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/10 hover:-translate-y-1 transition-all duration-300"
+                className="col-span-1 md:col-span-2 bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/10 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between aspect-square md:aspect-auto md:min-h-[160px]"
               >
-                <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500">
-                  <BookOpen className="w-40 h-40 text-white" />
+                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-10 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
+                  <BookOpen className="w-24 h-24 md:w-40 md:h-40 text-white" />
                 </div>
-                <div className="relative z-10 flex flex-col h-full min-h-[160px] justify-between">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
-                      <BookOpen className="w-6 h-6 text-white" />
-                    </div>
-                    <span className="bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm text-xs font-bold text-white shadow-sm">
-                      {registrations.length} formation{registrations.length !== 1 ? 's' : ''}
-                    </span>
+                <div className="relative z-10 flex justify-between items-start w-full">
+                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-white mb-2">Mes formations</h3>
-                    <p className="text-purple-100 text-sm font-medium">Reprenez votre apprentissage là où vous l'avez laissé.</p>
-                  </div>
+                  <span className="bg-white/20 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm">
+                    {registrations.length} <span className="hidden sm:inline">formation{registrations.length !== 1 ? 's' : ''}</span>
+                  </span>
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">Mes formations</h3>
+                  <p className="text-purple-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">Reprendre votre cours</p>
                 </div>
               </button>
 
-              {/* Calendrier - 2 cols */}
-              <button 
-                onClick={() => setActiveSection('calendar')}
-                className="md:col-span-2 bg-white border border-gray-100 rounded-[2rem] p-6 md:p-8 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-blue-900/5 hover:-translate-y-1 hover:border-blue-100 transition-all duration-300"
+              {/* Catalogue */}
+              <Link 
+                to="/client/marketplace"
+                className="col-span-1 relative overflow-hidden bg-gray-900 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-gray-900/20 active:scale-95 transition-all duration-300 aspect-square"
               >
-                <div className="absolute top-0 right-0 p-8 opacity-[0.03] transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-500">
-                  <Calendar className="w-40 h-40 text-blue-900" />
-                </div>
-                <div className="relative z-10 flex flex-col h-full min-h-[160px] justify-between">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 group-hover:bg-blue-100 transition-colors">
-                      <Calendar className="w-6 h-6" />
-                    </div>
-                    {calendarEvents.length > 0 && (
-                      <span className="bg-blue-50 px-3 py-1 rounded-full text-xs font-bold text-blue-600 border border-blue-100">
-                        {calendarEvents.length} événement{calendarEvents.length !== 1 ? 's' : ''} à venir
-                      </span>
-                    )}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black opacity-80" />
+                <div className="relative z-10 flex justify-between w-full items-start">
+                  <div className="bg-white/10 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-white group-hover:bg-white/20 transition-all">
+                    <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-gray-900 mb-2">Calendrier</h3>
-                    <p className="text-gray-500 text-sm font-medium line-clamp-2">
-                      {calendarEvents.length > 0 
-                        ? `Prochain rendez-vous : ${new Date(calendarEvents[0].date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}` 
-                        : "Consultez vos sessions live et rendez-vous."}
-                    </p>
-                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 group-hover:text-white transition-colors" />
                 </div>
-              </button>
+                <div className="relative z-10">
+                  <h3 className="text-base sm:text-lg font-bold text-white leading-tight mb-0.5">Catalogue</h3>
+                  <p className="text-gray-400 text-[11px] sm:text-xs font-medium line-clamp-1">Découvrir plus</p>
+                </div>
+              </Link>
 
-              {/* Messagerie - 1 col */}
-              <button 
-                onClick={() => setActiveSection('messages')}
-                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 hover:border-emerald-100 transition-all duration-300 min-h-[180px]"
-              >
-                <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 group-hover:bg-emerald-100 group-hover:scale-110 transition-all mb-6">
-                  <MessageCircle className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Messagerie</h3>
-                  <p className="text-gray-500 text-xs font-medium">Échangez avec l'équipe</p>
-                </div>
-              </button>
-
-              {/* Suggestions - 1 col */}
-              <button 
-                onClick={() => setActiveSection('proposals')}
-                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-amber-900/5 hover:-translate-y-1 hover:border-amber-100 transition-all duration-300 min-h-[180px]"
-              >
-                <div className="flex justify-between w-full items-start mb-6">
-                  <div className="bg-amber-50 p-4 rounded-2xl text-amber-600 group-hover:bg-amber-100 group-hover:scale-110 transition-all">
-                    <Lightbulb className="w-7 h-7" />
-                  </div>
-                  {proposals.length > 0 && (
-                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-1 rounded-full border border-amber-200 shadow-sm">{proposals.length}</span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Suggestions</h3>
-                  <p className="text-gray-500 text-xs font-medium">Propositions pour vous</p>
-                </div>
-              </button>
-
-              {/* Intérêts - 1 col */}
-              <button 
-                onClick={() => setActiveSection('interests')}
-                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-rose-900/5 hover:-translate-y-1 hover:border-rose-100 transition-all duration-300 min-h-[180px]"
-              >
-                <div className="bg-rose-50 p-4 rounded-2xl text-rose-600 group-hover:bg-rose-100 group-hover:scale-110 transition-all mb-6">
-                  <Heart className="w-7 h-7" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Intérêts</h3>
-                  <p className="text-gray-500 text-xs font-medium">Formations suivies</p>
-                </div>
-              </button>
-
-              {/* Paiements - 1 col */}
+              {/* Paiement */}
               <button 
                 onClick={() => setActiveSection('payments')}
-                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 hover:border-emerald-100 transition-all duration-300 min-h-[180px]"
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:border-emerald-100 active:scale-95 transition-all duration-300 aspect-square"
               >
-                <div className="flex justify-between w-full items-start mb-6">
-                  <div className="bg-emerald-50 p-4 rounded-2xl text-emerald-600 group-hover:bg-emerald-100 group-hover:scale-110 transition-all">
-                    <FileText className="w-7 h-7" />
+                <div className="flex justify-between w-full items-start">
+                  <div className="bg-emerald-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-emerald-600 group-hover:bg-emerald-100 transition-all">
+                    <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   {payments.filter(p => p.status === 'pending').length > 0 && (
-                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-1 rounded-full border border-amber-200 shadow-sm">
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200 shadow-sm">
                       {payments.filter(p => p.status === 'pending').length}
                     </span>
                   )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Paiements</h3>
-                  <p className="text-gray-500 text-xs font-medium">Suivi de vos tranches</p>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Paiement</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Suivi des tranches</p>
                 </div>
               </button>
 
-              {/* Parrainage & Commercial - 1 col (Si code promo attribué) */}
+              {/* Voir plus */}
+              <button 
+                onClick={() => setActiveSection('more')}
+                className="col-span-2 md:col-span-2 bg-slate-900 hover:bg-slate-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-slate-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between min-h-[120px] md:min-h-[160px]"
+              >
+                <div className="absolute top-0 right-0 p-4 md:p-6 opacity-10 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform duration-500">
+                  <LayoutGrid className="w-24 h-24 md:w-32 md:h-32 text-white" />
+                </div>
+                <div className="relative z-10 flex justify-between items-start w-full">
+                  <div className="bg-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm group-hover:bg-white/20 transition-all">
+                    <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6 text-purple-300" />
+                  </div>
+                  <span className="bg-purple-500/20 text-purple-200 border border-purple-400/30 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1">
+                    <span>Autres services</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  </span>
+                </div>
+                <div className="relative z-10 mt-3">
+                  <h3 className="text-base sm:text-xl font-bold text-white leading-tight mb-0.5">Voir plus</h3>
+                  <p className="text-slate-300 text-[11px] sm:text-xs font-medium line-clamp-1">
+                    Calendrier, Messagerie, Suggestions, Parrainage & Paramètres
+                  </p>
+                </div>
+              </button>
+
+            </div>
+
+          </div>
+        )}
+
+        {/* View for More / Autre services */}
+        {activeSection === 'more' && (
+          <div className="animate-fade-in space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Plus de fonctionnalités</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Accédez à l'ensemble de vos modules complémentaires</p>
+              </div>
+              <button 
+                onClick={() => setActiveSection('hub')}
+                className="text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl transition-colors flex items-center gap-1"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Retour
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+              {/* Calendrier */}
+              <button 
+                onClick={() => setActiveSection('calendar')}
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-blue-900/5 hover:border-blue-100 active:scale-95 transition-all duration-300 aspect-square"
+              >
+                <div className="flex justify-between w-full items-start">
+                  <div className="bg-blue-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-blue-600 group-hover:bg-blue-100 transition-colors">
+                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  {calendarEvents.length > 0 && (
+                    <span className="bg-blue-50 px-2 py-0.5 rounded-full text-[10px] font-bold text-blue-600 border border-blue-100">
+                      {calendarEvents.length}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Calendrier</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Prochains rendez-vous</p>
+                </div>
+              </button>
+
+              {/* Messagerie */}
+              <button 
+                onClick={() => setActiveSection('messages')}
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:border-emerald-100 active:scale-95 transition-all duration-300 aspect-square"
+              >
+                <div className="bg-emerald-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-emerald-600 group-hover:bg-emerald-100 transition-all w-fit">
+                  <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Messagerie</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Échanges & support</p>
+                </div>
+              </button>
+
+              {/* Suggestions */}
+              <button 
+                onClick={() => setActiveSection('proposals')}
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-amber-900/5 hover:border-amber-100 active:scale-95 transition-all duration-300 aspect-square"
+              >
+                <div className="flex justify-between w-full items-start">
+                  <div className="bg-amber-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-amber-600 group-hover:bg-amber-100 transition-all">
+                    <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  {proposals.length > 0 && (
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200 shadow-sm">{proposals.length}</span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Suggestions</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Propositions</p>
+                </div>
+              </button>
+
+              {/* Intérêts */}
+              <button 
+                onClick={() => setActiveSection('interests')}
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-rose-900/5 hover:border-rose-100 active:scale-95 transition-all duration-300 aspect-square"
+              >
+                <div className="bg-rose-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-rose-600 group-hover:bg-rose-100 transition-all w-fit">
+                  <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Intérêts</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Formations suivies</p>
+                </div>
+              </button>
+
+              {/* Parrainage & Commercial (Si code promo attribué) */}
               {referralCode && (
                 <button 
                   onClick={() => setActiveSection('parrainage')}
-                  className="md:col-span-1 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-amber-900/20 hover:-translate-y-1 transition-all duration-300 min-h-[180px] text-white relative overflow-hidden"
+                  className="col-span-1 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-amber-900/20 active:scale-95 transition-all duration-300 text-white relative overflow-hidden aspect-square"
                 >
-                  <div className="absolute top-0 right-0 p-4 opacity-15 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
-                    <Gift className="w-28 h-28 text-white" />
+                  <div className="absolute top-0 right-0 p-3 opacity-15 transform translate-x-2 -translate-y-2">
+                    <Gift className="w-20 h-20 text-white" />
                   </div>
-                  <div className="relative z-10 flex justify-between w-full items-start mb-6">
-                    <div className="bg-white/20 p-3.5 rounded-2xl backdrop-blur-sm">
-                      <Gift className="w-6 h-6 text-white" />
+                  <div className="relative z-10 flex justify-between w-full items-start">
+                    <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                      <Gift className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <span className="bg-white/20 px-2.5 py-1 rounded-full text-[10px] font-black backdrop-blur-sm border border-white/20">
-                      10% Commission
+                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black backdrop-blur-sm border border-white/20">
+                      10%
                     </span>
                   </div>
                   <div className="relative z-10">
-                    <h3 className="text-lg font-bold text-white mb-0.5">Mon Parrainage</h3>
-                    <p className="text-amber-100 text-xs font-medium">
-                      Code : <span className="font-extrabold underline">{referralCode.code}</span> ({referralStats.totalReferredCount} filleul{referralStats.totalReferredCount !== 1 ? 's' : ''})
+                    <h3 className="text-base sm:text-lg font-bold text-white leading-tight mb-0.5">Parrainage</h3>
+                    <p className="text-amber-100 text-[11px] sm:text-xs font-medium line-clamp-1">
+                      Code : <span className="font-extrabold underline">{referralCode.code}</span>
                     </p>
                   </div>
                 </button>
               )}
 
-              {/* Paramètres - 1 col */}
+              {/* Paramètres */}
               <button 
                 onClick={() => setActiveSection('settings')}
-                className="md:col-span-1 bg-white border border-gray-100 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-indigo-900/5 hover:-translate-y-1 hover:border-indigo-100 transition-all duration-300 min-h-[180px]"
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-indigo-900/5 hover:border-indigo-100 active:scale-95 transition-all duration-300 aspect-square"
               >
-                <div className="bg-slate-50 p-4 rounded-2xl text-slate-600 group-hover:bg-slate-100 group-hover:scale-110 transition-all mb-6">
-                  <Settings className="w-7 h-7" />
+                <div className="bg-slate-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-slate-600 group-hover:bg-slate-100 transition-all w-fit">
+                  <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Paramètres</h3>
-                  <p className="text-gray-500 text-xs font-medium">Profil & Sécurité</p>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Paramètres</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Profil & Sécurité</p>
                 </div>
               </button>
-
-              {/* Catalogue - 1 col */}
-              <Link 
-                to="/client/marketplace"
-                className="md:col-span-1 relative overflow-hidden bg-gray-900 rounded-3xl p-6 flex flex-col items-start justify-between text-left group hover:shadow-xl hover:shadow-gray-900/20 hover:-translate-y-1 transition-all duration-300 min-h-[180px]"
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black opacity-80" />
-                <div className="relative z-10 flex justify-between w-full items-start mb-6">
-                  <div className="bg-white/10 p-4 rounded-2xl text-white group-hover:bg-white/20 group-hover:scale-110 transition-all">
-                    <BookOpen className="w-7 h-7" />
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
-                </div>
-                <div className="relative z-10">
-                  <h3 className="text-lg font-bold text-white mb-1">Catalogue</h3>
-                  <p className="text-gray-400 text-xs font-medium">Découvrir plus</p>
-                </div>
-              </Link>
-
             </div>
-
-            {/* Quick access or latest activity */}
-            {registrations.length > 0 && !loading && (
-              <div className="mt-8">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Dernière formation consultée</h3>
-                {registrations.slice(0, 1).map((reg) => (
-                  <button
-                    key={reg.id}
-                    onClick={() => {
-                      setActiveSection('inscriptions');
-                      setActiveCourseContentReg(reg);
-                    }}
-                    className="w-full bg-white border border-gray-100 p-5 md:p-6 rounded-[2rem] text-left flex flex-col sm:flex-row sm:items-center justify-between shadow-sm hover:shadow-md hover:border-purple-200 transition-all group gap-4"
-                  >
-                    <div className="flex items-center gap-4 md:gap-5">
-                      <div className="w-14 h-14 shrink-0 bg-purple-50 rounded-2xl flex items-center justify-center group-hover:bg-purple-100 group-hover:scale-105 transition-all">
-                        <Play className="w-6 h-6 fill-purple-600 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">Continuer l'apprentissage</p>
-                        <p className="font-bold text-gray-900 leading-tight md:text-lg">{reg.courses?.title}</p>
-                      </div>
-                    </div>
-                    <div className="hidden sm:flex w-10 h-10 rounded-full bg-gray-50 items-center justify-center group-hover:bg-purple-50 transition-colors">
-                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
 

@@ -68,12 +68,12 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
 
           <Link
             to={currentSession ? "/client/hub" : "/client/login"}
-            className="text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-blue-600 transition-colors px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+            className="text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-blue-600 transition-colors px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center gap-1.5 shrink-0"
             title={currentSession ? "Mon Espace (Compte Vérifié Premium)" : "Mon Espace Personnel"}
           >
-            <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-            <span className="hidden sm:inline flex items-center gap-1">
-              Mon Hub
+            <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 shrink-0" />
+            <span className="hidden sm:inline-flex items-center gap-2">
+              <span>Mon Hub</span>
               {currentSession && <VerifiedBadge size="xs" />}
             </span>
           </Link>
@@ -126,8 +126,11 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
               onClick={() => setMobileMenuOpen(false)}
               className="w-full text-center py-2.5 bg-gray-100 dark:bg-slate-800 text-gray-800 dark:text-gray-200 rounded-2xl text-sm font-bold flex items-center justify-center gap-2"
             >
-              <User className="w-4 h-4 text-gray-500" />
-              <span>Mon Hub</span>
+              <User className="w-4 h-4 text-gray-500 shrink-0" />
+              <span className="inline-flex items-center gap-2">
+                <span>Mon Hub</span>
+                {currentSession && <VerifiedBadge size="sm" />}
+              </span>
             </Link>
             {!currentSession && (
               <Link
