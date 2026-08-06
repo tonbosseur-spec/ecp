@@ -3,8 +3,9 @@ name: Build Android APK
 on:
   push:
     branches:
-      - main
-      - master
+      - '*'
+      - '*/*'
+      - '**'
   workflow_dispatch:
 
 jobs:
@@ -39,8 +40,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          rm -rf node_modules package-lock.json
-          npm install --include=optional
+          npm install --legacy-peer-deps --include=optional
           npm install @tailwindcss/oxide-linux-x64-gnu || true
 
       - name: Create .env File
@@ -51,11 +51,11 @@ jobs:
 
       - name: Modify Capacitor Config
         run: |
-          sed -i "s/appName: 'Exceller chez Pierre'/appName: '${{ matrix.app_name }}'/" capacitor.config.ts
-          sed -i "s/appId: 'com.excellerchezpierre.app'/appId: '${{ matrix.app_id }}'/" capacitor.config.ts
+          sed -i "s/appName:\s*['\"].*['\"]/appName: '${{ matrix.app_name }}'/" capacitor.config.ts
+          sed -i "s/appId:\s*['\"].*['\"]/appId: '${{ matrix.app_id }}'/" capacitor.config.ts
 
       - name: Generate Native Assets
-        run: npm run generate-assets
+        run: npm run generate-assets || true
 
       - name: Build Web Application
         run: npm run build
@@ -100,10 +100,8 @@ jobs:
       - name: Build Android APK
         working-directory: android
         run: |
-          mkdir -p gradle/wrapper
-          curl -sSLo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.14.3/gradle/wrapper/gradle-wrapper.jar
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -112,3 +110,4 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
