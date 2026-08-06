@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import NotificationBell from '../components/NotificationBell';
+import { PushNotificationManagerModal } from '../components/PushNotificationManagerModal';
 import { 
   BookOpen, 
   Users, 
@@ -21,7 +22,8 @@ import {
   ShieldAlert,
   CheckCircle2,
   GraduationCap,
-  Activity
+  Activity,
+  Smartphone
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -33,6 +35,7 @@ export default function Dashboard() {
   const [trainersCount, setTrainersCount] = useState<number>(0);
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+  const [isPushModalOpen, setIsPushModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     fetchDashboardMetrics();
@@ -91,7 +94,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 font-sans pb-24 w-full">
+    <div className="min-h-screen bg-gray-50 pt-1 px-3 sm:p-6 lg:p-8 font-sans pb-24 w-full">
       <div className="max-w-5xl mx-auto space-y-8">
         
         {/* Welcome Banner */}
@@ -113,9 +116,15 @@ export default function Dashboard() {
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
                 Accueil Administration
               </h1>
-              <p className="text-xs sm:text-sm text-indigo-200 mt-2 max-w-xl leading-relaxed">
-                Bienvenue dans votre centre de pilotage. Sélectionnez une section ci-dessous pour gérer vos formations, vos clients, l'espace hub ou vos formateurs.
-              </p>
+              <div className="flex flex-wrap items-center gap-3 mt-4 w-full">
+                <button
+                  onClick={() => setIsPushModalOpen(true)}
+                  className="w-full sm:w-auto justify-center px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 border-0 active:scale-95 cursor-pointer"
+                >
+                  <Smartphone className="w-4 h-4 text-white" />
+                  <span>Envoyer Push FCM</span>
+                </button>
+              </div>
             </div>
 
             {/* Quick Metrics Bar & Bell */}
@@ -384,6 +393,11 @@ export default function Dashboard() {
 
         </div>
 
+        {/* Modal FCM Push Notifications */}
+        <PushNotificationManagerModal
+          isOpen={isPushModalOpen}
+          onClose={() => setIsPushModalOpen(false)}
+        />
       </div>
     </div>
   );

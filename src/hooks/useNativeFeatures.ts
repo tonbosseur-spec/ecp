@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { App } from '@capacitor/app';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { PushNotifications } from '@capacitor/push-notifications';
-import { StatusBar, Style } from '@capacitor/status-bar';
+import { StatusBar } from '@capacitor/status-bar';
 import { supabase } from '../lib/supabaseClient';
+import { registerNativePushNotifications, initPushNotificationListeners } from '../lib/pushNotificationService';
 
 export interface UseNativeFeaturesResult {
   takeOrSelectPhoto: (options?: { source?: 'CAMERA' | 'PHOTOS' | 'PROMPT'; maxKB?: number }) => Promise<{ url: string | null; error: string | null }>;
@@ -34,8 +34,26 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
         }
       };
       setImmersiveStatusBar();
+
+      // Listen for push notifications when app is active or when user clicks a notification
+      const cleanupListeners = initPushNotificationListeners(
+        (notification) => {
+          console.log('[Native Push] Reçue en premier plan:', notification);
+        },
+        (action) => {
+          console.log('[Native Push] Cliquée par l’utilisateur:', action);
+          const route = action.notification?.data?.url || action.notification?.data?.route;
+          if (route) {
+            navigate(route);
+          }
+        }
+      );
+
+      return () => {
+        cleanupListeners();
+      };
     }
-  }, []);
+  }, [navigate]);
 
   // A. Back Button Handler
   useEffect(() => {
@@ -183,51 +201,11 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
 
   // C. Push Notifications Registration
   const registerPushNotifications = async (userId: string): Promise<{ token: string | null; error: string | null }> => {
-    if (!isNative) {
-      return { token: null, error: "Notifications push non disponibles sur le Web." };
+    const res = await registerNativePushNotifications(userId);
+    if (res.token) {
+      setPushToken(res.token);
     }
-
-    try {
-      let permStatus = await PushNotifications.checkPermissions();
-      if (permStatus.receive !== 'granted') {
-        permStatus = await PushNotifications.requestPermissions();
-      }
-
-      if (permStatus.receive !== 'granted') {
-        return { token: null, error: "Permissions de notifications refusées" };
-      }
-
-      await PushNotifications.register();
-
-      return new Promise((resolve) => {
-        PushNotifications.addListener('registration', async (token) => {
-          const deviceToken = token.value;
-          setPushToken(deviceToken);
-
-          try {
-            await supabase
-              .from('client_profiles')
-              .update({
-                fcm_token: deviceToken,
-                expo_push_token: deviceToken,
-              } as any)
-              .eq('id', userId);
-          } catch (e) {
-            console.warn("Database storage of token skipped or failed:", e);
-          }
-
-          resolve({ token: deviceToken, error: null });
-        });
-
-        PushNotifications.addListener('registrationError', (error: any) => {
-          console.error('Push registration error: ', error);
-          resolve({ token: null, error: error.error || "Erreur d'enregistrement FCM" });
-        });
-      });
-    } catch (err: any) {
-      console.error("Erreur d'initialisation des notifications push :", err);
-      return { token: null, error: err.message || "Notifications push non disponibles sur cette plateforme" };
-    }
+    return res;
   };
 
   return {
