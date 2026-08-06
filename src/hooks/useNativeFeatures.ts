@@ -39,21 +39,30 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
       setGreenStatusBar();
 
       // Listen for push notifications when app is active or when user clicks a notification
-      const cleanupListeners = initPushNotificationListeners(
-        (notification) => {
-          console.log('[Native Push] Reçue en premier plan:', notification);
-        },
-        (action) => {
-          console.log('[Native Push] Cliquée par l’utilisateur:', action);
-          const route = action.notification?.data?.url || action.notification?.data?.route;
-          if (route) {
-            navigate(route);
+      let cleanupListeners = () => {};
+      try {
+        cleanupListeners = initPushNotificationListeners(
+          (notification) => {
+            console.log('[Native Push] Reçue en premier plan:', notification);
+          },
+          (action) => {
+            console.log('[Native Push] Cliquée par l’utilisateur:', action);
+            const route = action.notification?.data?.url || action.notification?.data?.route;
+            if (route) {
+              navigate(route);
+            }
           }
-        }
-      );
+        );
+      } catch (err) {
+        console.warn('[Native Push] Exception setting up listeners:', err);
+      }
 
       return () => {
-        cleanupListeners();
+        try {
+          cleanupListeners();
+        } catch (err) {
+          console.warn('[Native Push] Exception cleaning up listeners:', err);
+        }
       };
     }
   }, [navigate]);
