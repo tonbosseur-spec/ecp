@@ -492,13 +492,13 @@ export default function ClientCourseView() {
           </div>
 
           {modules.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm">
+            <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-gray-100 shadow-sm">
               <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500 font-medium text-sm mb-1">Aucun module n'a été publié pour cette formation.</p>
               <p className="text-gray-400 text-xs">Veuillez patienter pendant que le formateur configure le contenu.</p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {modules.map((m, index) => {
                 const isCompleted = completedIds.includes(m.id);
                 const fileCount = m.module_files?.length || 0;
@@ -521,6 +521,7 @@ export default function ClientCourseView() {
 
                   const prevHasQuiz = quizModuleIds.includes(prevMod.id);
                   const prevCompleted = completedIds.includes(prevMod.id);
+
                   if (prevHasQuiz && !prevCompleted) {
                     isLockedByQuiz = true;
                   }
@@ -540,7 +541,7 @@ export default function ClientCourseView() {
                 return (
                   <div 
                     key={m.id}
-                    className={`bg-white rounded-2xl p-6 border transition-all flex flex-col justify-between h-full ${
+                    className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all flex flex-col justify-between h-full ${
                       isLocked
                         ? 'opacity-65 bg-gray-50/50 border-gray-150'
                         : isCompleted 
@@ -550,7 +551,7 @@ export default function ClientCourseView() {
                   >
                     <div>
                       {/* Top indicator & Status */}
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
                         {isLocked ? (
                           <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
                             <Lock className="w-3 h-3" />
@@ -620,12 +621,13 @@ export default function ClientCourseView() {
                                       : 'bg-orange-50/50 border-orange-200/60 text-slate-900'
                                   }`}
                                 >
-                                  <div className="flex items-center justify-between gap-1">
-                                    <span className="font-bold text-xs truncate flex items-center gap-1">
-                                      {s.isCompleted && <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />}
-                                      {s.name}
+                                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-1 sm:gap-1.5">
+                                    <span className="font-bold text-xs flex items-start gap-1.5">
+                                      {s.isCompleted && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />}
+                                      <span className="line-clamp-2 leading-snug">{s.name}</span>
                                     </span>
-                                    <span className="text-[10px] font-medium text-slate-500 shrink-0">
+                                    <span className="text-[10px] font-medium text-slate-500 shrink-0 flex items-center gap-1 mt-0.5 xl:mt-0">
+                                      <Clock className="w-3 h-3" />
                                       {s.date ? (
                                         s.date.includes('T') || s.date.includes(':') 
                                           ? `${new Date(s.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${new Date(s.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
@@ -634,7 +636,7 @@ export default function ClientCourseView() {
                                     </span>
                                   </div>
                                   {s.objectives && s.objectives.length > 0 && (
-                                    <ul className="text-[10px] text-slate-600 list-disc pl-3.5 mt-1 space-y-0.5">
+                                    <ul className="text-[10px] text-slate-600 list-disc pl-3.5 mt-1.5 space-y-0.5">
                                       {s.objectives.map((obj, oIdx) => (
                                         <li key={oIdx} className="line-clamp-2">{obj}</li>
                                       ))}

@@ -21,7 +21,6 @@ import {
   Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { PushNotificationManagerModal } from './PushNotificationManagerModal';
 
 export interface NotificationItem {
   id: string;
@@ -93,7 +92,6 @@ export default function NotificationBell({ userId, userRole = 'client', classNam
   const [pushPermission, setPushPermission] = useState<NotificationPermission>(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
   );
-  const [isPushModalOpen, setIsPushModalOpen] = useState(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const STORAGE_KEY = `astral_notifications_${userId || 'guest'}`;
@@ -600,16 +598,6 @@ export default function NotificationBell({ userId, userRole = 'client', classNam
                 </div>
 
                 <div className="flex items-center gap-1">
-                  {userRole === 'admin' && (
-                    <button
-                      onClick={() => setIsPushModalOpen(true)}
-                      className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-extrabold flex items-center gap-1 transition-all shadow-xs mr-1"
-                      title="Envoyer une notification push FCM (HTTP v1)"
-                    >
-                      <Smartphone className="w-3 h-3 text-white" />
-                      <span>Push FCM</span>
-                    </button>
-                  )}
                   <button
                     onClick={() => setSoundEnabled(!soundEnabled)}
                     className={`p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors ${
@@ -795,11 +783,6 @@ export default function NotificationBell({ userId, userRole = 'client', classNam
           </>
         )}
       </AnimatePresence>
-      {/* Modal Manager for Push Notifications */}
-      <PushNotificationManagerModal
-        isOpen={isPushModalOpen}
-        onClose={() => setIsPushModalOpen(false)}
-      />
     </div>
   );
 }

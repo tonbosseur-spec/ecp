@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2, BookOpen, GraduationCap, Sparkles, ShieldCheck, ChevronRight, Fingerprint } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, CheckCircle2, BookOpen, GraduationCap, Sparkles, ShieldCheck, ChevronRight, Fingerprint, Globe } from 'lucide-react';
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 export default function ClientLogin() {
   const [email, setEmail] = useState('');
@@ -106,6 +107,18 @@ export default function ClientLogin() {
     }
   };
 
+  const handleVisitWebsite = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Browser.open({ url: 'https://excellerchezpierre-eight.vercel.app' });
+      } catch (err) {
+        window.open('https://excellerchezpierre-eight.vercel.app', '_blank');
+      }
+    } else {
+      navigate(-1);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex font-sans selection:bg-blue-100 selection:text-blue-900 pt-safe pb-safe">
       {/* Left panel - Benefits */}
@@ -117,13 +130,6 @@ export default function ClientLogin() {
 
         <div className="relative z-10 p-12 xl:p-16 flex flex-col h-full justify-between max-w-2xl mx-auto w-full">
           <div>
-            {!Capacitor.isNativePlatform() && (
-              <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-16">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm font-semibold">Retour à l'accueil</span>
-              </Link>
-            )}
-
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-extrabold text-xs uppercase tracking-wider mb-6">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Espace Personnel</span>
@@ -178,14 +184,6 @@ export default function ClientLogin() {
 
       {/* Right panel - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 lg:p-12 relative">
-        {/* Mobile back button */}
-        {!Capacitor.isNativePlatform() && (
-          <Link to="/" className="lg:hidden absolute top-6 left-6 inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-semibold">Accueil</span>
-          </Link>
-        )}
-
         <div className="w-full max-w-md">
           <div className="text-center mb-10">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-3">Bienvenue dans votre Hub</h1>
@@ -278,6 +276,10 @@ export default function ClientLogin() {
               <Link to={`/client/register${redirectPath ? `?redirect=${redirectPath}` : ''}`} className="font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors">
                 Inscrivez-vous gratuitement
               </Link>
+              {' '}ou{' '}
+              <button onClick={handleVisitWebsite} className="font-bold text-red-600 hover:text-red-700 hover:underline transition-colors inline-block">
+                visiter notre site web
+              </button>
             </p>
           </div>
 

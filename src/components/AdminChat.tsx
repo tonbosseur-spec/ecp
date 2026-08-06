@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabaseClient';
 import { Send, Loader2, MessageSquare, ChevronLeft, Phone, User, Clock, CheckCircle2, CheckCheck, AlertCircle, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import VerifiedBadge from './VerifiedBadge';
-import { sendPushNotificationToUser } from '../lib/pushNotificationService';
 
 interface Message {
   id: string;
@@ -302,17 +301,6 @@ export const AdminChat = ({ onBack }: { onBack?: () => void }) => {
 
       const { error } = await supabase.from('messages').insert([msgData]);
       if (error) throw error;
-
-      // Send real Push Notification to client's Android device (if FCM token exists)
-      sendPushNotificationToUser(selectedClientId, {
-        title: '💬 Nouveau message administrateur',
-        body: content,
-        url: '/client/hub?section=messages',
-        data: {
-          type: 'message',
-          client_id: selectedClientId,
-        },
-      }).catch((err) => console.warn('[AdminChat Push Failed]', err));
 
       setNewMessage('');
     } catch (err: any) {

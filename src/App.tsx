@@ -66,22 +66,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   // Initialisation des fonctionnalités natives (Capacitor)
-  const { registerPushNotifications } = useNativeFeatures();
+  useNativeFeatures();
 
   useEffect(() => {
     // Obtenir la session actuelle
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
-      
-      // Auto-enregistrement des notifications si l'utilisateur est connecté
-      if (session?.user?.id) {
-        setTimeout(() => {
-          registerPushNotifications(session.user.id).catch((err) =>
-            console.warn('[Push Reg Warning]:', err)
-          );
-        }, 1200);
-      }
     });
 
     // Écouter les changements de session (connexion, déconnexion)
@@ -89,15 +80,6 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      
-      // Re-vérifier lors du changement d'état (login)
-      if (session?.user?.id) {
-        setTimeout(() => {
-          registerPushNotifications(session.user.id).catch((err) =>
-            console.warn('[Push Reg Warning]:', err)
-          );
-        }, 1200);
-      }
     });
 
     return () => subscription.unsubscribe();
@@ -127,7 +109,11 @@ export default function App() {
   }, []);
 
   if (loading) {
-    return <SplashScreen message="Chargement en cours..." />;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   const isAdmin = session?.user?.email === 'pmbom@ecp.cm';

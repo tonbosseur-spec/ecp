@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
 import VerifiedBadge from '../components/VerifiedBadge';
 import NotificationBell from '../components/NotificationBell';
-import { PushNotificationManagerModal } from '../components/PushNotificationManagerModal';
 import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft, Activity, Smartphone } from 'lucide-react';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
 
@@ -18,7 +17,6 @@ export default function AdminHub() {
   const [quizLeads, setQuizLeads] = useState<any[]>([]);
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [isPushModalOpen, setIsPushModalOpen] = useState(false);
 
   // Modal Quiz Settings State
   const [editingQuizCourse, setEditingQuizCourse] = useState<any | null>(null);
@@ -288,23 +286,9 @@ export default function AdminHub() {
             </div>
           </div>
           <div className="w-full sm:w-auto shrink-0 flex items-center justify-between sm:justify-end gap-2">
-            <button
-              onClick={() => setIsPushModalOpen(true)}
-              className="w-full sm:w-auto justify-center px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl text-xs font-extrabold transition-all border-0 flex items-center gap-2 shadow-md active:scale-95 cursor-pointer"
-              title="Envoyer une notification push FCM (HTTP v1) sur l'APK Android"
-            >
-              <Smartphone className="w-4 h-4 text-white" />
-              <span>Envoyer Push FCM</span>
-            </button>
             <NotificationBell userRole="admin" />
           </div>
         </div>
-
-        {/* Modal Manager for Push Notifications */}
-        <PushNotificationManagerModal
-          isOpen={isPushModalOpen}
-          onClose={() => setIsPushModalOpen(false)}
-        />
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-8 overflow-x-auto no-scrollbar whitespace-nowrap scroll-smooth">

@@ -8,6 +8,10 @@ const config: CapacitorConfig = {
     androidScheme: 'https'
   },
   plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+      launchAutoHide: true
+    },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"]
     },

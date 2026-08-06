@@ -4,7 +4,6 @@ import { App } from '@capacitor/app';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { supabase } from '../lib/supabaseClient';
-import { registerNativePushNotifications, initPushNotificationListeners } from '../lib/pushNotificationService';
 
 export interface UseNativeFeaturesResult {
   takeOrSelectPhoto: (options?: { source?: 'CAMERA' | 'PHOTOS' | 'PROMPT'; maxKB?: number }) => Promise<{ url: string | null; error: string | null }>;
@@ -37,33 +36,6 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
         }
       };
       setGreenStatusBar();
-
-      // Listen for push notifications when app is active or when user clicks a notification
-      let cleanupListeners = () => {};
-      try {
-        cleanupListeners = initPushNotificationListeners(
-          (notification) => {
-            console.log('[Native Push] Reçue en premier plan:', notification);
-          },
-          (action) => {
-            console.log('[Native Push] Cliquée par l’utilisateur:', action);
-            const route = action.notification?.data?.url || action.notification?.data?.route;
-            if (route) {
-              navigate(route);
-            }
-          }
-        );
-      } catch (err) {
-        console.warn('[Native Push] Exception setting up listeners:', err);
-      }
-
-      return () => {
-        try {
-          cleanupListeners();
-        } catch (err) {
-          console.warn('[Native Push] Exception cleaning up listeners:', err);
-        }
-      };
     }
   }, [navigate]);
 
@@ -211,13 +183,9 @@ export function useNativeFeatures(): UseNativeFeaturesResult {
     }
   };
 
-  // C. Push Notifications Registration
-  const registerPushNotifications = async (userId: string): Promise<{ token: string | null; error: string | null }> => {
-    const res = await registerNativePushNotifications(userId);
-    if (res.token) {
-      setPushToken(res.token);
-    }
-    return res;
+  // C. Push Notifications Registration (Disabled)
+  const registerPushNotifications = async (_userId: string): Promise<{ token: string | null; error: string | null }> => {
+    return { token: null, error: null };
   };
 
   return {

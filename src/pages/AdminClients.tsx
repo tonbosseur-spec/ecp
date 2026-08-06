@@ -29,7 +29,6 @@ import {
   Smartphone
 } from 'lucide-react';
 import { AdminChat } from '../components/AdminChat';
-import { PushNotificationManagerModal } from '../components/PushNotificationManagerModal';
 import { 
   setClientReferralCode, 
   removeClientReferralCode, 
@@ -69,7 +68,6 @@ export default function AdminClients() {
   const [allClientsData, setAllClientsData] = useState<any[]>([]);
   const [loadingAllClients, setLoadingAllClients] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isPushModalOpen, setIsPushModalOpen] = useState(false);
 
   // Proposal filter
   const [proposalFilter, setProposalFilter] = useState<'pending' | 'all'>('pending');
@@ -605,16 +603,6 @@ export default function AdminClients() {
               <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Gestion clients</h1>
               <p className="text-xs sm:text-sm text-gray-500">Paiements, propositions, apprenants, promo et messagerie</p>
             </div>
-          </div>
-          <div className="w-full sm:w-auto shrink-0 flex items-center justify-start sm:justify-end gap-2">
-            <button
-              onClick={() => setIsPushModalOpen(true)}
-              className="w-full sm:w-auto justify-center px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl text-xs font-extrabold transition-all border-0 flex items-center gap-2 shadow-md active:scale-95 cursor-pointer"
-              title="Envoyer une notification push FCM (HTTP v1) sur l'APK Android"
-            >
-              <Smartphone className="w-4 h-4 text-white" />
-              <span>Envoyer Push FCM</span>
-            </button>
           </div>
         </div>
 
@@ -1335,12 +1323,6 @@ export default function AdminClients() {
           </div>
         </div>
       )}
-
-      {/* Push Notification Manager Modal */}
-      <PushNotificationManagerModal
-        isOpen={isPushModalOpen}
-        onClose={() => setIsPushModalOpen(false)}
-      />
     </div>
   );
 }
