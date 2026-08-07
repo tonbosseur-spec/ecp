@@ -128,6 +128,7 @@ jobs:
         timeout-minutes: 40
         working-directory: android
         run: |
+          gradle wrapper
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
