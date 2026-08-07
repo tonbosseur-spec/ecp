@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
 import VerifiedBadge from '../components/VerifiedBadge';
 import NotificationBell from '../components/NotificationBell';
-import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft, Activity, Smartphone } from 'lucide-react';
+import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft, Activity, Smartphone, Mail } from 'lucide-react';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
 
 export default function AdminHub() {
@@ -12,8 +12,8 @@ export default function AdminHub() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<any[]>([]);
-  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'formations' | 'paiements' | 'quizz'>('formations');
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'formations' | 'quizz'>('formations');
   const [quizLeads, setQuizLeads] = useState<any[]>([]);
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -60,6 +60,9 @@ export default function AdminHub() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) setCurrentUserEmail(data.user.email);
+    }).catch(console.warn);
     fetchData();
   }, []);
 
@@ -95,15 +98,6 @@ export default function AdminHub() {
       if (qResults) setQuizResults(qResults);
 
       if (leadsData) setQuizLeads(leadsData);
-
-      const { data: payData, error: payError } = await supabase
-        .from('payments')
-        .select('*, registrations(participant_name, participant_email, courses(title))')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (payError) throw payError;
-      setPendingPayments(payData || []);
     } catch (err) {
       console.error('Erreur chargement Hub Admin:', err);
     } finally {
@@ -118,53 +112,6 @@ export default function AdminHub() {
     const url = window.location.origin + '/challenge/' + courseId;
     navigator.clipboard.writeText(url);
     toast.info('Lien du challenge copié : ' + url);
-  };
-
-  const handleApprovePayment = async (paymentId: string, registrationId: string) => {
-    try {
-      setActionLoading(paymentId);
-      
-      // Update payment status
-      const { error: payError } = await supabase
-        .from('payments')
-        .update({ status: 'paid', paid_at: new Date().toISOString() })
-        .eq('id', paymentId);
-
-      if (payError) throw payError;
-
-      // Also update registration status to 'approved' if it was pending
-      const { error: regError } = await supabase
-        .from('registrations')
-        .update({ payment_status: 'approved' })
-        .eq('id', registrationId);
-
-      if (regError) throw regError;
-
-      await fetchData();
-    } catch (err) {
-      console.error('Erreur approbation:', err);
-      toast.error('Erreur lors de la validation du paiement');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRejectPayment = async (paymentId: string) => {
-    if (!window.confirm('Voulez-vous vraiment rejeter ce paiement ?')) return;
-    try {
-      setActionLoading(paymentId);
-      const { error } = await supabase
-        .from('payments')
-        .update({ status: 'failed' })
-        .eq('id', paymentId);
-
-      if (error) throw error;
-      await fetchData();
-    } catch (err) {
-      console.error('Erreur rejet:', err);
-    } finally {
-      setActionLoading(null);
-    }
   };
 
   const copyLink = async () => {
@@ -276,13 +223,19 @@ export default function AdminHub() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-50 text-purple-700 border border-purple-100">
                   Espace Hub
                 </span>
+                {currentUserEmail && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200 flex items-center gap-1">
+                    <Mail className="w-3 h-3 text-indigo-600" />
+                    <span>{currentUserEmail}</span>
+                  </span>
+                )}
               </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Hub & Marketplace</h1>
-              <p className="text-xs sm:text-sm text-gray-500">Catalogue marketplace, validation des paiements et quizz publics</p>
+              <p className="text-xs sm:text-sm text-gray-500">Catalogue marketplace, inscriptions et quizz publics</p>
             </div>
           </div>
           <div className="w-full sm:w-auto shrink-0 flex items-center justify-between sm:justify-end gap-2">
@@ -290,44 +243,81 @@ export default function AdminHub() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-8 overflow-x-auto no-scrollbar whitespace-nowrap scroll-smooth">
+        {/* Navigation sous forme de 2 Tuiles Modernes */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6">
+          {/* Tuile 1: Catalogue et Inscriptions */}
           <button
             onClick={() => setActiveTab('formations')}
-            className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative shrink-0 ${
-              activeTab === 'formations' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            className={`p-4 sm:p-5 rounded-3xl border transition-all text-left flex flex-col justify-between relative overflow-hidden group active:scale-95 ${
+              activeTab === 'formations'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-200'
+                : 'bg-white hover:bg-gray-50 text-gray-900 border-gray-100 shadow-sm hover:shadow-md'
             }`}
           >
-            Catalogue & Inscriptions
-            {activeTab === 'formations' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>}
+            <div className="flex items-center justify-between w-full mb-3">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
+                activeTab === 'formations'
+                  ? 'bg-white/10 text-white'
+                  : 'bg-indigo-50 text-indigo-600'
+              }`}>
+                <Store className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              {activeTab === 'formations' && (
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              )}
+            </div>
+            <div>
+              <h3 className="font-extrabold text-xs sm:text-base leading-snug">
+                Catalogue & Inscriptions
+              </h3>
+              <p className={`text-[10px] sm:text-xs mt-1 font-medium line-clamp-1 ${
+                activeTab === 'formations' ? 'text-slate-300' : 'text-gray-500'
+              }`}>
+                Formations & Marketplace
+              </p>
+            </div>
           </button>
-          <button
-            onClick={() => setActiveTab('paiements')}
-            className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative flex items-center gap-2 shrink-0 ${
-              activeTab === 'paiements' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Paiements à valider
-            {pendingPayments.length > 0 && (
-              <span className="bg-amber-100 text-amber-700 text-[10px] px-2 py-0.5 rounded-full border border-amber-200">
-                {pendingPayments.length}
-              </span>
-            )}
-            {activeTab === 'paiements' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>}
-          </button>
+
+          {/* Tuile 2: Leads & Quizz */}
           <button
             onClick={() => setActiveTab('quizz')}
-            className={`px-4 sm:px-6 py-3 font-bold text-xs sm:text-sm transition-all relative flex items-center gap-2 shrink-0 ${
-              activeTab === 'quizz' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            className={`p-4 sm:p-5 rounded-3xl border transition-all text-left flex flex-col justify-between relative overflow-hidden group active:scale-95 ${
+              activeTab === 'quizz'
+                ? 'bg-purple-900 text-white border-purple-900 shadow-md shadow-purple-200'
+                : 'bg-white hover:bg-gray-50 text-gray-900 border-gray-100 shadow-sm hover:shadow-md'
             }`}
           >
-            Leads & Quizz
-            {quizLeads.length > 0 && (
-              <span className="bg-purple-100 text-purple-700 py-0.5 px-2 rounded-full text-[10px] font-black">
-                {quizLeads.length}
-              </span>
-            )}
-            {activeTab === 'quizz' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>}
+            <div className="flex items-center justify-between w-full mb-3">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
+                activeTab === 'quizz'
+                  ? 'bg-white/10 text-white'
+                  : 'bg-purple-50 text-purple-600'
+              }`}>
+                <Target className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                {quizLeads.length > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black ${
+                    activeTab === 'quizz' ? 'bg-white text-purple-900' : 'bg-purple-100 text-purple-700'
+                  }`}>
+                    {quizLeads.length}
+                  </span>
+                )}
+                {activeTab === 'quizz' && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse"></span>
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="font-extrabold text-xs sm:text-base leading-snug">
+                Leads & Quizz
+              </h3>
+              <p className={`text-[10px] sm:text-xs mt-1 font-medium line-clamp-1 ${
+                activeTab === 'quizz' ? 'text-purple-200' : 'text-gray-500'
+              }`}>
+                Résultats & Quizz publics
+              </p>
+            </div>
           </button>
         </div>
 
@@ -336,14 +326,11 @@ export default function AdminHub() {
           <div className="bg-white border border-gray-100 rounded-3xl p-6 sm:p-8 shadow-sm mb-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 animate-fade-in">
           <div className="flex-1">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Partager votre Marketplace</h2>
-            <p className="text-sm text-gray-500 mb-4 max-w-md">
+            <p className="text-sm text-gray-500 max-w-md">
               Invitez vos clients à découvrir votre catalogue de formations et à s'inscrire directement depuis leur espace.
             </p>
-            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-xl border border-gray-200 overflow-hidden">
-              <span className="text-sm text-gray-600 truncate flex-1 select-all">{marketplaceUrl}</span>
-            </div>
           </div>
-          <div className="flex flex-col gap-3 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <button
               onClick={copyLink}
               className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
@@ -370,35 +357,35 @@ export default function AdminHub() {
           <div className="animate-fade-in space-y-8">
             
             {/* KPI Dashboard */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-3">
-                  <Users className="w-6 h-6" />
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-indigo-50 text-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center mb-1.5 sm:mb-3 shrink-0">
+                  <Users className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
-                <span className="text-3xl font-black text-gray-900">{quizResults.length}</span>
-                <span className="text-sm font-semibold text-gray-500 mt-1">Participants Totaux</span>
+                <span className="text-xl sm:text-3xl font-black text-gray-900">{quizResults.length}</span>
+                <span className="text-[10px] sm:text-sm font-semibold text-gray-500 mt-0.5 sm:mt-1 leading-tight">Participants Totaux</span>
               </div>
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-3">
-                  <CheckCircle2 className="w-6 h-6" />
+              <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center mb-1.5 sm:mb-3 shrink-0">
+                  <CheckCircle2 className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
-                <span className="text-3xl font-black text-gray-900">
+                <span className="text-xl sm:text-3xl font-black text-gray-900">
                   {quizResults.length > 0 
                     ? Math.round(quizResults.reduce((acc, curr) => acc + curr.score_percentage, 0) / quizResults.length)
                     : 0}%
                 </span>
-                <span className="text-sm font-semibold text-gray-500 mt-1">Score Moyen</span>
+                <span className="text-[10px] sm:text-sm font-semibold text-gray-500 mt-0.5 sm:mt-1 leading-tight">Score Moyen</span>
               </div>
-              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-3">
-                  <Target className="w-6 h-6" />
+              <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-1.5 sm:mb-3 shrink-0">
+                  <Target className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
-                <span className="text-3xl font-black text-gray-900">
+                <span className="text-xl sm:text-3xl font-black text-gray-900">
                   {quizResults.length > 0 
                     ? Math.round((quizResults.filter(r => r.score_percentage >= 60).length / quizResults.length) * 100)
                     : 0}%
                 </span>
-                <span className="text-sm font-semibold text-gray-500 mt-1">Taux de Réussite (≥ 60%)</span>
+                <span className="text-[10px] sm:text-sm font-semibold text-gray-500 mt-0.5 sm:mt-1 leading-tight">Taux Réussite</span>
               </div>
             </div>
 
@@ -426,7 +413,7 @@ export default function AdminHub() {
                             title="Modifier le titre et la description du quizz"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
-                            Personnaliser
+                            Modifier
                           </button>
                           <button 
                             onClick={() => copyQuizLink(course.id)}
@@ -437,13 +424,6 @@ export default function AdminHub() {
                           </button>
                         </div>
                       </div>
-                      
-                      {settings.quizDescription && (
-                        <p className="text-xs text-gray-500 bg-white p-2.5 rounded-xl border border-gray-200/60 line-clamp-2">
-                          <span className="font-semibold text-gray-700">Description Quizz : </span>
-                          {settings.quizDescription}
-                        </p>
-                      )}
                     </div>
                   );
                 })}
@@ -554,92 +534,6 @@ export default function AdminHub() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        ) : activeTab === 'paiements' ? (
-
-          <div className="animate-fade-in space-y-6">
-            <div className="flex items-center justify-between px-2">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <CreditCard className="w-6 h-6 text-emerald-600" />
-                Validations de paiements
-              </h2>
-              <button 
-                onClick={fetchData}
-                className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-            </div>
-
-            {pendingPayments.length === 0 ? (
-              <div className="bg-white border border-gray-100 rounded-3xl p-12 text-center shadow-sm">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-gray-300" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Tout est à jour !</h3>
-                <p className="text-gray-500">Aucun paiement en attente de validation.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {pendingPayments.map((payment) => (
-                  <div key={payment.id} className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          payment.payment_type === 'full' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {payment.payment_type === 'full' ? 'Paiement complet' : `Tranche ${payment.tranche_number}`}
-                        </span>
-                        <span className="text-gray-300">•</span>
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Reçu le {new Date(payment.created_at).toLocaleDateString('fr-FR')} à {new Date(payment.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-gray-900 text-lg">{payment.registrations?.courses?.title}</h4>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1 text-sm text-gray-500 font-medium">
-                        <span className="text-gray-900 font-bold flex items-center gap-1">
-                          <span>{payment.registrations?.participant_name}</span>
-                          <VerifiedBadge size="xs" />
-                        </span>
-                        <span>{payment.registrations?.participant_email}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-row md:flex-col items-center md:items-end justify-between gap-4 border-t md:border-t-0 pt-4 md:pt-0">
-                      <div className="text-right">
-                        <p className="text-xl font-black text-gray-900">{payment.amount.toLocaleString('fr-FR')} FCFA</p>
-                        <p className="text-[10px] text-gray-500 font-bold uppercase">Montant à valider</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleRejectPayment(payment.id)}
-                          disabled={actionLoading === payment.id}
-                          className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                          title="Rejeter"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleApprovePayment(payment.id, payment.registration_id)}
-                          disabled={actionLoading === payment.id}
-                          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-sm shadow-emerald-100"
-                        >
-                          {actionLoading === payment.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Check className="w-5 h-5" />
-                              <span>Valider</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
             )}
           </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import NotificationBell from '../components/NotificationBell';
+import AdminManagementModal from '../components/AdminManagementModal';
 import { 
   BookOpen, 
   Users, 
@@ -19,23 +20,32 @@ import {
   Gift, 
   Loader2,
   ShieldAlert,
+  ShieldCheck,
   CheckCircle2,
   GraduationCap,
   Activity,
-  Smartphone
+  Smartphone,
+  Mail
 } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   
   const [coursesCount, setCoursesCount] = useState<number>(0);
+  const [paymentsCount, setPaymentsCount] = useState<number>(0);
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState<number>(0);
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
+  const [clientsCount, setClientsCount] = useState<number>(0);
   const [trainersCount, setTrainersCount] = useState<number>(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) setCurrentUserEmail(data.user.email);
+    }).catch((err) => console.warn('GetUser error in Dashboard:', err));
     fetchDashboardMetrics();
   }, []);
 
@@ -50,22 +60,52 @@ export default function Dashboard() {
 
       if (cCount !== null) setCoursesCount(cCount);
 
-      // 2. Fetch pending payments count
-      const { count: pCount } = await supabase
+      // 2. Fetch real payments count
+      const { count: pTableCount } = await supabase
+        .from('payments')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: regApprovedCount } = await supabase
+        .from('registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('payment_status', 'approved');
+
+      const realPCount = (pTableCount && pTableCount > 0)
+        ? pTableCount
+        : (regApprovedCount !== null ? regApprovedCount : 0);
+
+      setPaymentsCount(realPCount);
+
+      // Pending payments count for red badge indicator
+      const { count: pendCount } = await supabase
         .from('registrations')
         .select('*', { count: 'exact', head: true })
         .eq('payment_status', 'pending');
 
-      if (pCount !== null) setPendingPaymentsCount(pCount);
+      if (pendCount !== null) setPendingPaymentsCount(pendCount);
 
-      // 3. Fetch trainers count
+      // 3. Fetch total clients count
+      const { count: clCount } = await supabase
+        .from('client_profiles')
+        .select('*', { count: 'exact', head: true });
+
+      if (clCount !== null && clCount > 0) {
+        setClientsCount(clCount);
+      } else {
+        const { count: regCount } = await supabase
+          .from('registrations')
+          .select('*', { count: 'exact', head: true });
+        setClientsCount(regCount || 0);
+      }
+
+      // 4. Fetch trainers count
       const { count: tCount } = await supabase
         .from('trainers')
         .select('*', { count: 'exact', head: true });
 
       if (tCount !== null) setTrainersCount(tCount);
 
-      // 4. Fetch unread messages count
+      // 5. Fetch unread messages count
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { count: mCount } = await supabase
@@ -102,46 +142,83 @@ export default function Dashboard() {
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <div className="flex items-center justify-between gap-4 mb-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-200">
+              <div className="flex items-center gap-2 mb-3 max-w-full overflow-hidden">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-indigo-200 shrink-0">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                   <span>Espace Administrateur</span>
                 </div>
-                <div className="md:hidden">
+                {currentUserEmail && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/20 backdrop-blur-md border border-indigo-400/30 text-xs font-medium text-indigo-100 min-w-0">
+                    <Mail className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+                    <span className="truncate max-w-[150px] xs:max-w-[200px] sm:max-w-xs">{currentUserEmail}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
+                  Accueil Administration
+                </h1>
+                <div className="lg:hidden shrink-0">
                   <NotificationBell userRole="admin" />
                 </div>
               </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white">
-                Accueil Administration
-              </h1>
+
+              {currentUserEmail && (
+                <p className="text-xs sm:text-sm text-indigo-200/80 mt-1.5 font-medium flex items-center gap-1.5">
+                  <span>Connecté avec l'adresse :</span>
+                  <span className="font-bold text-white underline decoration-indigo-400/50 underline-offset-2">{currentUserEmail}</span>
+                </p>
+              )}
             </div>
 
             {/* Quick Metrics Bar & Bell */}
-            <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
-              <div className="hidden md:block">
+            <div className="flex items-center gap-3 w-full lg:w-auto shrink-0">
+              <div className="hidden lg:block">
                 <NotificationBell userRole="admin" />
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 sm:p-3.5 rounded-2xl text-center">
-                  <span className="text-xl font-extrabold text-white block">
-                    {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : coursesCount}
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 w-full sm:w-auto">
+                {/* 1. Formations */}
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-center min-w-[110px]">
+                  <span className="text-lg sm:text-xl font-extrabold text-white block">
+                    {loadingStats ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mx-auto" /> : coursesCount}
                   </span>
-                  <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider mt-0.5 block">Formations</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-indigo-200 uppercase tracking-wider mt-0.5 block">
+                    Formations
+                  </span>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 sm:p-3.5 rounded-2xl text-center relative">
-                  <span className="text-xl font-extrabold text-white block">
-                    {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : pendingPaymentsCount}
+
+                {/* 2. Paiements */}
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-center relative min-w-[110px]">
+                  <span className="text-lg sm:text-xl font-extrabold text-white block">
+                    {loadingStats ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mx-auto" /> : paymentsCount}
                   </span>
-                  <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider mt-0.5 block">Paiements</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-amber-300 uppercase tracking-wider mt-0.5 block">
+                    Paiements
+                  </span>
                   {pendingPaymentsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-ping" title={`${pendingPaymentsCount} en attente`}></span>
                   )}
                 </div>
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 sm:p-3.5 rounded-2xl text-center">
-                  <span className="text-xl font-extrabold text-white block">
-                    {loadingStats ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : trainersCount}
+
+                {/* 3. Clients */}
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-center min-w-[110px]">
+                  <span className="text-lg sm:text-xl font-extrabold text-white block">
+                    {loadingStats ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mx-auto" /> : clientsCount}
                   </span>
-                  <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider mt-0.5 block">Formateurs</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-sky-300 uppercase tracking-wider mt-0.5 block">
+                    Clients
+                  </span>
+                </div>
+
+                {/* 4. Formateurs */}
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-center min-w-[110px]">
+                  <span className="text-lg sm:text-xl font-extrabold text-white block">
+                    {loadingStats ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mx-auto" /> : trainersCount}
+                  </span>
+                  <span className="text-[10px] sm:text-xs font-bold text-emerald-300 uppercase tracking-wider mt-0.5 block">
+                    Formateurs
+                  </span>
                 </div>
               </div>
             </div>
@@ -150,231 +227,173 @@ export default function Dashboard() {
 
         {/* Belles Tuiles Principal Navigation */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Espaces de Gestion</h2>
-            <span className="text-xs font-semibold text-gray-500">Sélectionnez une tuile</span>
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-base sm:text-lg font-extrabold text-gray-900 tracking-tight">Espaces de Gestion</h2>
+            <span className="text-xs font-semibold text-gray-500">Sélectionnez une option</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Grille 2 par ligne (tuiles carrées aux bords arrondis) */}
+          <div className="grid grid-cols-2 gap-3.5 sm:gap-5">
 
-
-                        {/* TUILE 1: Du nouveau */}
-            <Link
-              to="/admin/activity"
-              className="group bg-white hover:bg-slate-900/5 p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-6 relative overflow-hidden ring-1 ring-black/5 md:col-span-2"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-sky-200 group-hover:scale-105 transition-transform">
-                  <Activity className="w-7 h-7" />
-                </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-sky-600 bg-sky-50 px-3 py-1 rounded-full group-hover:bg-sky-600 group-hover:text-white transition-colors">
-                  <span>Ouvrir</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-              <div>
-                <h3 className="text-xl font-extrabold text-gray-900 group-hover:text-sky-900 transition-colors">
-                  Du nouveau (Activité)
-                </h3>
-                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                  Consultez le fil d'actualité des nouveautés : nouvelles inscriptions, quizz validés, futurs sessions, nouveaux paiements, nouveaux leads...
-                </p>
-                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <span className="px-2.5 py-1 bg-sky-50 text-sky-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <Activity className="w-3 h-3" /> Fil d'activité
-                  </span>
-                </div>
-              </div>
-            </Link>
-            {/* TUILE 2: Gestion de formations */}
+            {/* TUILE 1: Gestion des formations */}
             <Link
               to="/admin/formations"
-              className="group bg-white hover:bg-slate-900/5 p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-6 relative overflow-hidden ring-1 ring-black/5"
+              className="group bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between aspect-square relative overflow-hidden ring-1 ring-black/5 active:scale-95"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-105 transition-transform">
-                  <BookOpen className="w-7 h-7" />
+              <div className="flex items-center justify-between">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
+                  <BookOpen className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                  <span>Ouvrir</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xl font-extrabold text-gray-900 group-hover:text-indigo-900 transition-colors">
-                  Gestion de formations
+                <h3 className="text-sm sm:text-base lg:text-lg font-extrabold text-gray-900 group-hover:text-indigo-900 transition-colors leading-snug">
+                  Gestion des formations
                 </h3>
-                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                  Accédez au catalogue complet, créez une nouvelle formation, gérez vos séances de cours et vos visioconférences en live.
+                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 font-medium line-clamp-1 sm:line-clamp-2">
+                  Catalogue, cours & lives
                 </p>
-
-                {/* Sub-items badges */}
-                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <BookOpen className="w-3 h-3" /> Catalogue (page unique)
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <PlusCircle className="w-3 h-3" /> Ajouter formation
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <CalendarCheck className="w-3 h-3" /> Séances
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <Video className="w-3 h-3" /> Création Lives
-                  </span>
-                </div>
               </div>
             </Link>
 
-            {/* TUILE 3: Gestion clients */}
+            {/* TUILE 2: Gestion des clients */}
             <Link
               to="/admin/clients"
-              className="group bg-white hover:bg-slate-900/5 p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-6 relative overflow-hidden ring-1 ring-black/5"
+              className="group bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between aspect-square relative overflow-hidden ring-1 ring-black/5 active:scale-95"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:scale-105 transition-transform">
-                  <Users className="w-7 h-7" />
+              <div className="flex items-center justify-between">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-200 group-hover:scale-105 transition-transform relative">
+                  <Users className="w-6 h-6 sm:w-7 sm:h-7" />
+                  {pendingPaymentsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full animate-ping"></span>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                  <span>Ouvrir</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-extrabold text-gray-900 group-hover:text-emerald-900 transition-colors">
-                    Gestion clients
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="text-sm sm:text-base lg:text-lg font-extrabold text-gray-900 group-hover:text-emerald-900 transition-colors leading-snug">
+                    Gestion des clients
                   </h3>
                   {pendingPaymentsCount > 0 && (
-                    <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-full animate-pulse">
-                      {pendingPaymentsCount} en attente
+                    <span className="px-2 py-0.5 bg-red-500 text-white text-[9px] sm:text-[10px] font-black rounded-full">
+                      {pendingPaymentsCount}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                  Gérez les paiements, répondez aux idées et demandes de cours, suivez la progression des apprenants, gérez les codes promo et la messagerie.
+                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 font-medium line-clamp-1 sm:line-clamp-2">
+                  Paiements & messagerie
                 </p>
-
-                {/* Sub-items badges */}
-                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <CreditCard className="w-3 h-3" /> Paiements
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <Lightbulb className="w-3 h-3" /> Idées / Demandes
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <GraduationCap className="w-3 h-3" /> Apprenants
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <Gift className="w-3 h-3" /> Commerciaux & Promo
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" /> Messages
-                  </span>
-                </div>
               </div>
             </Link>
 
-            {/* TUILE 4: Espace Hub */}
+            {/* TUILE 3: Espace Hub */}
             <Link
               to="/admin/hub"
-              className="group bg-white hover:bg-slate-900/5 p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-6 relative overflow-hidden ring-1 ring-black/5"
+              className="group bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between aspect-square relative overflow-hidden ring-1 ring-black/5 active:scale-95"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-200 group-hover:scale-105 transition-transform">
-                  <Store className="w-7 h-7" />
+              <div className="flex items-center justify-between">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-200 group-hover:scale-105 transition-transform">
+                  <Store className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                  <span>Ouvrir</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xl font-extrabold text-gray-900 group-hover:text-purple-900 transition-colors">
+                <h3 className="text-sm sm:text-base lg:text-lg font-extrabold text-gray-900 group-hover:text-purple-900 transition-colors leading-snug">
                   Espace Hub
                 </h3>
-                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                  Retrouvez votre espace marketplace, les inscriptions, la validation rapide des paiements ainsi que vos leads & quizz publics avec retour arrière.
+                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 font-medium line-clamp-1 sm:line-clamp-2">
+                  Marketplace & Quizz
                 </p>
-
-                {/* Sub-items badges */}
-                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <span className="px-2.5 py-1 bg-purple-50 text-purple-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <Store className="w-3 h-3" /> Marketplace
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <CreditCard className="w-3 h-3" /> Paiements à valider
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> Leads & Quizz
-                  </span>
-                </div>
               </div>
             </Link>
 
-            {/* TUILE 5: Ajouter un formateur */}
+            {/* TUILE 4: Ajouter un formateur */}
             <Link
               to="/trainers"
-              className="group bg-white hover:bg-slate-900/5 p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-6 relative overflow-hidden ring-1 ring-black/5"
+              className="group bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between aspect-square relative overflow-hidden ring-1 ring-black/5 active:scale-95"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-105 transition-transform">
-                  <UserPlus className="w-7 h-7" />
+              <div className="flex items-center justify-between">
+                <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-200 group-hover:scale-105 transition-transform">
+                  <UserPlus className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                  <span>Ouvrir</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xl font-extrabold text-gray-900 group-hover:text-amber-900 transition-colors">
+                <h3 className="text-sm sm:text-base lg:text-lg font-extrabold text-gray-900 group-hover:text-amber-900 transition-colors leading-snug">
                   Ajouter un formateur
                 </h3>
-                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-                  Gérez l'équipe pédagogique : ajoutez de nouveaux formateurs, leurs photos, descriptions et leurs expertises de cours.
+                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 font-medium line-clamp-1 sm:line-clamp-2">
+                  Équipe pédagogique
                 </p>
-
-                {/* Sub-items badges */}
-                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
-                  <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    <UserPlus className="w-3 h-3" /> Nouveau profil
-                  </span>
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-lg flex items-center gap-1">
-                    Équipe pédagogique
-                  </span>
-                </div>
               </div>
             </Link>
 
           </div>
 
-          {/* TUILE 6: Bouton Se déconnecter */}
+          {/* Tuile Administration - Réservée uniquement au compte pmbom@ecp.cm */}
+          {currentUserEmail?.toLowerCase().trim() === 'pmbom@ecp.cm' && (
+            <div className="pt-4">
+              <button
+                onClick={() => setIsAdminModalOpen(true)}
+                className="w-full group bg-slate-900 hover:bg-slate-800 p-4 sm:p-5 rounded-3xl border border-slate-900 shadow-md hover:shadow-xl transition-all duration-300 flex items-center justify-between gap-4 active:scale-98 text-white"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/10 text-white flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                    <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm sm:text-base font-extrabold text-white leading-snug">
+                      Administration
+                    </h3>
+                    <p className="text-[11px] sm:text-xs text-slate-300 font-medium">
+                      Gestion des comptes & privilèges administrateur
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-white/10 text-white rounded-xl text-xs font-bold transition-colors shrink-0 flex items-center gap-1.5">
+                  <span>Gérer</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Bouton Se déconnecter tout en bas */}
           <div className="pt-4">
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="w-full group bg-white hover:bg-rose-50/80 p-5 rounded-3xl border border-rose-100 shadow-xs hover:shadow-md transition-all duration-300 flex items-center justify-between gap-4"
+              className="w-full group bg-white hover:bg-rose-50/80 p-4 sm:p-5 rounded-3xl border border-rose-100 shadow-xs hover:shadow-md transition-all duration-300 flex items-center justify-between gap-4 active:scale-98"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                  {isLoggingOut ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogOut className="w-6 h-6" />}
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors shrink-0">
+                  {isLoggingOut ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <LogOut className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </div>
                 <div className="text-left">
-                  <h3 className="text-base font-extrabold text-gray-900 group-hover:text-rose-900 transition-colors">
+                  <h3 className="text-sm sm:text-base font-extrabold text-gray-900 group-hover:text-rose-900 transition-colors">
                     Se déconnecter
                   </h3>
-                  <p className="text-xs text-gray-500 group-hover:text-rose-700/80 transition-colors">
-                    Fermer la session administrateur en toute sécurité
+                  <p className="text-[11px] sm:text-xs text-gray-500 group-hover:text-rose-700/80 transition-colors">
+                    Fermer la session
                   </p>
                 </div>
               </div>
 
-              <div className="px-4 py-2 bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white rounded-xl text-xs font-bold transition-colors">
+              <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white rounded-xl text-xs font-bold transition-colors shrink-0">
                 Déconnexion
               </div>
             </button>
@@ -382,6 +401,12 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      {/* Modal de gestion des Administrateurs */}
+      <AdminManagementModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+      />
     </div>
   );
 }

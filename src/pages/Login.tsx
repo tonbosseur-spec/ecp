@@ -2,9 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Mail, Lock, AlertCircle, ChevronRight, GraduationCap, Fingerprint } from 'lucide-react';
-import { NativeBiometric } from '@capgo/capacitor-native-biometric';
-import { Capacitor } from '@capacitor/core';
 import { Button, Input } from '../components/ui';
+import { checkIsAdmin } from '../lib/adminAuthService';
+import {
+  checkBiometricStatus,
+  saveBiometricCredentials,
+  authenticateWithBiometrics,
+  BiometricStatus,
+} from '../lib/biometricAuthService';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,44 +17,48 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [hasBiometrics, setHasBiometrics] = useState(false);
+  const [biometricInfo, setBiometricInfo] = useState<BiometricStatus>({
+    isAvailable: false,
+    hasCredentialsSaved: false,
+    type: 'none',
+  });
 
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      NativeBiometric.isAvailable().then((result) => {
-        if (result.isAvailable) {
-          NativeBiometric.isCredentialsSaved({ server: 'admin_ecp' }).then((savedResult) => {
-            if (savedResult.isSaved) {
-              setHasBiometrics(true);
-            }
-          }).catch(console.error);
-        }
-      }).catch(console.error);
-    }
+    checkBiometricStatus().then((info) => {
+      setBiometricInfo(info);
+    }).catch(console.error);
   }, []);
 
   const handleBiometricLogin = async () => {
     try {
       setLoading(true);
       setError(null);
-      await NativeBiometric.verifyIdentity({
-        reason: 'Connectez-vous à votre compte administrateur',
-        title: 'Connexion biométrique',
-      });
-      const credentials = await NativeBiometric.getCredentials({
-        server: 'admin_ecp',
-      });
-      
+
+      if (!biometricInfo.hasCredentialsSaved) {
+        setError("Veuillez vous connecter une première fois avec votre email et mot de passe pour enregistrer l'accès biométrique.");
+        setLoading(false);
+        return;
+      }
+
+      const creds = await authenticateWithBiometrics();
+
+      const isAdminAuthorized = await checkIsAdmin(creds.email);
+      if (!isAdminAuthorized) {
+        setError("Accès refusé. Cet espace est strictement réservé aux administrateurs autorisés.");
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email: credentials.username,
-        password: credentials.password,
+        email: creds.email,
+        password: creds.password,
       });
 
       if (error) throw error;
       navigate('/dashboard');
     } catch (err: any) {
-       console.error("Biometric login failed", err);
-       setError("Échec de la connexion biométrique.");
+       console.error("Biometric login error:", err);
+       setError(err.message || "Échec de la connexion biométrique.");
     } finally {
        setLoading(false);
     }
@@ -61,8 +70,9 @@ export default function Login() {
     setError(null);
 
     try {
-      if (email !== 'pmbom@ecp.cm') {
-        setError("Accès refusé. Cet espace est strictement réservé à l'administrateur principal.");
+      const isAdminAuthorized = await checkIsAdmin(email);
+      if (!isAdminAuthorized) {
+        setError("Accès refusé. Cet espace est strictly réservé aux administrateurs autorisés.");
         setLoading(false);
         return;
       }
@@ -75,21 +85,18 @@ export default function Login() {
       if (error) {
         setError(error.message);
       } else {
-        if (Capacitor.isNativePlatform()) {
-           try {
-               const available = await NativeBiometric.isAvailable();
-               if (available.isAvailable) {
-                   await NativeBiometric.setCredentials({
-                       server: 'admin_ecp',
-                       username: email,
-                       password: password
-                   });
-                   setHasBiometrics(true);
-               }
-           } catch (e) {
-               console.error("Biometric save error", e);
-           }
+        // Save biometric credentials if biometric sensor is available (Web or Native)
+        try {
+          await saveBiometricCredentials(email, password);
+          setBiometricInfo({
+            isAvailable: true,
+            hasCredentialsSaved: true,
+            type: biometricInfo.type,
+          });
+        } catch (bErr) {
+          console.warn("Could not save biometric credentials:", bErr);
         }
+
         navigate('/dashboard');
       }
     } catch (err: any) {
@@ -147,16 +154,20 @@ export default function Login() {
                 {loading ? 'Connexion...' : 'Se connecter'}
               </Button>
               
-              {hasBiometrics && (
+              {(biometricInfo.isAvailable || biometricInfo.hasCredentialsSaved) && (
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={handleBiometricLogin}
                   disabled={loading}
-                  className="w-12 h-12 mt-2 p-0 flex items-center justify-center shrink-0"
-                  title="Se connecter avec l'empreinte digitale"
+                  className="w-12 h-12 mt-2 p-0 flex items-center justify-center shrink-0 border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition-all"
+                  title={
+                    biometricInfo.type === 'web'
+                      ? 'Se connecter avec la biométrie (Touch ID / Face ID / Empreinte Web)'
+                      : 'Se connecter avec l\'empreinte digitale'
+                  }
                 >
-                  <Fingerprint className="w-5 h-5" />
+                  <Fingerprint className="w-5 h-5 text-indigo-600" />
                 </Button>
               )}
             </div>

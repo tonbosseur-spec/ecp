@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
+import { checkIsAdmin } from './lib/adminAuthService';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CreateCourse from './pages/CreateCourse';
@@ -64,49 +65,64 @@ function RootRedirector() {
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Initialisation des fonctionnalités natives (Capacitor)
   useNativeFeatures();
 
   useEffect(() => {
-    // Obtenir la session actuelle
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    const initAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session || null;
+        setSession(session);
+        if (session?.user?.email) {
+          const authorized = await checkIsAdmin(session.user.email);
+          setIsAdmin(authorized);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.warn('Auth init error:', err);
+        setSession(null);
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
 
     // Écouter les changements de session (connexion, déconnexion)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        setSession(session);
+        if (session?.user?.email) {
+          const authorized = await checkIsAdmin(session.user.email);
+          setIsAdmin(authorized);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.warn('Auth state change error:', err);
+      }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    const handleAdminsChanged = async () => {
+      if (session?.user?.email) {
+        const authorized = await checkIsAdmin(session.user.email);
+        setIsAdmin(authorized);
+      }
+    };
+    window.addEventListener('admin_users_changed', handleAdminsChanged);
 
-  // Intercept external links for admin app target
-  useEffect(() => {
-    if (import.meta.env.VITE_APP_TARGET === 'admin' && Capacitor.isNativePlatform()) {
-      const handleLinkClick = async (e: MouseEvent) => {
-        const target = e.target as HTMLElement;
-        const anchor = target.closest('a');
-        if (anchor && anchor.href && anchor.href.startsWith('http')) {
-          const url = new URL(anchor.href);
-          if (url.origin !== window.location.origin) {
-            e.preventDefault();
-            const { Browser } = await import('@capacitor/browser');
-            await Browser.open({ url: anchor.href });
-          }
-        }
-      };
-
-      document.addEventListener('click', handleLinkClick);
-      return () => {
-        document.removeEventListener('click', handleLinkClick);
-      };
-    }
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('admin_users_changed', handleAdminsChanged);
+    };
+  }, [session?.user?.email]);
 
   if (loading) {
     return (
@@ -115,8 +131,6 @@ export default function App() {
       </div>
     );
   }
-
-  const isAdmin = session?.user?.email === 'pmbom@ecp.cm';
 
   return (
     <Routes>
