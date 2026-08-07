@@ -124,14 +124,16 @@ jobs:
           bash scripts/prepare-android.sh "${{ matrix.app_name }}"
 
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.2.1
+
       - name: Build Android APK
         timeout-minutes: 40
         working-directory: android
         run: |
-          gradle wrapper
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
