@@ -101,7 +101,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.7
+          gradle-version: '8.13'
           cache-disabled: true
           validate-wrappers: false
 
@@ -109,7 +109,8 @@ jobs:
         timeout-minutes: 40
         working-directory: android
         run: |
-          gradle assembleDebug --no-daemon --stacktrace
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
