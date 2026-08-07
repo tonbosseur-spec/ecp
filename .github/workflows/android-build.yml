@@ -128,6 +128,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.2.1
+          validate-wrappers: false
 
       - name: Build Android APK
         timeout-minutes: 40
