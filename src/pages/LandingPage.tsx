@@ -83,6 +83,9 @@ export default function LandingPage() {
   const [latestCourse, setLatestCourse] = useState<any>(null);
   const navigate = useNavigate();
 
+  // Profile selector state for 'JE CHOISIS' section
+  const [selectedProfile, setSelectedProfile] = useState<'student' | 'pro' | 'reader'>('student');
+
   // Form states for new testimonial
   const [newName, setNewName] = useState("");
   const [newStatus, setNewStatus] = useState("");
@@ -261,97 +264,488 @@ export default function LandingPage() {
       <ClientNavBar currentSession={currentSession} />
 
       {/* 1. Hero Section */}
-      <section className="relative bg-gradient-to-b from-blue-50/70 via-indigo-50/30 to-white pt-16 pb-20 sm:pb-28 overflow-hidden">
+      <section className="relative bg-gradient-to-b from-blue-50/70 via-indigo-50/30 to-white pt-24 pb-20 sm:pt-32 sm:pb-28 overflow-hidden flex items-center min-h-[60vh]">
         {/* Geometric patterns */}
-        <div className="absolute inset-0 z-0 opacity-40">
+        <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
           <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-300 rounded-full blur-3xl opacity-20"></div>
           <div className="absolute -top-40 right-10 w-[400px] h-[400px] bg-purple-300 rounded-full blur-3xl opacity-20"></div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center w-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="space-y-6 max-w-3xl mx-auto"
+            className="space-y-6 sm:space-y-8 max-w-4xl mx-auto"
           >
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100 shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-              <span>Votre passerelle vers la réussite académique & professionnelle</span>
+            {/* 1. Petite accroche de marque */}
+            <div className="inline-flex items-center justify-center">
+              <span className="text-xs sm:text-sm font-black tracking-widest text-blue-600 uppercase">
+                Exceller chez Pierre
+              </span>
             </div>
             
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 tracking-tight leading-[1.1] sm:leading-none">
-              Atteignez l'excellence avec un <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">accompagnement sur mesure</span>.
+            {/* 2. Titre principal très concret */}
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-gray-900 tracking-tight leading-[1.15] sm:leading-tight">
+              Apprenez à maîtriser les outils <span className="text-blue-600">qui font la différence.</span>
             </h1>
             
-            <p className="text-gray-600 text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto">
-              Nous accompagnons les étudiants, chercheurs et professionnels avec des formations aux logiciels d’analyse, des livres d’apprentissage étape par étape et un suivi sur mesure des projets de recherche et travaux d’entreprise
+            {/* 3. Sous-titre */}
+            <p className="text-gray-600 text-lg sm:text-xl md:text-2xl leading-relaxed max-w-3xl mx-auto">
+              Formations pratiques en Excel, Power BI, R, statistiques et analyse de données, pour étudiants, chercheurs et professionnels.
             </p>
 
-            {/* Elegant Image Integration */}
-            <div className="my-8 max-w-md sm:max-w-lg mx-auto overflow-hidden rounded-3xl border border-gray-150/80 shadow-2xl shadow-blue-100/40 bg-white p-2">
-              <img
-                src="https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/sign/Images/file_00000000abf47243aecd6804fdb1b975.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hODRjMTA3My1lMDY4LTQxYzQtYjJkYi1hNGUyMDk0MGE2NzciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJJbWFnZXMvZmlsZV8wMDAwMDAwMGFiZjQ3MjQzYWVjZDY4MDRmZGIxYjk3NS5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0MTk3MzY4LCJleHAiOjE4MTU3MzMzNjh9.RCQdEKTh7C0Y-Ye8jFU5y_1SUBy9DHxT3Ran7ueT2ts"
-                alt="Exceller chez Pierre"
-                referrerPolicy="no-referrer"
-                className="w-full h-auto rounded-2xl object-cover"
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
-              {currentSession ? (
-                <Link
-                  to="/client/hub"
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 transition-all hover:scale-[1.02] active:scale-98 text-base"
-                >
-                  <User className="w-5 h-5 mr-2" />
-                  <span>Accéder à mon Hub privé</span>
-                </Link>
-              ) : (
-                <Link
-                  to="/client/register"
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 transition-all hover:scale-[1.02] active:scale-98 text-base"
-                >
-                  <UserPlus className="w-5 h-5 mr-2" />
-                  <span>Créer mon espace client</span>
-                </Link>
-              )}
-              
-              <button
-                onClick={() => {
-                  if (currentSession) {
-                    navigate('/client/marketplace?action=propose');
-                  } else {
-                    navigate('/client/register?redirect=/client/marketplace?action=propose&reason=propose');
-                  }
-                }}
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-gray-50 text-blue-600 font-extrabold rounded-2xl border-2 border-blue-600/20 hover:border-blue-600/40 shadow-sm transition-all text-base"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                <span>Demander un accompagnement</span>
-              </button>
-
+            {/* 4. Deux boutons maximum */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6 sm:pt-10">
+              {/* CTA principal */}
               <Link
-                to="/client/marketplace"
-                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-gray-50 text-gray-800 font-bold rounded-2xl border border-gray-200 hover:border-gray-300 shadow-xs transition-all text-base"
+                to="/catalogue"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 sm:py-4.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-2xl shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 transition-all hover:-translate-y-0.5 text-base sm:text-lg"
               >
-                <Compass className="w-5 h-5 mr-2 text-gray-500" />
-                <span>Explorer le catalogue</span>
+                <span>Voir les formations</span>
+                <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
-            </div>
-
-            {/* Download App APK CTA Button */}
-            <div className="pt-4 flex justify-center">
+              
+              {/* CTA secondaire */}
               <Link
-                to="/download"
-                className="inline-flex items-center justify-center px-6 py-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-white font-extrabold rounded-2xl shadow-lg shadow-indigo-900/20 hover:shadow-xl hover:shadow-indigo-900/30 transition-all hover:scale-[1.02] active:scale-98 text-sm sm:text-base border border-indigo-500/30 gap-2.5 group"
+                to="/client/register"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 sm:py-4.5 bg-white hover:bg-gray-50 text-gray-800 font-bold rounded-2xl border-2 border-gray-200 hover:border-gray-300 transition-all text-base sm:text-lg"
               >
-                <Smartphone className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />
-                <span>Télécharger l'application mobile (APK)</span>
-                <Download className="w-4 h-4 text-gray-300 group-hover:translate-y-0.5 transition-transform" />
+                <span>S'inscrire</span>
               </Link>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Nouvelle section "Que recherchez-vous ?" */}
+      <section className="py-16 sm:py-20 bg-gray-50 border-b border-gray-100 relative z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">
+              Que recherchez-vous ?
+            </h2>
+            <p className="text-gray-600 text-base sm:text-lg mt-3">
+              Choisissez simplement ce dont vous avez besoin.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {/* Carte 1 */}
+            <Link
+              to="/catalogue"
+              className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 flex flex-col group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm">
+                🎓
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
+                Me former
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed mb-6 flex-1">
+                Développer une compétence avec une formation pratique.
+              </p>
+              <div className="inline-flex items-center gap-1.5 text-xs font-black text-blue-600 group-hover:text-blue-800 transition-colors mt-auto pt-4 border-t border-gray-100">
+                <span>Découvrir</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Link>
+
+            {/* Carte 2 */}
+            <Link
+              to="/expertises"
+              className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 flex flex-col group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm">
+                📊
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
+                Analyser mes données
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed mb-6 flex-1">
+                Obtenir de l'aide pour traiter et analyser mes données.
+              </p>
+              <div className="inline-flex items-center gap-1.5 text-xs font-black text-indigo-600 group-hover:text-indigo-800 transition-colors mt-auto pt-4 border-t border-gray-100">
+                <span>Découvrir</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Link>
+
+            {/* Carte 3 */}
+            <Link
+              to="/expertises"
+              className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 flex flex-col group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm">
+                📝
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
+                Réussir mon mémoire
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed mb-6 flex-1">
+                Être accompagné dans mon travail de recherche.
+              </p>
+              <div className="inline-flex items-center gap-1.5 text-xs font-black text-purple-600 group-hover:text-purple-800 transition-colors mt-auto pt-4 border-t border-gray-100">
+                <span>Découvrir</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Link>
+
+            {/* Carte 4 */}
+            <Link
+              to="/catalogue"
+              className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 flex flex-col group"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm">
+                📚
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
+                Apprendre avec des ressources
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed mb-6 flex-1">
+                Découvrir des livres, guides et supports pratiques.
+              </p>
+              <div className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 group-hover:text-emerald-800 transition-colors mt-auto pt-4 border-t border-gray-100">
+                <span>Découvrir</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. SECTION JE COMPRENDS : Les 3 Piliers d'Exceller chez Pierre */}
+      <section className="py-16 bg-white border-b border-gray-100 relative z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <span className="text-xs font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3.5 py-1.5 rounded-full border border-blue-100">
+              Comprendre notre offre
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight mt-3">
+              Que faisons-nous pour vous ?
+            </h2>
+            <p className="text-gray-600 text-sm sm:text-base mt-2">
+              Une plateforme unique combinant logiciels d'analyse, accompagnement sur mesure et livres d'apprentissage.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+            {/* Pilier 1 */}
+            <div className="bg-gradient-to-b from-blue-50/50 to-white p-6 sm:p-8 rounded-3xl border border-blue-100/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold mb-5 shadow-md group-hover:scale-110 transition-transform">
+                  <BarChart3 className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-extrabold text-gray-900 mb-2">
+                  Formations aux Logiciels
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed mb-4">
+                  Maîtrisez <strong>SPSS, Stata, R, Excel avancé et Python</strong> avec des cours vidéo, des cas pratiques réels et des enregistrements de sessions live.
+                </p>
+              </div>
+              <Link
+                to="/catalogue"
+                className="inline-flex items-center gap-1.5 text-xs font-black text-blue-600 hover:text-blue-800 transition-colors pt-3 border-t border-blue-100"
+              >
+                <span>Consulter les formations</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {/* Pilier 2 */}
+            <div className="bg-gradient-to-b from-purple-50/50 to-white p-6 sm:p-8 rounded-3xl border border-purple-100/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-bold mb-5 shadow-md group-hover:scale-110 transition-transform">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-extrabold text-gray-900 mb-2">
+                  Accompagnement Mémoire & Thèse
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed mb-4">
+                  Bénéficiez d'un suivi personnalisé pour structurer votre projet de recherche, traiter vos données et réussir votre soutenance avec mention.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (currentSession) {
+                    navigate('/catalogue?action=propose');
+                  } else {
+                    navigate('/client/register?redirect=/catalogue?action=propose&reason=propose');
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-black text-purple-600 hover:text-purple-800 transition-colors pt-3 border-t border-purple-100 text-left"
+              >
+                <span>Demander un encadrement</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Pilier 3 */}
+            <div className="bg-gradient-to-b from-emerald-50/50 to-white p-6 sm:p-8 rounded-3xl border border-emerald-100/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+              <div>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold mb-5 shadow-md group-hover:scale-110 transition-transform">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-extrabold text-gray-900 mb-2">
+                  E-books & Guides Pratiques
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed mb-4">
+                  Téléchargez des manuels pas-à-pas clairs, illustrés d'exemples concrets pour progresser immédiatement en autonomie.
+                </p>
+              </div>
+              <Link
+                to="/catalogue"
+                className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 hover:text-emerald-800 transition-colors pt-3 border-t border-emerald-100"
+              >
+                <span>Voir les e-books</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. SECTION JE CHOISIS → JE CONSULTE : Sélecteur Interactif de Besoins */}
+      <section className="py-16 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <span className="text-xs font-black uppercase tracking-widest text-indigo-300 bg-indigo-900/60 px-3.5 py-1.5 rounded-full border border-indigo-700/50">
+              Trouver votre solution
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight mt-3 text-white">
+              Quelle est votre situation ?
+            </h2>
+            <p className="text-indigo-200 text-sm sm:text-base mt-2">
+              Sélectionnez votre profil pour découvrir la solution la plus adaptée à vos objectifs.
+            </p>
+          </div>
+
+          {/* Selector Tabs */}
+          <div className="flex flex-wrap justify-center gap-2 max-w-xl mx-auto mb-8 p-1.5 bg-slate-800/80 rounded-2xl border border-slate-700">
+            <button
+              onClick={() => setSelectedProfile('student')}
+              className={`flex-1 min-w-[130px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 ${
+                selectedProfile === 'student'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4" />
+              <span>Étudiant / Chercheur</span>
+            </button>
+            <button
+              onClick={() => setSelectedProfile('pro')}
+              className={`flex-1 min-w-[130px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 ${
+                selectedProfile === 'pro'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Professionnel</span>
+            </button>
+            <button
+              onClick={() => setSelectedProfile('reader')}
+              className={`flex-1 min-w-[130px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 ${
+                selectedProfile === 'reader'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>E-books / Autodidacte</span>
+            </button>
+          </div>
+
+          {/* Dynamic Content Display based on Profile */}
+          <div className="max-w-3xl mx-auto bg-slate-800/90 rounded-3xl p-6 sm:p-8 border border-slate-700 shadow-2xl backdrop-blur-sm">
+            {selectedProfile === 'student' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
+                    <GraduationCap className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-1">
+                      Option recommandée : Encadrement Mémoire / Thèse & Logiciels
+                    </h3>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      Conçu pour les étudiants en Licence, Master et Doctorat ayant besoin d'un cadrage méthodologique rigoureux, du nettoyage et traitement de données (SPSS, Stata, R) et d'une préparation aux soutenances.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Rédaction & correction du plan de recherche</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Traitement et codage sous SPSS / Stata / R</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Interprétation statistique des résultats</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Coaching oral pour la soutenance</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => {
+                      if (currentSession) {
+                        navigate('/catalogue?action=propose');
+                      } else {
+                        navigate('/client/register?redirect=/catalogue?action=propose&reason=propose');
+                      }
+                    }}
+                    className="flex-1 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Demander un accompagnement</span>
+                  </button>
+                  <Link
+                    to="/catalogue"
+                    className="flex-1 px-6 py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <Compass className="w-4 h-4" />
+                    <span>Voir les cours & vidéos</span>
+                  </Link>
+                </div>
+              </motion.div>
+            )}
+
+            {selectedProfile === 'pro' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
+                    <Briefcase className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-1">
+                      Option recommandée : Formations Pratiques Outils & Analytics
+                    </h3>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      Idéal pour les cadres, consultants, chercheurs d'emploi et analystes souhaitant développer des compétences directes sur Excel avancé, Power BI, Python ou SPSS.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Tableaux de bord & automatisations Excel</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Analyses descriptives et modélisation</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Certificats de réussite téléchargeables</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Accès illimité aux replays des formations</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                  <Link
+                    to="/catalogue"
+                    className="flex-1 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <Compass className="w-4 h-4" />
+                    <span>Consulter le catalogue des formations</span>
+                  </Link>
+                  <a
+                    href={`https://wa.me/${adminWhatsAppPhone}?text=${encodeURIComponent("Bonjour Pierre ! Je suis un professionnel et je souhaite me former aux logiciels d'analyse de données.")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-6 py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                    <span>Échanger sur WhatsApp</span>
+                  </a>
+                </div>
+              </motion.div>
+            )}
+
+            {selectedProfile === 'reader' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                    <BookOpen className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-1">
+                      Option recommandée : E-books & Guides Pratiques
+                    </h3>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      Si vous préférez étudier à votre propre rythme, téléchargez nos ouvrages pratiques avec cas d'application concrets et illustrations détaillées.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 pt-2">
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Format PDF haute qualité téléchargeable</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Fichiers de données d'exercices inclus</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Guides de statistiques sans jargon inutile</span>
+                  </div>
+                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60 flex items-center gap-2.5 text-xs text-slate-200">
+                    <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Lecture disponible sur mobile, tablette et PC</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                  <Link
+                    to="/catalogue"
+                    className="flex-1 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Découvrir tous les e-books</span>
+                  </Link>
+                  <a
+                    href="https://excellerchezpierre.mychariow.co/prd_23xt77jo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-6 py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <Gift className="w-4 h-4 text-amber-400" />
+                    <span>Guide Offert de Bienvenue</span>
+                  </a>
+                </div>
+              </motion.div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -655,21 +1049,19 @@ export default function LandingPage() {
               
               <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
                 <Link
-                  to="/client/marketplace"
+                  to="/catalogue"
                   className="w-full sm:w-auto px-8 py-4 bg-white text-emerald-700 font-black rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all text-base flex items-center justify-center gap-2"
                 >
                   <GraduationCap className="w-5 h-5" />
-                  <span>Commencer une formation</span>
+                  <span>Voir les formations</span>
                 </Link>
-                <a
-                  href={`https://wa.me/${adminWhatsAppPhone}?text=${encodeURIComponent("Bonjour Pierre ! Je souhaite avoir des informations pour réserver un accompagnement ou une formation sur mesure.")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  to="/client/register"
                   className="w-full sm:w-auto px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all text-base flex items-center justify-center gap-2 border border-white/20"
                 >
-                  <MessageSquare className="w-5 h-5 fill-white" />
-                  <span>Réserver un accompagnement</span>
-                </a>
+                  <UserPlus className="w-5 h-5 fill-white" />
+                  <span>S'inscrire</span>
+                </Link>
               </div>
             </div>
           </motion.div>

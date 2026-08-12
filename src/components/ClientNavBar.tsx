@@ -14,15 +14,22 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
 
   const navLinks = [
     { path: '/', label: 'Accueil' },
-    { path: '/expertises', label: 'Nos expertises' },
-    { path: '/methodology', label: 'Comment ça marche' },
-    { path: '/client/marketplace', label: 'Catalogue' },
+    { path: '/catalogue', label: 'Formations' },
+    { path: '/expertises', label: 'Services' },
+    { path: '/methodology', label: 'Ressources' },
   ];
 
   const isActive = (path: string) => {
-    if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
-    return false;
+    if (path === '/') return location.pathname === '/';
+    if (path === '/catalogue') {
+      return (
+        location.pathname.startsWith('/catalogue') ||
+        location.pathname.startsWith('/course/') ||
+        location.pathname.startsWith('/client/course/') ||
+        location.pathname.startsWith('/client/module/')
+      );
+    }
+    return location.pathname.startsWith(path);
   };
 
   return (
@@ -73,7 +80,7 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
           >
             <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 shrink-0" />
             <span className="hidden sm:inline-flex items-center gap-2">
-              <span>Mon Hub</span>
+              <span>Mon espace</span>
               {currentSession && <VerifiedBadge size="xs" />}
             </span>
           </Link>
@@ -83,7 +90,7 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
               to="/client/register"
               className="hidden sm:inline-flex items-center justify-center px-4 py-1.5 bg-gray-950 hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-full font-bold text-xs transition-all shadow-sm hover:scale-105"
             >
-              Créer un compte
+              S'inscrire
             </Link>
           )}
 
@@ -128,7 +135,7 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
             >
               <User className="w-4 h-4 text-gray-500 shrink-0" />
               <span className="inline-flex items-center gap-2">
-                <span>Mon Hub</span>
+                <span>Mon espace</span>
                 {currentSession && <VerifiedBadge size="sm" />}
               </span>
             </Link>
@@ -138,7 +145,7 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full text-center py-2.5 bg-gray-950 dark:bg-blue-600 text-white rounded-2xl text-sm font-bold"
               >
-                Créer un compte
+                S'inscrire
               </Link>
             )}
           </div>

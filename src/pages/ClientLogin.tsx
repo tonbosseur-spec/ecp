@@ -252,7 +252,7 @@ export default function ClientLogin() {
                     Connexion en cours...
                   </>
                 ) : (
-                  'Se connecter à mon compte'
+                  'Se connecter'
                 )}
               </button>
               
@@ -274,7 +274,7 @@ export default function ClientLogin() {
             <p className="text-sm text-gray-600">
               Pas encore de compte ?{' '}
               <Link to={`/client/register${redirectPath ? `?redirect=${redirectPath}` : ''}`} className="font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors">
-                Inscrivez-vous gratuitement
+                S'inscrire
               </Link>
               {' '}ou{' '}
               <button onClick={handleVisitWebsite} className="font-bold text-red-600 hover:text-red-700 hover:underline transition-colors inline-block">

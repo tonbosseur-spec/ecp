@@ -54,7 +54,7 @@ export async function fetchAdminEmails(): Promise<string[]> {
     // Ignore local storage error
   }
 
-  // Try loading from Supabase table
+  // Try loading from Supabase admin_users table
   try {
     const { data, error } = await supabase.from('admin_users').select('email');
     if (!error && data && Array.isArray(data)) {
@@ -64,6 +64,21 @@ export async function fetchAdminEmails(): Promise<string[]> {
     }
   } catch (e) {
     // Table might not exist yet or fetch failed
+  }
+
+  // Try loading from client_profiles table where role='admin'
+  try {
+    const { data, error } = await supabase
+      .from('client_profiles')
+      .select('email')
+      .eq('role', 'admin');
+    if (!error && data && Array.isArray(data)) {
+      data.forEach((row: { email: string }) => {
+        if (row?.email) emails.add(row.email.toLowerCase().trim());
+      });
+    }
+  } catch (e) {
+    // Ignore
   }
 
   return Array.from(emails);
@@ -101,14 +116,49 @@ export async function getAllAdminUsers(): Promise<AdminUser[]> {
   const localList = getLocalAdmins();
   let dbList: AdminUser[] = [];
 
+  // Query 1: admin_users table
   try {
     const { data, error } = await supabase
       .from('admin_users')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      dbList = data;
+    if (!error && data && Array.isArray(data)) {
+      data.forEach((row: any) => {
+        if (row?.email) {
+          dbList.push({
+            id: row.id || 'admin-' + row.email,
+            full_name: row.full_name || row.email.split('@')[0],
+            email: row.email,
+            created_at: row.created_at || new Date().toISOString(),
+            created_by: row.created_by || SUPERADMIN_EMAIL,
+          });
+        }
+      });
+    }
+  } catch (e) {
+    // Ignore if table does not exist
+  }
+
+  // Query 2: client_profiles table where role='admin'
+  try {
+    const { data, error } = await supabase
+      .from('client_profiles')
+      .select('*')
+      .eq('role', 'admin');
+
+    if (!error && data && Array.isArray(data)) {
+      data.forEach((row: any) => {
+        if (row?.email) {
+          dbList.push({
+            id: row.id || 'prof-' + row.email,
+            full_name: row.full_name || row.email.split('@')[0],
+            email: row.email,
+            created_at: row.created_at || new Date().toISOString(),
+            created_by: SUPERADMIN_EMAIL,
+          });
+        }
+      });
     }
   } catch (e) {
     // Ignore if table does not exist
@@ -121,7 +171,13 @@ export async function getAllAdminUsers(): Promise<AdminUser[]> {
   localList.forEach((u) => map.set(u.email.toLowerCase().trim(), u));
   dbList.forEach((u) => map.set(u.email.toLowerCase().trim(), u));
 
-  return Array.from(map.values());
+  const merged = Array.from(map.values());
+
+  // Keep local storage synced with all known admin accounts
+  const nonSuperAdmins = merged.filter((u) => !u.is_superadmin);
+  setLocalAdmins(nonSuperAdmins);
+
+  return merged;
 }
 
 export function extractErrorMessage(err: any): string {
@@ -189,7 +245,7 @@ export async function createAdminAccount({
     let authUserId: string | null = null;
 
     try {
-      // Create secondary non-persisting client so superadmin stays logged in
+      // Create secondary non-persisting client so current superadmin session stays active
       const secondarySupabase = createClient(supabaseUrl, supabaseAnonKey, {
         auth: {
           persistSession: false,
@@ -225,23 +281,50 @@ export async function createAdminAccount({
       created_by: SUPERADMIN_EMAIL,
     };
 
-    // Save to local list
+    // 1. Save to local storage list
     const local = getLocalAdmins();
-    local.push(newAdminObj);
+    const existingIdx = local.findIndex((u) => u.email.toLowerCase().trim() === cleanEmail);
+    if (existingIdx >= 0) {
+      local[existingIdx] = newAdminObj;
+    } else {
+      local.push(newAdminObj);
+    }
     setLocalAdmins(local);
 
-    // Try saving to DB table
+    // 2. Try saving to admin_users table in Supabase
     try {
-      await supabase.from('admin_users').insert([
+      const { error: dbErr } = await supabase.from('admin_users').upsert([
         {
           id: newAdminObj.id,
           full_name: cleanName,
           email: cleanEmail,
           created_by: SUPERADMIN_EMAIL,
+          created_at: newAdminObj.created_at,
         },
-      ]);
+      ], { onConflict: 'email' });
+      if (dbErr) {
+        console.warn('Database upsert into admin_users warning:', dbErr);
+      }
     } catch (e) {
-      console.warn('Database insert into admin_users warning:', e);
+      console.warn('Database upsert into admin_users notice:', e);
+    }
+
+    // 3. Try saving to client_profiles table as admin role
+    try {
+      const { error: profErr } = await supabase.from('client_profiles').upsert([
+        {
+          id: newAdminObj.id,
+          full_name: cleanName,
+          email: cleanEmail,
+          role: 'admin',
+          created_at: newAdminObj.created_at,
+        },
+      ], { onConflict: 'email' });
+      if (profErr) {
+        console.warn('Database upsert into client_profiles warning:', profErr);
+      }
+    } catch (e) {
+      console.warn('Database upsert into client_profiles notice:', e);
     }
 
     // Trigger update event
@@ -270,9 +353,16 @@ export async function deleteAdminAccount(email: string): Promise<{ success: bool
   const local = getLocalAdmins().filter((u) => u.email.toLowerCase().trim() !== cleanEmail);
   setLocalAdmins(local);
 
-  // Remove from Supabase DB table
+  // Remove from admin_users table
   try {
     await supabase.from('admin_users').delete().eq('email', cleanEmail);
+  } catch (e) {
+    // Ignore error
+  }
+
+  // Remove or update role in client_profiles
+  try {
+    await supabase.from('client_profiles').delete().eq('email', cleanEmail);
   } catch (e) {
     // Ignore error
   }

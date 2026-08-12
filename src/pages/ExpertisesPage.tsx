@@ -131,10 +131,10 @@ export default function ExpertisesPage() {
                     </p>
                     <div className="pt-4">
                       <Link
-                        to="/client/marketplace"
+                        to="/catalogue"
                         className="inline-flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 hover:border-blue-600 hover:text-blue-600 text-gray-800 rounded-xl font-bold transition-all shadow-sm group"
                       >
-                        En savoir plus
+                        Découvrir
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </Link>
                     </div>

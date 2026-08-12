@@ -427,7 +427,7 @@ export default function ClientRegister() {
                     Création en cours...
                   </>
                 ) : (
-                  'Créer mon compte'
+                  'S\'inscrire'
                 )}
               </button>
             </div>
@@ -437,7 +437,7 @@ export default function ClientRegister() {
             <p className="text-sm text-gray-600">
               Vous avez déjà un compte ?{' '}
               <Link to={`/client/login${redirectPath ? `?redirect=${redirectPath}` : ''}`} className="font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors">
-                Connectez-vous
+                Se connecter
               </Link>
             </p>
           </div>

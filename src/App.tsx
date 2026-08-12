@@ -153,7 +153,7 @@ export default function App() {
       <Route path="/client/hub" element={<ClientHub />} />
       <Route path="/client/course/:courseId" element={<ClientCourseView />} />
       <Route path="/client/course/:courseId/module/:moduleId" element={<ClientModuleView />} />
-      <Route path="/client/marketplace" element={<Marketplace />} />
+      <Route path="/catalogue" element={<Marketplace />} />
       
       {/* Live Visioconference Module Routes */}
       <Route path="/live" element={<LiveDashboard />} />

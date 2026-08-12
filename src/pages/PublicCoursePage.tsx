@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
 import { findReferralCode, recordReferralSale, ReferralCodeInfo } from '../lib/referralService';
-import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock, Ticket, Tag, Sparkles, Check } from 'lucide-react';
+import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock, Ticket, Tag, Sparkles, Check, BookOpen, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const testimonials = [
@@ -44,6 +44,7 @@ const testimonials = [
 
 export default function PublicCoursePage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -352,8 +353,7 @@ END:VCALENDAR`;
 
   const scrollToForm = () => {
     if (!clientId) {
-      setAuthModalReason(course?.product_type === 'ebook' ? "télécharger cet E-book" : "vous inscrire à cette formation");
-      setShowAuthModal(true);
+      navigate(`/client/login?redirect=${encodeURIComponent(`/course/${id}`)}`);
       return;
     }
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -612,7 +612,7 @@ END:VCALENDAR`;
           {/* Top Row: Back button, Title, Espace button */}
           <div className="w-full flex items-center justify-between gap-4">
             <a 
-              href="/client/marketplace" 
+              href="/catalogue" 
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-gray-700 hover:text-gray-950 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -676,279 +676,97 @@ END:VCALENDAR`;
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border theme-border text-center relative overflow-hidden"
+          className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border border-gray-100 text-left relative overflow-hidden mb-8 sm:mb-12"
         >
           <div className="absolute top-0 left-0 w-full h-2 theme-gradient"></div>
           
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
+          <h1 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight mb-6 leading-tight">
+            {course.title}
+          </h1>
+
+          <div className="flex flex-wrap items-center gap-3 mb-8">
             {course.product_type === 'ebook' ? (
-              <>
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 rounded-full text-sm font-bold text-purple-800 border border-purple-200 shadow-xs">
-                  <FileText className="w-4 h-4 text-purple-700" />
-                  <span>📖 Livre Numérique (E-book)</span>
-                </div>
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full text-sm font-bold text-green-700 border border-green-200">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span>
-                  <span>⚡ Accès immédiat</span>
-                </div>
-              </>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg text-sm font-bold text-purple-700 border border-purple-100">
+                <FileText className="w-4 h-4" />
+                <span>E-book / Numérique</span>
+              </div>
             ) : (
-              <>
-                <div className="inline-flex items-center gap-2 px-4 py-2 theme-bg-light rounded-full text-sm font-semibold theme-text border theme-border-light shadow-xs">
-                  <span>🎓 Formation</span>
-                </div>
-                {course.is_date_tbd || !course.date_time ? (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full text-sm font-bold text-amber-800 border border-amber-200 shadow-xs">
-                    <span>🗓️ Date à déterminer</span>
-                  </div>
-                ) : (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full text-sm font-semibold text-blue-700 border border-blue-200">
-                    <Calendar className="w-4 h-4 text-blue-500" />
-                    <span className="capitalize">{formattedDate}</span>
-                  </div>
-                )}
-              </>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 theme-bg-light rounded-lg text-sm font-bold theme-text border theme-border-light">
+                <Video className="w-4 h-4" />
+                <span>Formation en ligne</span>
+              </div>
             )}
             
             {course.product_type !== 'ebook' && (
-              course.max_seats ? (
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${course.remainingSeats && course.remainingSeats > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                  <User className="w-4 h-4" />
-                  {course.remainingSeats && course.remainingSeats > 0 ? (
-                    <span>{course.remainingSeats} {course.remainingSeats > 1 ? 'places restantes' : 'place restante'} sur {course.max_seats}</span>
-                  ) : (
-                    <span>Complet ({course.max_seats} inscrits)</span>
-                  )}
+              course.is_date_tbd || !course.date_time ? (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg text-sm font-bold text-amber-700 border border-amber-100">
+                  <Calendar className="w-4 h-4" />
+                  <span>Date à venir</span>
                 </div>
               ) : (
-                course.registeredCount > 0 && (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 rounded-full text-sm font-medium border border-gray-200">
-                    <User className="w-4 h-4" />
-                    <span>{course.registeredCount} {course.registeredCount > 1 ? 'inscrits' : 'inscrit'}</span>
-                  </div>
-                )
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg text-sm font-bold text-blue-700 border border-blue-100">
+                  <Calendar className="w-4 h-4" />
+                  <span className="capitalize">{formattedDate}</span>
+                </div>
               )
             )}
-          </div>
-          
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-6">
-            {course.title}
-          </h1>
-          
-          {course.description && (
-            course.description.includes('<') && course.description.includes('>') ? (
-              <div 
-                className="text-gray-600 text-base sm:text-lg leading-relaxed mb-6 max-w-2xl mx-auto prose max-w-none text-left sm:text-center
-                  [&>ul]:list-disc [&>ul]:inline-block [&>ul]:text-left [&>ol]:list-decimal [&>ol]:inline-block [&>ol]:text-left 
-                  [&_strong]:font-bold [&_em]:italic [&_u]:underline
-                  [&_h1]:text-2xl [&_h1]:font-black [&_h1]:mb-4 [&_h1]:text-gray-900
-                  [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800
-                  [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:text-gray-800"
-                dangerouslySetInnerHTML={{ __html: course.description }}
-              />
-            ) : (
-              <p className="text-gray-600 text-base sm:text-lg leading-relaxed mb-6 max-w-2xl mx-auto whitespace-pre-wrap">
-                {course.description}
-              </p>
-            )
-          )}
 
-          {course.product_type === 'ebook' ? (
-            <div className="mb-8 p-5 bg-purple-50/50 border border-purple-200/60 rounded-2xl max-w-md mx-auto text-center shadow-xs">
-              <span className="text-purple-800 font-bold text-sm flex items-center justify-center gap-1.5">
-                📖 Livre Numérique (Téléchargement)
-              </span>
-              <span className="text-xs text-purple-600 block mt-1.5 leading-relaxed">
-                Ce produit est un livre électronique au format PDF. Vous en obtiendrez l'<strong>accès immédiat</strong> pour consultation et téléchargement dans votre <strong>Espace Personnel</strong> dès validation de votre commande.
-              </span>
-            </div>
-          ) : (
-            <div className="mb-8 p-5 bg-emerald-50/50 border border-emerald-200/60 rounded-2xl max-w-md mx-auto text-center shadow-xs">
-              <span className="text-emerald-800 font-bold text-sm flex items-center justify-center gap-1.5">
-                🎓 Formation en ligne interactive
-              </span>
-              <span className="text-xs text-emerald-600 block mt-1.5 leading-relaxed">
-                Ce produit est une session de formation en direct. Vous aurez accès aux modules, au groupe WhatsApp d'entraide, à la visioconférence et au guide de préparation.
-              </span>
-            </div>
-          )}
-
-          <div className="flex flex-col items-center justify-center gap-2 mb-6">
-            <span className="text-sm theme-text uppercase tracking-widest font-bold">
-              {course.product_type === 'ebook' ? "Prix de l'e-book" : "Tarif d'inscription"}
-            </span>
-            {basePrice === 0 ? (
-              <span className="text-4xl sm:text-5xl font-black theme-text animate-pulse">
-                Gratuit !
-              </span>
-            ) : appliedPromo ? (
-              <div className="text-center space-y-1">
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-2xl font-bold text-gray-400 line-through">
-                    {basePrice.toLocaleString('fr-FR')} FCFA
-                  </span>
-                  <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Code {appliedPromo.code} (-{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})
-                  </span>
-                </div>
-                <div className="text-4xl sm:text-5xl font-black text-emerald-600">
-                  {effectivePrice.toLocaleString('fr-FR')} <span className="text-xl text-emerald-700 font-medium">FCFA</span>
-                </div>
+            {course.course_modules && course.course_modules.length > 0 && (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-sm font-bold text-slate-700 border border-slate-200">
+                <BookOpen className="w-4 h-4" />
+                <span>{course.course_modules.length} {course.course_modules.length > 1 ? 'modules' : 'module'}</span>
               </div>
-            ) : (
-              <span className="text-4xl sm:text-5xl font-black text-gray-900">
-                {basePrice.toLocaleString('fr-FR')} <span className="text-xl text-gray-500 font-medium">FCFA</span>
-              </span>
             )}
+
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg text-sm font-bold text-emerald-700 border border-emerald-100">
+               <Tag className="w-4 h-4" />
+               <span>{basePrice === 0 ? "Gratuit" : `${basePrice.toLocaleString('fr-FR')} FCFA`}</span>
+            </div>
           </div>
 
-          {/* Interactive Promo Code Box */}
-          {basePrice > 0 && (
-            <div className="w-full max-w-md mx-auto mb-8 bg-slate-50 border border-slate-200/90 rounded-2xl p-4 shadow-2xs text-left">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <Ticket className="w-4 h-4 text-indigo-600" />
-                  Code Promotionnel Privilège
-                </span>
-                {appliedPromo && (
-                  <button 
-                    onClick={removePromo} 
-                    className="text-xs text-red-600 font-bold hover:underline cursor-pointer"
-                  >
-                    Retirer le code
-                  </button>
-                )}
-              </div>
-
-              {appliedPromo ? (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <div>
-                      <p className="text-xs font-extrabold text-emerald-950 font-mono">
-                        {appliedPromo.code}
-                      </p>
-                      <p className="text-[11px] text-emerald-700 font-medium">
-                        Réduction de -{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-black text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
-                    -{(discountCalculation.savings ?? discountCalculation.discountAmount ?? 0).toLocaleString('fr-FR')} FCFA
-                  </span>
-                </div>
+          {course.description && (
+            <div className="prose prose-lg max-w-none text-gray-600 mb-8 leading-relaxed
+                [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-6 [&>ul>li]:mb-2
+                [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-6 [&>ol>li]:mb-2
+                [&_strong]:font-extrabold [&_strong]:text-gray-900 
+                [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-gray-900 [&_h1]:mb-4 [&_h1]:mt-8
+                [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mb-3 [&_h2]:mt-6
+                [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-gray-800 [&_h3]:mb-2 [&_h3]:mt-4">
+              {course.description.includes('<') && course.description.includes('>') ? (
+                <div dangerouslySetInnerHTML={{ __html: course.description }} />
               ) : (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={promoInput}
-                      disabled={isCheckingPromo}
-                      onChange={(e) => setPromoInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !isCheckingPromo) {
-                          e.preventDefault();
-                          applyCode(promoInput, true);
-                        }
-                      }}
-                      placeholder="Ex: EXPERT50, BOOST20..."
-                      className="flex-1 px-3.5 py-2.5 text-xs font-mono font-bold uppercase bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:normal-case placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
-                    />
-                    <button
-                      type="button"
-                      disabled={isCheckingPromo}
-                      onClick={() => applyCode(promoInput, true)}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-colors shrink-0 shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 min-w-[95px]"
-                    >
-                      {isCheckingPromo ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Vérification...</span>
-                        </>
-                      ) : (
-                        'Appliquer'
-                      )}
-                    </button>
-                  </div>
-                  <AnimatePresence mode="wait">
-                    {isCheckingPromo && (
-                      <motion.div
-                        key="promo-checking"
-                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                        transition={{ duration: 0.2 }}
-                        className="p-2.5 bg-indigo-50 border border-indigo-200/80 rounded-xl text-[11px] font-semibold text-indigo-700 flex items-center gap-2 shadow-2xs"
-                      >
-                        <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin shrink-0" />
-                        <span>Vérification du code promo en cours...</span>
-                      </motion.div>
-                    )}
-                    {!isCheckingPromo && promoError && (
-                      <motion.div
-                        key="promo-error"
-                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                        transition={{ duration: 0.2 }}
-                        className="p-2.5 bg-red-50 border border-red-200/80 rounded-xl text-[11px] font-semibold text-red-700 flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                        <span>{promoError}</span>
-                      </motion.div>
-                    )}
-                    {!isCheckingPromo && promoSuccessMsg && (
-                      <motion.div
-                        key="promo-success"
-                        initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                        transition={{ duration: 0.2 }}
-                        className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>{promoSuccessMsg}</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                <p className="whitespace-pre-wrap">{course.description}</p>
               )}
             </div>
           )}
 
-          {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
-            <button 
-              disabled
-              className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-4 bg-gray-100 text-gray-500 rounded-2xl font-semibold text-lg cursor-not-allowed border border-gray-200"
-            >
-              Formation complète
-            </button>
-          ) : (
-            <button 
-              onClick={scrollToForm}
-              className="w-full sm:w-auto inline-flex justify-center items-center px-8 py-4 theme-bg rounded-2xl font-bold text-lg hover:opacity-90 transition-all active:scale-[0.98] animate-pulse hover:animate-none"
-            >
-              {course.product_type === 'ebook' 
-                ? (course.price_fcfa === 0 ? "Télécharger cet E-book" : "Acheter cet E-book") 
-                : ((course.is_date_tbd || !course.date_time) ? "Se pré-inscrire" : "S'inscrire")
-              }
-            </button>
-          )}
-
-          {course.youtube_video_url && (
-            <div className="mt-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4 pt-6 border-t border-gray-100">
+            {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
+              <button disabled className="w-full sm:w-auto px-8 py-4 bg-gray-100 text-gray-500 rounded-xl font-bold text-lg cursor-not-allowed">
+                Formation complète
+              </button>
+            ) : (
+              <button 
+                onClick={scrollToForm}
+                className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-8 py-4 theme-bg rounded-xl font-bold text-lg text-white hover:opacity-90 transition-all shadow-md active:scale-95"
+              >
+                {course.product_type === 'ebook' ? "Obtenir cet E-book" : "S'inscrire à la formation"}
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            )}
+            
+            {course.youtube_video_url && (
               <a 
                 href={course.youtube_video_url} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="inline-flex items-center gap-2 text-sm font-medium theme-text hover:opacity-80 transition-opacity theme-bg-light px-4 py-2 rounded-full border theme-border-light"
+                className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-6 py-4 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-xl transition-all border border-gray-200"
               >
-                <Play className="w-4 h-4" />
-                Voir la vidéo de présentation
+                <Youtube className="w-5 h-5 text-red-500" />
+                <span>Voir l'extrait vidéo</span>
               </a>
-            </div>
-          )}
+            )}
+          </div>
         </motion.section>
 
         {/* Modules Section */}
@@ -961,7 +779,7 @@ END:VCALENDAR`;
             className="space-y-4"
           >
             <h2 className="text-2xl font-bold text-gray-900 px-2 mb-2 flex items-center gap-2">
-              <span className="text-2xl">📚</span> {course.product_type === 'ebook' ? "Sommaire / Chapitres de l'E-book" : "Programme de la formation"}
+              <span className="text-2xl">📚</span> {course.product_type === 'ebook' ? "Sommaire de l'E-book" : "Programme de la formation"}
             </h2>
             <div className="space-y-3">
               {course.course_modules.map((module: any, idx: number) => (
@@ -991,9 +809,7 @@ END:VCALENDAR`;
                     )}
                   </button>
                   
-                  <div 
-                    className={`px-5 pb-5 pt-1 text-gray-600 text-sm sm:text-base leading-relaxed transition-all overflow-hidden ${openModules[module.id] ? 'block' : 'hidden'}`}
-                  >
+                  <div className={`px-5 pb-5 pt-1 text-gray-600 text-sm sm:text-base leading-relaxed transition-all overflow-hidden ${openModules[module.id] ? 'block' : 'hidden'}`}>
                     <div className="pl-12">
                       {module.description}
                     </div>
@@ -1004,42 +820,223 @@ END:VCALENDAR`;
           </motion.section>
         )}
 
-        {/* Trainer Section */}
-        {course.trainers && (
-          <motion.section 
+        {/* Modalités & Formateur */}
+        <motion.section 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border theme-border relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 theme-bg-light rounded-bl-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
-            <h2 className="text-xl font-bold text-gray-900 mb-6 border-b theme-border-light pb-4 flex items-center gap-2">
-              <span className="text-2xl">{course.product_type === 'ebook' ? "✍️" : "🎓"}</span> {course.product_type === 'ebook' ? "Auteur" : "Animé par"}
-            </h2>
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left relative z-10">
-              {course.trainers.photo_url ? (
-                <img 
-                  src={course.trainers.photo_url} 
-                  alt={`Photo de ${course.trainers.name}`} 
-                  className="w-24 h-24 rounded-full object-cover shadow-md border-4 border-white" 
-                />
-              ) : (
-                <div className="w-24 h-24 rounded-full theme-bg-light flex flex-shrink-0 items-center justify-center border-4 border-white shadow-sm">
-                  <User className="w-10 h-10 theme-text" />
+            className="space-y-4"
+        >
+          <h2 className="text-2xl font-bold text-gray-900 px-2 flex items-center gap-2">
+            <CheckCircle className="w-6 h-6 text-gray-400" /> Modalités et Infos
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {course.product_type === 'ebook' ? (
+              <div className="p-6 bg-purple-50/50 border border-purple-200/60 rounded-3xl shadow-sm">
+                <span className="text-purple-800 font-bold text-sm flex items-center gap-2 mb-2">
+                  <Download className="w-4 h-4" /> Livre Numérique
+                </span>
+                <p className="text-sm text-purple-700 leading-relaxed">
+                  Ce produit est un e-book au format PDF. Vous en obtiendrez l'<strong>accès immédiat</strong> pour consultation et téléchargement dans votre <strong>Espace Personnel</strong> dès la validation de votre commande.
+                </p>
+              </div>
+            ) : (
+              <div className="p-6 bg-emerald-50/50 border border-emerald-200/60 rounded-3xl shadow-sm">
+                <span className="text-emerald-800 font-bold text-sm flex items-center gap-2 mb-2">
+                  <Video className="w-4 h-4" /> Formation en ligne interactive
+                </span>
+                <p className="text-sm text-emerald-700 leading-relaxed mb-4">
+                  Session de formation en direct. Vous aurez accès aux modules, au groupe WhatsApp d'entraide, à la visioconférence et au guide de préparation.
+                </p>
+                {course.max_seats && (
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border ${course.remainingSeats && course.remainingSeats > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                    <User className="w-4 h-4" />
+                    {course.remainingSeats && course.remainingSeats > 0 ? (
+                      <span>{course.remainingSeats} {course.remainingSeats > 1 ? 'places restantes' : 'place restante'} sur {course.max_seats}</span>
+                    ) : (
+                      <span>Complet ({course.max_seats} inscrits)</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {course.trainers && (
+              <div className="p-6 bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col items-start gap-4 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 theme-bg-light rounded-bl-full -mr-8 -mt-8 opacity-50 pointer-events-none"></div>
+                <div className="flex items-center gap-4 relative z-10 w-full">
+                  {course.trainers.photo_url ? (
+                    <img 
+                      src={course.trainers.photo_url} 
+                      alt={`Photo de ${course.trainers.name}`} 
+                      className="w-16 h-16 rounded-full object-cover shadow-sm border-2 border-white shrink-0" 
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full theme-bg-light flex shrink-0 items-center justify-center border-2 border-white shadow-sm">
+                      <User className="w-6 h-6 theme-text" />
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{course.product_type === 'ebook' ? 'Auteur' : 'Formateur'}</span>
+                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{course.trainers.name}</h3>
+                  </div>
                 </div>
-              )}
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{course.trainers.name}</h3>
                 {course.trainers.description && (
-                  <p className="text-gray-600 leading-relaxed text-sm sm:text-base">
+                  <p className="text-gray-600 text-sm leading-relaxed relative z-10">
                     {course.trainers.description}
                   </p>
                 )}
               </div>
+            )}
+          </div>
+        </motion.section>
+
+        {/* Prix & Inscription */}
+        <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+            className="bg-slate-50 rounded-3xl p-6 sm:p-10 border border-slate-200"
+        >
+          <div className="text-center max-w-lg mx-auto">
+            <h2 className="text-2xl font-black text-slate-900 mb-6 flex items-center justify-center gap-2">
+              <Tag className="w-6 h-6 text-indigo-600" /> Tarif
+            </h2>
+            
+            <div className="flex flex-col items-center justify-center gap-2 mb-8">
+              {basePrice === 0 ? (
+                <span className="text-5xl font-black text-emerald-600 animate-pulse">
+                  Gratuit !
+                </span>
+              ) : appliedPromo ? (
+                <div className="text-center space-y-1">
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="text-2xl font-bold text-gray-400 line-through">
+                      {basePrice.toLocaleString('fr-FR')} FCFA
+                    </span>
+                    <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Code {appliedPromo.code} (-{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})
+                    </span>
+                  </div>
+                  <div className="text-5xl font-black text-emerald-600">
+                    {effectivePrice.toLocaleString('fr-FR')} <span className="text-2xl text-emerald-700 font-medium">FCFA</span>
+                  </div>
+                </div>
+              ) : (
+                <span className="text-5xl font-black text-slate-900">
+                  {basePrice.toLocaleString('fr-FR')} <span className="text-2xl text-slate-500 font-medium">FCFA</span>
+                </span>
+              )}
             </div>
-          </motion.section>
-        )}
+
+            {/* Interactive Promo Code Box */}
+            {basePrice > 0 && (
+              <div className="w-full bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs text-left mb-8">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Ticket className="w-4 h-4 text-indigo-600" />
+                    Code Promotionnel
+                  </span>
+                  {appliedPromo && (
+                    <button 
+                      onClick={removePromo} 
+                      className="text-xs text-red-600 font-bold hover:underline cursor-pointer"
+                    >
+                      Retirer le code
+                    </button>
+                  )}
+                </div>
+
+                {appliedPromo ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <div>
+                        <p className="text-xs font-extrabold text-emerald-950 font-mono">
+                          {appliedPromo.code}
+                        </p>
+                        <p className="text-[11px] text-emerald-700 font-medium">
+                          Réduction de -{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+                      -{(discountCalculation.savings ?? discountCalculation.discountAmount ?? 0).toLocaleString('fr-FR')} FCFA
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={promoInput}
+                        disabled={isCheckingPromo}
+                        onChange={(e) => setPromoInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !isCheckingPromo) {
+                            e.preventDefault();
+                            applyCode(promoInput, true);
+                          }
+                        }}
+                        placeholder="Ex: EXPERT50..."
+                        className="flex-1 px-3.5 py-2.5 text-xs font-mono font-bold uppercase bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:normal-case placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        disabled={isCheckingPromo}
+                        onClick={() => applyCode(promoInput, true)}
+                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-colors shrink-0 shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 min-w-[95px]"
+                      >
+                        {isCheckingPromo ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Appliquer'
+                        )}
+                      </button>
+                    </div>
+                    <AnimatePresence mode="wait">
+                      {promoError && !isCheckingPromo && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                          className="p-2.5 bg-red-50 border border-red-200/80 rounded-xl text-[11px] font-semibold text-red-700 flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                          <span>{promoError}</span>
+                        </motion.div>
+                      )}
+                      {promoSuccessMsg && !isCheckingPromo && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                          className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>{promoSuccessMsg}</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
+              <button disabled className="w-full px-8 py-4 bg-gray-200 text-gray-500 rounded-xl font-bold text-lg cursor-not-allowed">
+                Formation complète
+              </button>
+            ) : (
+              <button 
+                onClick={scrollToForm}
+                className="w-full inline-flex justify-center items-center gap-2 px-8 py-4 theme-bg rounded-xl font-bold text-lg text-white hover:opacity-90 transition-all shadow-md active:scale-95"
+              >
+                {course.product_type === 'ebook' ? "Obtenir cet E-book" : "S'inscrire à la formation"}
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        </motion.section>
 
         {/* Testimonials Section */}
         <motion.section 
@@ -1277,12 +1274,11 @@ END:VCALENDAR`;
                   <p className="text-gray-400 mb-6">Vous devez disposer d'un compte (gratuit) pour procéder à l'inscription.</p>
                   <button 
                     onClick={() => {
-                      setAuthModalReason(course?.product_type === 'ebook' ? "télécharger cet E-book" : "vous inscrire à cette formation");
-                      setShowAuthModal(true);
+                      navigate(`/client/login?redirect=${encodeURIComponent(`/course/${id}`)}`);
                     }}
                     className="inline-flex justify-center items-center px-8 py-3 theme-bg rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-lg"
                   >
-                    Créer un compte ou se connecter
+                    Se connecter pour s'inscrire
                   </button>
                 </div>
               ) : course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
@@ -1764,67 +1760,6 @@ END:VCALENDAR`;
             >
               <X className="w-4 h-4" />
             </button>
-          </div>
-        </div>
-      )}
-      {/* Auth Prompt Modal */}
-      {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/70 backdrop-blur-md">
-          <div className="bg-white rounded-[2rem] max-w-md w-full p-6 sm:p-8 relative shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
-            <button 
-              onClick={() => setShowAuthModal(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 font-extrabold text-xs uppercase tracking-wider mb-5">
-              <User className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
-              <span>Espace Privé</span>
-            </div>
-
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight leading-tight mb-3">
-              Rejoignez Exceller chez Pierre 🚀
-            </h3>
-            
-            <p className="text-gray-600 text-sm leading-relaxed mb-5">
-              Pour pouvoir <strong className="text-gray-950 font-bold">{authModalReason}</strong>, vous devez simplement disposer d'un <strong>compte client</strong> (gratuit).
-            </p>
-
-            {/* Account advantages */}
-            <div className="space-y-3 bg-gray-50/70 p-4 sm:p-5 rounded-2xl border border-gray-100/70 mb-6 text-left">
-              <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">Vos avantages membre :</p>
-              <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-xs text-gray-700 leading-tight">
-                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>Accès gratuit & instantané à votre Hub d'apprentissage privé</span>
-                </li>
-                <li className="flex items-start gap-2.5 text-xs text-gray-700 leading-tight">
-                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>Suivi de l'état de vos inscriptions et validation de vos paiements</span>
-                </li>
-                <li className="flex items-start gap-2.5 text-xs text-gray-700 leading-tight">
-                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>Accès direct aux liens Google Meet, groupes WhatsApp et guides</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <a
-                href="/client/register"
-                className="w-full py-3.5 px-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-center font-extrabold rounded-2xl transition-all shadow-lg shadow-blue-100 hover:shadow-xl hover:shadow-blue-200 text-sm active:scale-98 flex items-center justify-center gap-2 cursor-pointer font-sans"
-              >
-                <User className="w-4 h-4" />
-                <span>Créer mon compte gratuitement</span>
-              </a>
-              <a
-                href={`/client/login?redirect=course/${course?.id}`}
-                className="w-full py-3.5 px-5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-center font-bold rounded-2xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Déjà membre ? Se connecter</span>
-              </a>
-            </div>
           </div>
         </div>
       )}

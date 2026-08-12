@@ -23,6 +23,7 @@ import {
   Play,
   ExternalLink,
   RefreshCw,
+  Sparkles,
   Check,
   Settings,
   Lock,
@@ -650,7 +651,7 @@ export default function ClientHub() {
 
               {/* Catalogue */}
               <Link 
-                to="/client/marketplace"
+                to="/catalogue"
                 className="col-span-1 relative overflow-hidden bg-gray-900 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-gray-900/20 active:scale-95 transition-all duration-300 aspect-square"
               >
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black opacity-80" />
@@ -770,36 +771,22 @@ export default function ClientHub() {
                 </div>
               </button>
 
-              {/* Suggestions */}
+              {/* Mes demandes */}
               <button 
                 onClick={() => setActiveSection('proposals')}
                 className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-amber-900/5 hover:border-amber-100 active:scale-95 transition-all duration-300 aspect-square"
               >
                 <div className="flex justify-between w-full items-start">
                   <div className="bg-amber-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-amber-600 group-hover:bg-amber-100 transition-all">
-                    <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   {proposals.length > 0 && (
                     <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200 shadow-sm">{proposals.length}</span>
                   )}
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Suggestions</h3>
-                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Propositions</p>
-                </div>
-              </button>
-
-              {/* Intérêts */}
-              <button 
-                onClick={() => setActiveSection('interests')}
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-rose-900/5 hover:border-rose-100 active:scale-95 transition-all duration-300 aspect-square"
-              >
-                <div className="bg-rose-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-rose-600 group-hover:bg-rose-100 transition-all w-fit">
-                  <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Intérêts</h3>
-                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Formations suivies</p>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Mes demandes</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Suivi & propositions</p>
                 </div>
               </button>
 
@@ -1250,7 +1237,7 @@ export default function ClientHub() {
                 Vous n'êtes inscrit à aucune formation pour le moment. Explorez notre catalogue pour trouver celle qui vous convient.
               </p>
               <Link 
-                to="/client/marketplace" 
+                to="/catalogue" 
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
               >
                 Voir le catalogue
@@ -1482,179 +1469,146 @@ export default function ClientHub() {
           </div>
         )}
 
-        {/* Formations d'intérêt Section */}
-        {activeSection === 'interests' && (
-          proposals.filter((p: any) => p.course_id !== null).length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Heart className="w-10 h-10 text-gray-400" />
+        {/* Mes demandes Section */}
+        {(activeSection === 'proposals' || (activeSection as string) === 'interests') && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Mes demandes</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Suivi de vos manifestations d'intérêt et propositions d'accompagnement sur mesure.
+                </p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Aucun intérêt marqué</h3>
-              <p className="text-gray-500 mb-8 text-sm">
-                Vous n'avez manifesté votre intérêt pour aucune formation inactive pour le moment. Explorez le catalogue et cliquez sur "Je veux cette formation ✋" sur les sessions à venir.
-              </p>
               <Link 
-                to="/client/marketplace" 
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
+                to="/catalogue?action=propose"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition-colors shadow-sm shrink-0"
               >
-                Voir le catalogue
-                <ArrowRight className="w-4 h-4" />
+                <Lightbulb className="w-4 h-4 text-amber-400" />
+                Faire une demande sur mesure
               </Link>
             </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {proposals.filter((p: any) => p.course_id !== null).map((prop, index) => {
-                const date = new Date(prop.created_at);
-                const course = prop.courses;
-                return (
-                  <div key={`${prop.id}-${index}`} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
-                    <div>
-                      <div className="flex justify-between items-start mb-4">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                          prop.status === 'accepted' ? 'bg-green-50 text-green-700 border border-green-100' :
-                          prop.status === 'rejected' ? 'bg-red-50 text-red-700 border border-red-100' :
-                          prop.status === 'reviewed' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                          'bg-amber-50 text-amber-700 border border-amber-100'
-                        }`}>
-                          {prop.status === 'accepted' && <span>✅ Intérêt Validé / Session Planifiée</span>}
-                          {prop.status === 'rejected' && <span>❌ Demande écartée</span>}
-                          {prop.status === 'reviewed' && <span>📋 En cours de planification</span>}
-                          {prop.status === 'pending' && <span className="animate-pulse">⏳ Demande enregistrée</span>}
-                        </span>
-                        <span className="text-xs text-gray-400 font-mono">
-                          {date.toLocaleDateString('fr-FR')}
-                        </span>
-                      </div>
 
-                      <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
-                        {course?.title || prop.custom_title || "Formation inconnue"}
-                      </h3>
-                      
-                      {prop.custom_description && (
-                        <div className="mb-4">
-                          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Votre demande originale :</p>
-                          <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">
-                            {prop.custom_description}
+            {proposals.length === 0 ? (
+              <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
+                <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <FileText className="w-10 h-10 text-amber-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Aucune demande pour le moment</h3>
+                <p className="text-gray-500 mb-8 text-sm leading-relaxed">
+                  Vous n'avez soumis aucune demande d'accompagnement ni marqué d'intérêt pour une formation.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Link 
+                    to="/catalogue" 
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm text-sm"
+                  >
+                    Voir le catalogue
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2">
+                {proposals.map((prop, index) => {
+                  const date = new Date(prop.created_at);
+                  const course = prop.courses;
+                  const isCustomProposal = prop.course_id === null;
+
+                  return (
+                    <div key={`${prop.id}-${index}`} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+                      <div>
+                        {/* Type tag & Status badge */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                            isCustomProposal 
+                              ? 'bg-purple-50 text-purple-700 border border-purple-100' 
+                              : 'bg-blue-50 text-blue-700 border border-blue-100'
+                          }`}>
+                            {isCustomProposal ? (
+                              <>
+                                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                                <span>Demande sur mesure</span>
+                              </>
+                            ) : (
+                              <>
+                                <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Intérêt Formation</span>
+                              </>
+                            )}
+                          </span>
+
+                          <span className="text-xs text-gray-400 font-mono">
+                            {date.toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg font-bold text-gray-900 mb-3 leading-tight">
+                          {course?.title || prop.custom_title || "Formation / Demande inconnue"}
+                        </h3>
+
+                        {/* Description */}
+                        {prop.custom_description ? (
+                          <div className="mb-4 bg-gray-50/70 p-3.5 rounded-2xl border border-gray-100">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Détails de votre demande :</p>
+                            <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
+                              {prop.custom_description}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 text-xs mb-4 italic">
+                            Vous avez manifesté votre intérêt pour l'ouverture ou la programmation de cette formation.
                           </p>
-                        </div>
-                      )}
+                        )}
 
-                      {!prop.custom_description && (
-                        <p className="text-gray-500 text-xs mb-4 italic">
-                          Vous avez manifesté votre intérêt pour que cette formation soit programmée ou ouverte à l'inscription. Nous analysons la demande générale pour fixer une date.
-                        </p>
-                      )}
-                    </div>
+                        {/* Budget if any */}
+                        {prop.proposed_price && (
+                          <div className="text-xs text-gray-500 mb-4 bg-gray-50 px-3 py-1.5 rounded-xl inline-block border border-gray-100">
+                            Budget suggéré : <strong className="text-gray-800 font-mono">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(prop.proposed_price)}</strong>
+                          </div>
+                        )}
 
-                    {prop.admin_feedback && (
-                      <div className="mt-4 p-5 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] text-sm text-slate-900 shadow-sm">
-                        <div className="flex gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-sm shadow-indigo-100">
-                            <MessageSquare className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="flex-grow">
-                            <div className="flex justify-between items-center mb-1.5">
-                              <p className="font-black text-indigo-950 text-xs uppercase tracking-wider">Réponse de l'administration</p>
-                              <span className="text-[10px] font-bold text-indigo-400 bg-white px-2 py-0.5 rounded-full border border-indigo-50">OFFICIEL</span>
-                            </div>
-                            <p className="text-indigo-900 leading-relaxed font-medium italic">
-                              "{prop.admin_feedback}"
-                            </p>
-                          </div>
+                        {/* Status */}
+                        <div className="mb-2">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                            prop.status === 'accepted' ? 'bg-green-50 text-green-700 border border-green-100' :
+                            prop.status === 'rejected' ? 'bg-red-50 text-red-700 border border-red-100' :
+                            prop.status === 'reviewed' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                            'bg-amber-50 text-amber-700 border border-amber-100'
+                          }`}>
+                            {prop.status === 'accepted' && <span>✅ Demande acceptée</span>}
+                            {prop.status === 'rejected' && <span>❌ Écartée</span>}
+                            {prop.status === 'reviewed' && <span>📋 En cours d'analyse</span>}
+                            {prop.status === 'pending' && <span className="animate-pulse">⏳ En attente de traitement</span>}
+                          </span>
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )
-        )}
 
-        {/* Suggestions Section */}
-        {activeSection === 'proposals' && (
-          proposals.filter((p: any) => p.course_id === null).length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm max-w-lg mx-auto">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Lightbulb className="w-10 h-10 text-gray-400" />
+                      {/* Admin feedback */}
+                      {prop.admin_feedback && (
+                        <div className="mt-4 p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl text-sm text-slate-900 shadow-sm">
+                          <div className="flex gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-xs">
+                              <MessageSquare className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="flex-grow">
+                              <div className="flex justify-between items-center mb-1">
+                                <p className="font-extrabold text-indigo-950 text-[10px] uppercase tracking-wider">Réponse de l'administration</p>
+                                <span className="text-[9px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-full border border-indigo-100">OFFICIEL</span>
+                              </div>
+                              <p className="text-indigo-900 leading-relaxed text-xs font-medium italic">
+                                "{prop.admin_feedback}"
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Aucune suggestion</h3>
-              <p className="text-gray-500 mb-8 text-sm">
-                Vous n'avez soumis aucune proposition personnalisée de thématique de formation pour le moment.
-              </p>
-              <Link 
-                to="/client/marketplace" 
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
-              >
-                Proposer une thématique
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2">
-              {proposals.filter((p: any) => p.course_id === null).map((prop, index) => {
-                const date = new Date(prop.created_at);
-                return (
-                  <div key={`${prop.id}-${index}`} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
-                    <div>
-                      <div className="flex justify-between items-start mb-4">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                          prop.status === 'accepted' ? 'bg-green-50 text-green-700 border border-green-100' :
-                          prop.status === 'rejected' ? 'bg-red-50 text-red-700 border border-red-100' :
-                          prop.status === 'reviewed' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                          'bg-amber-50 text-amber-700 border border-amber-100'
-                        }`}>
-                          {prop.status === 'accepted' && <span>✅ Proposition Validée</span>}
-                          {prop.status === 'rejected' && <span>❌ Écartée pour l'instant</span>}
-                          {prop.status === 'reviewed' && <span>📋 En cours d'analyse</span>}
-                          {prop.status === 'pending' && <span className="animate-pulse">⏳ En attente d'étude</span>}
-                        </span>
-                        <span className="text-xs text-gray-400 font-mono">
-                          {date.toLocaleDateString('fr-FR')}
-                        </span>
-                      </div>
-
-                      <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
-                        {prop.custom_title}
-                      </h3>
-                      
-                      <div className="mb-4">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Détails de votre suggestion :</p>
-                        <p className="text-gray-600 text-sm whitespace-pre-wrap leading-relaxed">
-                          {prop.custom_description}
-                        </p>
-                      </div>
-                      
-                      {prop.proposed_price && (
-                        <div className="text-xs text-gray-500 mb-4 bg-gray-50 px-3 py-1.5 rounded-lg inline-block border border-gray-100">
-                          Budget suggéré : <strong className="text-gray-800 font-mono">{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(prop.proposed_price)}</strong>
-                        </div>
-                      )}
-                    </div>
-
-                    {prop.admin_feedback && (
-                      <div className="mt-4 p-5 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] text-sm text-slate-900 shadow-sm">
-                        <div className="flex gap-3">
-                          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-sm shadow-indigo-100">
-                            <MessageSquare className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="flex-grow">
-                            <div className="flex justify-between items-center mb-1.5">
-                              <p className="font-black text-indigo-950 text-xs uppercase tracking-wider">Réponse de l'administration</p>
-                              <span className="text-[10px] font-bold text-indigo-400 bg-white px-2 py-0.5 rounded-full border border-indigo-50">OFFICIEL</span>
-                            </div>
-                            <p className="text-indigo-900 leading-relaxed font-medium italic">
-                              "{prop.admin_feedback}"
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )
+            )}
+          </div>
         )}
 
         {/* Calendrier Section */}
@@ -2029,7 +1983,7 @@ export default function ClientHub() {
                       {/* Copy Share Link */}
                       <button
                         onClick={() => {
-                          const link = `${window.location.origin}/client/marketplace?promo=${referralCode.code}`;
+                          const link = `${window.location.origin}/catalogue?promo=${referralCode.code}`;
                           navigator.clipboard.writeText(link);
                           setCopiedLinkToast(true);
                           setTimeout(() => setCopiedLinkToast(false), 2500);

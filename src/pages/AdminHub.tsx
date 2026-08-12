@@ -105,7 +105,7 @@ export default function AdminHub() {
     }
   };
 
-  const marketplaceUrl = `${window.location.origin}/client/marketplace`;
+  const marketplaceUrl = `${window.location.origin}/catalogue`;
 
   
   const copyQuizLink = (courseId: string) => {
