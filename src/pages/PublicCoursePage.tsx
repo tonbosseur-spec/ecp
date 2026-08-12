@@ -1,11 +1,49 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
 import { findReferralCode, recordReferralSale, ReferralCodeInfo } from '../lib/referralService';
 import Footer from '../components/Footer';
-import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock, Ticket, Tag, Sparkles, Check, BookOpen, ArrowRight } from 'lucide-react';
+import { 
+  Loader2, 
+  Calendar, 
+  User, 
+  ChevronDown, 
+  ChevronUp, 
+  Play, 
+  CheckCircle2, 
+  MessageCircle, 
+  Video, 
+  FileText, 
+  AlertCircle, 
+  Download, 
+  Globe, 
+  Youtube, 
+  Star, 
+  Facebook, 
+  Linkedin, 
+  Send, 
+  CalendarOff, 
+  ArrowLeft, 
+  X, 
+  CheckCircle, 
+  Clock, 
+  Ticket, 
+  Tag, 
+  Sparkles, 
+  Check, 
+  BookOpen, 
+  ArrowRight,
+  Share2,
+  BookMarked,
+  ShieldCheck,
+  Smartphone,
+  Award,
+  Zap,
+  Users,
+  GraduationCap
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const testimonials = [
@@ -43,6 +81,18 @@ const testimonials = [
   }
 ];
 
+function formatDescriptionHtml(text: string | null | undefined): string {
+  if (!text) return '';
+  const hasHtml = /<[a-z][\s\S]*>/i.test(text);
+  if (hasHtml) {
+    return text;
+  }
+  return text
+    .split('\n\n')
+    .map(p => `<p class="mb-3 leading-relaxed">${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+}
+
 export default function PublicCoursePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -54,11 +104,7 @@ export default function PublicCoursePage() {
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 20) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 40);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -91,10 +137,6 @@ export default function PublicCoursePage() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
   const [dbTestimonials, setDbTestimonials] = useState<any[]>([]);
-
-  // Auth requirement modal state
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authModalReason, setAuthModalReason] = useState('');
 
   // Promo Code State
   const [searchParams] = useSearchParams();
@@ -175,7 +217,7 @@ export default function PublicCoursePage() {
     }
 
     if (isManual) {
-      setPromoError(`Le code "${cleanCode}" est invalide ou non applicable à cette formation.`);
+      setPromoError(`Le code "${cleanCode}" est invalide ou non applicable à ce produit.`);
     }
   };
 
@@ -206,7 +248,7 @@ export default function PublicCoursePage() {
     const date = new Date(course.date_time);
     const endDate = new Date(date.getTime() + 2 * 60 * 60 * 1000); // assume 2 hours
     
-    const formatDate = (date: Date) => date.toISOString().replace(/-|:|\.\d+/g, '');
+    const formatDate = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '');
     
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -234,7 +276,7 @@ END:VCALENDAR`;
     if (!course) return '#';
     const date = new Date(course.date_time);
     const endDate = new Date(date.getTime() + 2 * 60 * 60 * 1000); // assume 2 hours
-    const formatDate = (date: Date) => date.toISOString().replace(/-|:|\.\d+/g, '');
+    const formatDate = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '');
 
     const params = new URLSearchParams({
       action: 'TEMPLATE',
@@ -280,7 +322,7 @@ END:VCALENDAR`;
             setName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
             if (profile.phone) {
               setPhone(profile.phone);
-              setCountryCode(''); // reset since full number might be in phone
+              setCountryCode('');
             }
           } else if (session.user.user_metadata) {
             setName(`${session.user.user_metadata.first_name || ''} ${session.user.user_metadata.last_name || ''}`.trim());
@@ -339,7 +381,7 @@ END:VCALENDAR`;
 
       setCourse({ ...courseData, registeredCount, remainingSeats });
     } catch (err: any) {
-      setError("Impossible de charger la formation. Le lien est peut-être invalide.");
+      setError("Impossible de charger le produit. Le lien est peut-être invalide.");
     } finally {
       setLoading(false);
     }
@@ -364,7 +406,6 @@ END:VCALENDAR`;
     e.preventDefault();
     setFormError(null);
 
-    // If it's a paid product, open the payment modal. Otherwise, submit immediately.
     if (course && effectivePrice > 0) {
       setShowPaymentModal(true);
     } else {
@@ -386,9 +427,8 @@ END:VCALENDAR`;
         if (countError) throw countError;
         
         if (count !== null && count >= course.max_seats) {
-          setFormError("Désolé, cette formation est complète. Les inscriptions sont fermées.");
+          setFormError("Désolé, cette session est complète.");
           setSubmitting(false);
-          // Update local state to hide form immediately
           setCourse({ ...course, remainingSeats: 0 });
           return;
         }
@@ -414,7 +454,6 @@ END:VCALENDAR`;
         registration = res.data;
         regError = res.error;
       } catch (err: any) {
-        // Fallback without promo_code property if table column doesn't exist
         delete regPayload.promo_code;
         const res = await supabase.from('registrations').insert([regPayload]).select().single();
         registration = res.data;
@@ -423,7 +462,6 @@ END:VCALENDAR`;
 
       if (regError) throw regError;
 
-      // Record referral sale if referral code was used
       if (appliedReferralInfo && registration) {
         await recordReferralSale({
           registrationId: registration.id,
@@ -440,7 +478,6 @@ END:VCALENDAR`;
         });
       }
 
-      // Create initial payment record if not free
       if (!isFree && registration) {
         const initialAmount = paymentMode === 'full' 
           ? effectivePrice 
@@ -456,7 +493,6 @@ END:VCALENDAR`;
           due_date: new Date().toISOString()
         }]);
 
-        // If installments, create the second tranche (placeholder)
         if (paymentMode === 'installments') {
           const secondAmount = effectivePrice - initialAmount;
           const nextMonth = new Date();
@@ -475,9 +511,12 @@ END:VCALENDAR`;
       }
       
       const isPreRegistration = course.is_date_tbd || !course.date_time;
-      const successMessage = isPreRegistration
-        ? "Pré-inscription validée ! Nous vous informerons dès que la date sera fixée."
-        : "Votre inscription a été enregistrée avec succès !";
+      const isEbook = course.product_type === 'ebook';
+      const successMessage = isEbook
+        ? "Demande enregistrée avec succès !"
+        : (isPreRegistration
+            ? "Pré-inscription validée ! Nous vous informerons dès que la date sera fixée."
+            : "Votre inscription a été enregistrée avec succès !");
 
       setToast({
         show: true,
@@ -488,7 +527,7 @@ END:VCALENDAR`;
       setSuccess(true);
       setShowPaymentModal(false);
     } catch (err: any) {
-      setFormError("Une erreur est survenue lors de l'inscription.");
+      setFormError("Une erreur est survenue lors de la commande.");
     } finally {
       setSubmitting(false);
     }
@@ -526,24 +565,30 @@ END:VCALENDAR`;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3">
-        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
-        <p className="text-sm text-gray-500">Chargement des détails de la formation...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-300 gap-4">
+        <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+        <p className="text-sm font-medium tracking-wide">Chargement en cours...</p>
       </div>
     );
   }
 
   if (isInactive) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
-        <div className="bg-white p-10 rounded-3xl shadow-lg border border-red-100 max-w-lg w-full text-center">
-          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CalendarOff className="w-10 h-10 text-red-500" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+        <div className="bg-slate-900 border border-slate-800 p-8 sm:p-10 rounded-3xl max-w-lg w-full text-center space-y-4 shadow-2xl">
+          <div className="w-16 h-16 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mx-auto border border-red-500/20">
+            <CalendarOff className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3 tracking-tight">Formation Indisponible</h2>
-          <p className="text-gray-500 text-lg leading-relaxed">
-            Cette formation n'est actuellement plus disponible ou a déjà eu lieu. Merci de votre intérêt !
+          <h2 className="text-2xl font-black text-white tracking-tight">Produit indisponible</h2>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Ce produit n'est actuellement plus disponible à l'inscription. Merci de consulter notre catalogue.
           </p>
+          <div className="pt-2">
+            <Link to="/catalogue" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-100 transition-colors text-sm">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voir le catalogue</span>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -551,20 +596,24 @@ END:VCALENDAR`;
 
   if (error || !course) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md w-full text-center space-y-4 shadow-2xl">
+          <div className="w-16 h-16 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mx-auto border border-red-500/20">
             <AlertCircle className="w-8 h-8" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Oups !</h2>
-          <p className="text-gray-500">{error || "Formation introuvable."}</p>
+          <h2 className="text-xl font-bold text-white">Introuvable</h2>
+          <p className="text-slate-400 text-sm">{error || "Produit introuvable."}</p>
+          <Link to="/catalogue" className="inline-block px-5 py-2.5 bg-slate-800 text-white font-bold rounded-xl text-xs hover:bg-slate-700">
+            Retour au catalogue
+          </Link>
         </div>
       </div>
     );
   }
 
+  const isEbook = course.product_type === 'ebook';
   const formattedDate = (course.is_date_tbd || !course.date_time)
-    ? "Date à déterminer"
+    ? "Date à venir"
     : new Intl.DateTimeFormat('fr-FR', {
         weekday: 'long',
         day: 'numeric',
@@ -573,11 +622,6 @@ END:VCALENDAR`;
         hour: '2-digit',
         minute: '2-digit'
       }).format(new Date(course.date_time));
-
-  const template = course?.templates;
-  const primaryColor = template?.primary_color || '#16a34a';
-  const primaryColorLight = primaryColor + '40';
-  const bgClass = template?.bg_pattern || 'bg-green-50/30';
 
   const allTestimonials = [
     ...dbTestimonials.map(t => ({
@@ -591,380 +635,474 @@ END:VCALENDAR`;
     ...testimonials
   ];
 
+  const mainCtaText = isEbook 
+    ? (basePrice === 0 ? "Télécharger l'E-book Gratuit" : "Obtenir cet E-book")
+    : (course.remainingSeats === 0 
+        ? "Session Complète" 
+        : ((course.is_date_tbd || !course.date_time) ? "Se pré-inscrire" : "Je m'inscris à la formation"));
+
   return (
-    <div className={`min-h-screen ${bgClass} font-sans pb-20 pt-safe pb-safe theme-page`}>
-      <style dangerouslySetInnerHTML={{__html: `
-        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@600;700&display=swap');
-        .theme-page {
-          --theme-primary: ${primaryColor};
-          --theme-primary-light: ${primaryColorLight};
-        }
-        .theme-text { color: var(--theme-primary) !important; }
-        .theme-bg { background-color: var(--theme-primary) !important; color: #111827 !important; }
-        .theme-border { border-color: var(--theme-primary) !important; }
-        .theme-border-light { border-color: var(--theme-primary-light) !important; }
-        .theme-gradient { background: linear-gradient(to right, var(--theme-primary), var(--theme-primary-light)) !important; }
-        .theme-bg-light { background-color: var(--theme-primary-light) !important; color: #111827 !important; }
-      `}} />
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white">
+      
+      {/* 1. Header Minimal & Discret Flottant */}
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled ? 'bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 py-3 shadow-xl' : 'bg-gradient-to-b from-slate-950/80 via-slate-950/40 to-transparent py-4 sm:py-6'
+      }`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+          <Link 
+            to="/catalogue" 
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-bold transition-all backdrop-blur-md"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Catalogue</span>
+          </Link>
 
-      {/* Header */}
-      <header className={`bg-white shadow-md sticky top-0 z-40 border-b theme-border-light transition-all duration-500 ease-in-out ${isScrolled ? 'py-2 shadow-sm' : 'py-3 sm:py-4 shadow-md'}`}>
-        <div className={`max-w-3xl mx-auto px-4 flex flex-col items-center justify-center text-center transition-all duration-500 ease-in-out ${isScrolled ? 'gap-1.5' : 'gap-3'}`}>
-          {/* Top Row: Back button, Title, Espace button */}
-          <div className="w-full flex items-center justify-between gap-4">
-            <a 
-              href="/catalogue" 
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-gray-700 hover:text-gray-950 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Boutique</span>
-            </a>
-            
-            <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">
-              Exceller chez Pierre
-            </h1>
-            
-            <a 
-              href="/client/login" 
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-gray-700 hover:text-gray-950 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all shadow-xs"
-            >
-              <User className="w-3.5 h-3.5 text-gray-500" />
-              <span className="hidden sm:inline">Mon Espace</span>
-            </a>
-          </div>
+          <Link to="/" className="text-sm sm:text-base font-black tracking-tight text-white hover:opacity-90 transition-opacity">
+            Exceller chez Pierre
+          </Link>
 
-          {/* Cover image or pattern render inside the header */}
-          {course && (
-            <div 
-              className={`w-full transition-all duration-500 ease-in-out rounded-2xl overflow-hidden shadow-inner relative border border-gray-150/80 bg-white ${
-                isScrolled ? 'max-w-xs h-10 sm:h-12' : 'max-w-md h-48 sm:h-[280px]'
-              }`}
-            >
-              {course.cover_image_url ? (
-                <img 
-                  src={course.cover_image_url} 
-                  alt={`Image de couverture : ${course.title}`} 
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform hover:scale-105 duration-500"
-                />
-              ) : (
-                /* Beautiful abstract render with patterns & theme gradient if no image */
-                <div className="w-full h-full theme-gradient flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_15%,transparent_16%)] [background-size:16px_16px]"></div>
-                  <div className="absolute inset-0 opacity-10 bg-[linear-gradient(45deg,#fff_25%,transparent_25%,transparent_75%,#fff_75%,#fff),linear-gradient(45deg,#fff_25%,transparent_25%,transparent_75%,#fff_75%,#fff)] [background-size:20px_20px] [background-position:0_0,10px_10px]"></div>
-                  <div className="absolute -top-10 -left-10 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
-                  <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/20 rounded-full blur-lg"></div>
-                  <div className={`relative text-center px-4 transition-all duration-500 ${isScrolled ? 'py-0.5' : 'py-3'}`}>
-                    {!isScrolled && (
-                      <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider uppercase bg-white/20 px-2.5 py-0.5 rounded-full">
-                        {course.product_type === 'ebook' ? "📖 E-book" : "🎓 Formation"}
-                      </span>
-                    )}
-                    <p className={`text-white font-bold max-w-sm line-clamp-1 transition-all duration-500 ${isScrolled ? 'text-[10px] sm:text-xs mt-0' : 'text-xs sm:text-sm mt-1'}`}>
-                      {course.title}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <Link 
+            to="/client/login" 
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all backdrop-blur-md"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Mon Espace</span>
+          </Link>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 mt-8 space-y-8 sm:space-y-12">
-        {/* Hero Section */}
-        <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border border-gray-100 text-left relative overflow-hidden mb-8 sm:mb-12"
-        >
-          <div className="absolute top-0 left-0 w-full h-2 theme-gradient"></div>
-          
-          <h1 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight mb-6 leading-tight">
-            {course.title}
-          </h1>
-
-          <div className="flex flex-wrap items-center gap-3 mb-8">
-            {course.product_type === 'ebook' ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg text-sm font-bold text-purple-700 border border-purple-100">
-                <FileText className="w-4 h-4" />
-                <span>E-book / Numérique</span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 theme-bg-light rounded-lg text-sm font-bold theme-text border theme-border-light">
-                <Video className="w-4 h-4" />
-                <span>Formation en ligne</span>
-              </div>
-            )}
-            
-            {course.product_type !== 'ebook' && (
-              course.is_date_tbd || !course.date_time ? (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg text-sm font-bold text-amber-700 border border-amber-100">
-                  <Calendar className="w-4 h-4" />
-                  <span>Date à venir</span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg text-sm font-bold text-blue-700 border border-blue-100">
-                  <Calendar className="w-4 h-4" />
-                  <span className="capitalize">{formattedDate}</span>
-                </div>
-              )
-            )}
-
-            {course.course_modules && course.course_modules.length > 0 && (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg text-sm font-bold text-slate-700 border border-slate-200">
-                <BookOpen className="w-4 h-4" />
-                <span>{course.course_modules.length} {course.course_modules.length > 1 ? 'modules' : 'module'}</span>
-              </div>
-            )}
-
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg text-sm font-bold text-emerald-700 border border-emerald-100">
-               <Tag className="w-4 h-4" />
-               <span>{basePrice === 0 ? "Gratuit" : `${basePrice.toLocaleString('fr-FR')} FCFA`}</span>
-            </div>
-          </div>
-
-          {course.description && (
-            <div className="prose prose-lg max-w-none text-gray-600 mb-8 leading-relaxed
-                [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-6 [&>ul>li]:mb-2
-                [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-6 [&>ol>li]:mb-2
-                [&_strong]:font-extrabold [&_strong]:text-gray-900 
-                [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-gray-900 [&_h1]:mb-4 [&_h1]:mt-8
-                [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mb-3 [&_h2]:mt-6
-                [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-gray-800 [&_h3]:mb-2 [&_h3]:mt-4">
-              {course.description.includes('<') && course.description.includes('>') ? (
-                <div dangerouslySetInnerHTML={{ __html: course.description }} />
-              ) : (
-                <p className="whitespace-pre-wrap">{course.description}</p>
-              )}
-            </div>
+      {/* 2. HERO IMMERSIVE (100% Largeur avec dégradé progressif) */}
+      <section className="relative w-full min-h-[560px] sm:min-h-[640px] lg:min-h-[720px] bg-slate-950 flex flex-col justify-end pt-24 pb-12 sm:pb-16 overflow-hidden">
+        
+        {/* Widescreen Cover Image Ambient Backdrop */}
+        <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
+          {course.cover_image_url ? (
+            <img 
+              src={course.cover_image_url} 
+              alt={course.title}
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover object-center scale-105 filter blur-xs opacity-40 sm:opacity-50"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-indigo-950 via-slate-950 to-emerald-950 opacity-60"></div>
           )}
+          
+          {/* Transition Multi-Niveaux en Dégradé Progressif */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/20"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-transparent to-transparent"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-slate-950 to-transparent"></div>
+        </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 pt-6 border-t border-gray-100">
-            {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
-              <button disabled className="w-full sm:w-auto px-8 py-4 bg-gray-100 text-gray-500 rounded-xl font-bold text-lg cursor-not-allowed">
-                Formation complète
-              </button>
-            ) : (
-              <button 
-                onClick={scrollToForm}
-                className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-8 py-4 theme-bg rounded-xl font-bold text-lg text-white hover:opacity-90 transition-all shadow-md active:scale-95"
-              >
-                {course.product_type === 'ebook' ? "Obtenir cet E-book" : "S'inscrire à la formation"}
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            )}
-            
-            {course.youtube_video_url && (
-              <a 
-                href={course.youtube_video_url} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-6 py-4 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold rounded-xl transition-all border border-gray-200"
-              >
-                <Youtube className="w-5 h-5 text-red-500" />
-                <span>Voir l'extrait vidéo</span>
-              </a>
-            )}
-          </div>
-        </motion.section>
+        {/* Hero Content Container */}
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 w-full">
+          {isEbook ? (
+            /* E-BOOK HERO LAYOUT */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+              {/* Couverture E-book 3D Card (Desktop & Mobile) */}
+              <div className="lg:col-span-5 flex justify-center lg:justify-start">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
+                  className="relative group max-w-[260px] sm:max-w-[300px] w-full"
+                >
+                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl blur-xl opacity-40 group-hover:opacity-70 transition duration-500"></div>
+                  <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl aspect-[3/4] flex items-center justify-center">
+                    {course.cover_image_url ? (
+                      <img 
+                        src={course.cover_image_url} 
+                        alt={course.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-contain sm:object-cover bg-slate-950"
+                      />
+                    ) : (
+                      <div className="p-8 text-center space-y-4">
+                        <BookOpen className="w-16 h-16 text-purple-400 mx-auto" />
+                        <span className="text-xs font-bold text-purple-300 uppercase tracking-widest block">Livre Numérique</span>
+                        <p className="text-white font-black text-lg line-clamp-3">{course.title}</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
 
-        {/* Modules Section */}
+              {/* Détails E-Book */}
+              <div className="lg:col-span-7 space-y-5 text-center lg:text-left">
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-black tracking-wide uppercase">
+                    <BookMarked className="w-3.5 h-3.5" />
+                    E-Book Numérique (PDF)
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-extrabold">
+                    <Zap className="w-3.5 h-3.5" />
+                    Accès Immédiat
+                  </span>
+                </div>
+
+                <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
+                  {course.title}
+                </h1>
+
+                {course.trainers?.name && (
+                  <p className="text-slate-300 text-sm sm:text-base font-medium flex items-center justify-center lg:justify-start gap-2">
+                    <span>Par</span>
+                    <strong className="text-white font-bold">{course.trainers.name}</strong>
+                  </p>
+                )}
+
+                <div className="flex items-center justify-center lg:justify-start gap-3 pt-1">
+                  <div className="text-3xl sm:text-4xl font-black text-white">
+                    {basePrice === 0 ? (
+                      <span className="text-emerald-400">GRATUIT</span>
+                    ) : appliedPromo ? (
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-emerald-400">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
+                        <span className="text-lg text-slate-500 line-through">{basePrice.toLocaleString('fr-FR')} FCFA</span>
+                      </div>
+                    ) : (
+                      <span>{basePrice.toLocaleString('fr-FR')} <span className="text-xl text-slate-400 font-medium">FCFA</span></span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hero Actions */}
+                <div className="pt-3 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+                  <button
+                    onClick={scrollToForm}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-emerald-950/50 hover:scale-105 active:scale-95 transition-all text-base cursor-pointer"
+                  >
+                    <span>{mainCtaText}</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+
+                  <a
+                    href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour Pierre ! Je souhaite acheter l'e-book "${course.title}".`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl border border-slate-700/80 transition-all text-sm"
+                  >
+                    <MessageCircle className="w-4 h-4 text-emerald-400" />
+                    <span>Question WhatsApp</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* FORMATION HERO LAYOUT */
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="max-w-3xl mx-auto text-center space-y-6"
+            >
+              {/* Badges de formation */}
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black uppercase tracking-wider">
+                  <GraduationCap className="w-4 h-4" />
+                  Formation en Ligne
+                </span>
+
+                {(course.is_date_tbd || !course.date_time) ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Date à venir
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold capitalize">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {formattedDate}
+                  </span>
+                )}
+
+                {course.course_modules && course.course_modules.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold">
+                    <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                    {course.course_modules.length} {course.course_modules.length > 1 ? 'modules' : 'module'}
+                  </span>
+                )}
+              </div>
+
+              {/* Titre principal */}
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
+                {course.title}
+              </h1>
+
+              {/* Formateur */}
+              {course.trainers?.name && (
+                <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-medium text-slate-300">
+                  {course.trainers.photo_url ? (
+                    <img src={course.trainers.photo_url} alt={course.trainers.name} className="w-6 h-6 rounded-full object-cover" />
+                  ) : (
+                    <User className="w-4 h-4 text-emerald-400" />
+                  )}
+                  <span>Formateur : <strong className="text-white font-bold">{course.trainers.name}</strong></span>
+                </div>
+              )}
+
+              {/* Tarif Hero */}
+              <div className="pt-2 flex items-center justify-center gap-3">
+                <span className="text-3xl sm:text-4xl font-black text-white">
+                  {basePrice === 0 ? (
+                    <span className="text-emerald-400">GRATUIT</span>
+                  ) : appliedPromo ? (
+                    <span className="text-emerald-400">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
+                  ) : (
+                    <span>{basePrice.toLocaleString('fr-FR')} <span className="text-xl text-slate-400 font-normal">FCFA</span></span>
+                  )}
+                </span>
+              </div>
+
+              {/* CTA principal */}
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
+                <button
+                  onClick={scrollToForm}
+                  disabled={course.remainingSeats === 0}
+                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-2xl shadow-xl shadow-emerald-950/60 hover:scale-105 active:scale-95 transition-all text-base cursor-pointer"
+                >
+                  <span>{mainCtaText}</span>
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+
+                {course.youtube_video_url && (
+                  <a
+                    href={course.youtube_video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl border border-slate-700/80 transition-all text-sm"
+                  >
+                    <Youtube className="w-4 h-4 text-red-500" />
+                    <span>Extrait Vidéo</span>
+                  </a>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </section>
+
+      {/* 3. CONTENU PRINCIPAL DE LA PAGE (Émergeant du dégradé) */}
+      <main className="relative z-20 max-w-4xl mx-auto px-4 sm:px-6 space-y-12 sm:space-y-16 py-12">
+
+        {/* SECTION 1: Présentation & Description */}
+        {course.description && (
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-sm space-y-6"
+          >
+            <div className="flex items-center gap-3 border-b border-slate-800/80 pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                <FileText className="w-5 h-5" />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                {isEbook ? "À propos de cet E-book" : "Présentation de la Formation"}
+              </h2>
+            </div>
+
+            <div 
+              className="text-slate-300 text-sm sm:text-base leading-relaxed space-y-3
+                [&_strong]:text-white [&_strong]:font-bold
+                [&_h1]:text-2xl [&_h1]:font-black [&_h1]:text-white [&_h1]:mt-6 [&_h1]:mb-3
+                [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-5 [&_h2]:mb-2
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-2
+                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-2"
+              dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(course.description) }}
+            />
+          </motion.section>
+        )}
+
+        {/* SECTION 2: Programme / Sommaire des Modules */}
         {course.course_modules && course.course_modules.length > 0 && (
           <motion.section 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="space-y-4"
+            className="space-y-6"
           >
-            <h2 className="text-2xl font-bold text-gray-900 px-2 mb-2 flex items-center gap-2">
-              <span className="text-2xl">📚</span> {course.product_type === 'ebook' ? "Sommaire de l'E-book" : "Programme de la formation"}
-            </h2>
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  {isEbook ? "Sommaire de l'E-book" : "Programme & Modules"}
+                </h2>
+                <p className="text-xs text-slate-400">Cliquez sur un module pour afficher les détails</p>
+              </div>
+            </div>
+
             <div className="space-y-3">
               {course.course_modules.map((module: any, idx: number) => (
-                <div key={`${module.id}-${idx}`} className="bg-white border theme-border rounded-2xl overflow-hidden transition-all shadow-sm hover:shadow-md">
+                <div 
+                  key={`${module.id}-${idx}`} 
+                  className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden transition-all hover:border-slate-700 shadow-lg"
+                >
                   <button 
                     onClick={() => toggleModule(module.id)}
-                    className="w-full px-5 py-4 flex items-center justify-between bg-white text-left focus:outline-none"
+                    className="w-full px-5 py-4 flex items-center justify-between text-left focus:outline-none cursor-pointer"
                   >
                     <div className="flex items-center gap-4 pr-4">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full theme-bg-light flex items-center justify-center font-bold text-sm">
-                        {idx + 1}
+                      <div className="shrink-0 w-8 h-8 rounded-xl bg-slate-800 text-emerald-400 border border-slate-700 flex items-center justify-center font-extrabold text-xs">
+                        {String(idx + 1).padStart(2, '0')}
                       </div>
-                      <div className="flex flex-col">
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-900">{module.title}</h3>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-white">{module.title}</h3>
                         {module.scheduled_date && (
-                          <div className="flex items-center gap-1.5 mt-1 text-xs font-medium text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full border border-emerald-100">
-                            <Clock className="w-3.5 h-3.5" />
-                            {new Date(module.scheduled_date).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                          <div className="flex items-center gap-1.5 mt-1 text-[11px] font-semibold text-emerald-400">
+                            <Clock className="w-3 h-3" />
+                            {new Date(module.scheduled_date).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </div>
                         )}
                       </div>
                     </div>
                     {openModules[module.id] ? (
-                      <ChevronUp className="w-5 h-5 theme-text flex-shrink-0" />
+                      <ChevronUp className="w-5 h-5 text-emerald-400 shrink-0" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      <ChevronDown className="w-5 h-5 text-slate-500 shrink-0" />
                     )}
                   </button>
                   
-                  <div className={`px-5 pb-5 pt-1 text-gray-600 text-sm sm:text-base leading-relaxed transition-all overflow-hidden ${openModules[module.id] ? 'block' : 'hidden'}`}>
-                    <div className="pl-12">
-                      {module.description}
-                    </div>
-                  </div>
+                  <AnimatePresence>
+                    {openModules[module.id] && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="px-5 pb-5 pt-1 text-slate-300 text-xs sm:text-sm leading-relaxed border-t border-slate-800/60 bg-slate-950/40"
+                      >
+                        <div className="pl-12 pt-2">
+                          {module.description}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))}
             </div>
           </motion.section>
         )}
 
-        {/* Modalités & Formateur */}
+        {/* SECTION 3: Modalités & Formateur */}
         <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="space-y-4"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
         >
-          <h2 className="text-2xl font-bold text-gray-900 px-2 flex items-center gap-2">
-            <CheckCircle className="w-6 h-6 text-gray-400" /> Modalités et Infos
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {course.product_type === 'ebook' ? (
-              <div className="p-6 bg-purple-50/50 border border-purple-200/60 rounded-3xl shadow-sm">
-                <span className="text-purple-800 font-bold text-sm flex items-center gap-2 mb-2">
-                  <Download className="w-4 h-4" /> Livre Numérique
-                </span>
-                <p className="text-sm text-purple-700 leading-relaxed">
-                  Ce produit est un e-book au format PDF. Vous en obtiendrez l'<strong>accès immédiat</strong> pour consultation et téléchargement dans votre <strong>Espace Personnel</strong> dès la validation de votre commande.
-                </p>
-              </div>
+          {/* Carte Modalités */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
+            <span className="text-emerald-400 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4" />
+              {isEbook ? "Modalités de Livraison" : "Modalités de la Formation"}
+            </span>
+
+            {isEbook ? (
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Produit numérique au format <strong>PDF</strong>. Vous en obtiendrez l'accès immédiat et téléchargeable dans votre <strong>Espace Personnel</strong> dès la confirmation.
+              </p>
             ) : (
-              <div className="p-6 bg-emerald-50/50 border border-emerald-200/60 rounded-3xl shadow-sm">
-                <span className="text-emerald-800 font-bold text-sm flex items-center gap-2 mb-2">
-                  <Video className="w-4 h-4" /> Formation en ligne interactive
-                </span>
-                <p className="text-sm text-emerald-700 leading-relaxed mb-4">
-                  Session de formation en direct. Vous aurez accès aux modules, au groupe WhatsApp d'entraide, à la visioconférence et au guide de préparation.
+              <div className="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                <p>
+                  Session en direct avec support pédagogique, groupe d'entraide et accompagnement personnalisé.
                 </p>
                 {course.max_seats && (
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border ${course.remainingSeats && course.remainingSeats > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                    <User className="w-4 h-4" />
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border ${course.remainingSeats && course.remainingSeats > 0 ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                    <Users className="w-3.5 h-3.5" />
                     {course.remainingSeats && course.remainingSeats > 0 ? (
                       <span>{course.remainingSeats} {course.remainingSeats > 1 ? 'places restantes' : 'place restante'} sur {course.max_seats}</span>
                     ) : (
-                      <span>Complet ({course.max_seats} inscrits)</span>
+                      <span>Session Complète ({course.max_seats} inscrits)</span>
                     )}
                   </div>
                 )}
               </div>
             )}
-
-            {course.trainers && (
-              <div className="p-6 bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col items-start gap-4 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 theme-bg-light rounded-bl-full -mr-8 -mt-8 opacity-50 pointer-events-none"></div>
-                <div className="flex items-center gap-4 relative z-10 w-full">
-                  {course.trainers.photo_url ? (
-                    <img 
-                      src={course.trainers.photo_url} 
-                      alt={`Photo de ${course.trainers.name}`} 
-                      className="w-16 h-16 rounded-full object-cover shadow-sm border-2 border-white shrink-0" 
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full theme-bg-light flex shrink-0 items-center justify-center border-2 border-white shadow-sm">
-                      <User className="w-6 h-6 theme-text" />
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{course.product_type === 'ebook' ? 'Auteur' : 'Formateur'}</span>
-                    <h3 className="text-lg font-bold text-gray-900 leading-tight">{course.trainers.name}</h3>
-                  </div>
-                </div>
-                {course.trainers.description && (
-                  <p className="text-gray-600 text-sm leading-relaxed relative z-10">
-                    {course.trainers.description}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
+
+          {/* Carte Formateur / Auteur */}
+          {course.trainers && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl flex flex-col justify-between">
+              <span className="text-indigo-400 font-bold text-xs uppercase tracking-wider">
+                {isEbook ? "Auteur de l'E-book" : "Formateur Expert"}
+              </span>
+
+              <div className="flex items-center gap-4">
+                {course.trainers.photo_url ? (
+                  <img src={course.trainers.photo_url} alt={course.trainers.name} className="w-14 h-14 rounded-2xl object-cover border border-slate-700 shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                    <User className="w-6 h-6 text-indigo-400" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-base font-bold text-white">{course.trainers.name}</h3>
+                  {course.trainers.description && (
+                    <p className="text-xs text-slate-400 line-clamp-2 mt-0.5">{course.trainers.description}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </motion.section>
 
-        {/* Prix & Inscription */}
+        {/* SECTION 4: Tarif & Code Promo */}
         <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.25 }}
-            className="bg-slate-50 rounded-3xl p-6 sm:p-10 border border-slate-200"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-10 text-center space-y-6 shadow-2xl"
         >
-          <div className="text-center max-w-lg mx-auto">
-            <h2 className="text-2xl font-black text-slate-900 mb-6 flex items-center justify-center gap-2">
-              <Tag className="w-6 h-6 text-indigo-600" /> Tarif
+          <div className="max-w-md mx-auto space-y-4">
+            <h2 className="text-2xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+              <Tag className="w-5 h-5 text-emerald-400" />
+              <span>Tarif & Réduction</span>
             </h2>
-            
-            <div className="flex flex-col items-center justify-center gap-2 mb-8">
+
+            <div className="text-center">
               {basePrice === 0 ? (
-                <span className="text-5xl font-black text-emerald-600 animate-pulse">
-                  Gratuit !
-                </span>
+                <span className="text-4xl font-black text-emerald-400">Gratuit !</span>
               ) : appliedPromo ? (
-                <div className="text-center space-y-1">
+                <div className="space-y-1">
                   <div className="flex items-center justify-center gap-3">
-                    <span className="text-2xl font-bold text-gray-400 line-through">
-                      {basePrice.toLocaleString('fr-FR')} FCFA
-                    </span>
-                    <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Code {appliedPromo.code} (-{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})
+                    <span className="text-xl font-bold text-slate-500 line-through">{basePrice.toLocaleString('fr-FR')} FCFA</span>
+                    <span className="bg-emerald-500/20 text-emerald-300 text-xs font-black px-3 py-1 rounded-full border border-emerald-500/30">
+                      Code {appliedPromo.code}
                     </span>
                   </div>
-                  <div className="text-5xl font-black text-emerald-600">
-                    {effectivePrice.toLocaleString('fr-FR')} <span className="text-2xl text-emerald-700 font-medium">FCFA</span>
+                  <div className="text-4xl font-black text-emerald-400">
+                    {effectivePrice.toLocaleString('fr-FR')} <span className="text-lg text-slate-400 font-medium">FCFA</span>
                   </div>
                 </div>
               ) : (
-                <span className="text-5xl font-black text-slate-900">
-                  {basePrice.toLocaleString('fr-FR')} <span className="text-2xl text-slate-500 font-medium">FCFA</span>
+                <span className="text-4xl font-black text-white">
+                  {basePrice.toLocaleString('fr-FR')} <span className="text-lg text-slate-400 font-medium">FCFA</span>
                 </span>
               )}
             </div>
 
-            {/* Interactive Promo Code Box */}
+            {/* Box Code Promo */}
             {basePrice > 0 && (
-              <div className="w-full bg-white border border-slate-200/90 rounded-2xl p-4 shadow-2xs text-left mb-8">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <Ticket className="w-4 h-4 text-indigo-600" />
-                    Code Promotionnel
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Ticket className="w-4 h-4 text-indigo-400" />
+                    Code Promo / Parrainage
                   </span>
                   {appliedPromo && (
-                    <button 
-                      onClick={removePromo} 
-                      className="text-xs text-red-600 font-bold hover:underline cursor-pointer"
-                    >
-                      Retirer le code
+                    <button onClick={removePromo} className="text-xs text-red-400 font-bold hover:underline cursor-pointer">
+                      Retirer
                     </button>
                   )}
                 </div>
 
                 {appliedPromo ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="text-xs font-extrabold text-emerald-950 font-mono">
-                          {appliedPromo.code}
-                        </p>
-                        <p className="text-[11px] text-emerald-700 font-medium">
-                          Réduction de -{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'}
-                        </p>
-                      </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-xs font-extrabold text-white font-mono">{appliedPromo.code}</span>
                     </div>
-                    <span className="text-xs font-black text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+                    <span className="text-xs font-bold text-emerald-400">
                       -{(discountCalculation.savings ?? discountCalculation.discountAmount ?? 0).toLocaleString('fr-FR')} FCFA
                     </span>
                   </div>
@@ -982,111 +1120,74 @@ END:VCALENDAR`;
                             applyCode(promoInput, true);
                           }
                         }}
-                        placeholder="Ex: EXPERT50..."
-                        className="flex-1 px-3.5 py-2.5 text-xs font-mono font-bold uppercase bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:normal-case placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                        placeholder="Ex: PROMO10"
+                        className="flex-1 px-3 py-2 text-xs font-mono font-bold uppercase bg-slate-900 border border-slate-700 rounded-xl text-white placeholder:normal-case placeholder:font-sans placeholder:font-normal placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
                       />
                       <button
                         type="button"
                         disabled={isCheckingPromo}
                         onClick={() => applyCode(promoInput, true)}
-                        className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-colors shrink-0 shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 min-w-[95px]"
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 text-slate-950 font-bold rounded-xl text-xs transition-colors shrink-0 cursor-pointer"
                       >
-                        {isCheckingPromo ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          'Appliquer'
-                        )}
+                        {isCheckingPromo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Appliquer'}
                       </button>
                     </div>
-                    <AnimatePresence mode="wait">
-                      {promoError && !isCheckingPromo && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                          className="p-2.5 bg-red-50 border border-red-200/80 rounded-xl text-[11px] font-semibold text-red-700 flex items-center gap-1.5 shadow-2xs"
-                        >
-                          <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                          <span>{promoError}</span>
-                        </motion.div>
-                      )}
-                      {promoSuccessMsg && !isCheckingPromo && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                          className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5 shadow-2xs"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span>{promoSuccessMsg}</span>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {promoError && (
+                      <p className="text-[11px] text-red-400 font-semibold">{promoError}</p>
+                    )}
+                    {promoSuccessMsg && (
+                      <p className="text-[11px] text-emerald-400 font-semibold">{promoSuccessMsg}</p>
+                    )}
                   </div>
                 )}
               </div>
             )}
-            
-            {course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
-              <button disabled className="w-full px-8 py-4 bg-gray-200 text-gray-500 rounded-xl font-bold text-lg cursor-not-allowed">
-                Formation complète
-              </button>
-            ) : (
-              <button 
-                onClick={scrollToForm}
-                className="w-full inline-flex justify-center items-center gap-2 px-8 py-4 theme-bg rounded-xl font-bold text-lg text-white hover:opacity-90 transition-all shadow-md active:scale-95"
-              >
-                {course.product_type === 'ebook' ? "Obtenir cet E-book" : "S'inscrire à la formation"}
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            )}
           </div>
         </motion.section>
 
-        {/* Testimonials Section */}
+        {/* SECTION 5: Témoignages */}
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.25 }}
           className="space-y-6"
         >
           <div className="flex items-center justify-between px-2">
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-              Ce qu'ils en disent
+            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+              <span>Témoignages & Avis</span>
             </h2>
             <button
               onClick={() => setShowReviewModal(true)}
-              className="text-sm font-medium theme-text hover:underline transition-colors px-3 py-1.5 rounded-lg theme-bg-light"
+              className="text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 px-3.5 py-2 rounded-xl transition-colors cursor-pointer"
             >
-              Laissez un avis
+              Donner mon avis
             </button>
           </div>
-          <div className="flex overflow-x-auto gap-4 pb-6 snap-x hide-scrollbar px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <style dangerouslySetInnerHTML={{__html: `
-              .hide-scrollbar::-webkit-scrollbar {
-                display: none;
-              }
-            `}} />
+
+          <div className="flex overflow-x-auto gap-4 pb-4 snap-x hide-scrollbar px-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {allTestimonials.map((testimonial, index) => (
               <div 
                 key={`${testimonial.id}-${index}`} 
-                className="min-w-[280px] sm:min-w-[320px] bg-white rounded-3xl p-6 shadow-sm border theme-border snap-center flex flex-col justify-between"
+                className="min-w-[280px] sm:min-w-[320px] max-w-[340px] bg-slate-900/80 border border-slate-800 rounded-2xl p-6 snap-center flex flex-col justify-between shadow-lg"
               >
-                <div>
-                  <div className="flex items-center gap-1 mb-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`w-4 h-4 ${(testimonial.rating || 5) > i ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                      <Star key={i} className={`w-3.5 h-3.5 ${(testimonial.rating || 5) > i ? 'text-yellow-400 fill-yellow-400' : 'text-slate-700'}`} />
                     ))}
                   </div>
-                  <p className="text-gray-700 italic mb-6 leading-relaxed text-sm sm:text-base">
+                  <p className="text-slate-300 italic text-xs sm:text-sm leading-relaxed">
                     "{testimonial.text}"
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full theme-bg-light theme-text font-bold flex items-center justify-center flex-shrink-0">
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-800/80 mt-4">
+                  <div className="w-8 h-8 rounded-full bg-slate-800 text-emerald-400 font-bold text-xs flex items-center justify-center border border-slate-700">
                     {testimonial.initials}
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-sm">{testimonial.name}</h4>
-                    <p className="text-xs text-gray-500">{testimonial.role}</p>
+                    <h4 className="font-bold text-white text-xs">{testimonial.name}</h4>
+                    <p className="text-[10px] text-slate-400">{testimonial.role}</p>
                   </div>
                 </div>
               </div>
@@ -1094,618 +1195,318 @@ END:VCALENDAR`;
           </div>
         </motion.section>
 
-        {/* Registration Form / Success Section */}
+        {/* SECTION 6: Formulaire d'inscription / Commande */}
         <motion.section 
+          ref={formRef} 
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          ref={formRef} 
-          className="bg-gray-900 text-white rounded-3xl p-6 sm:p-10 shadow-2xl overflow-hidden relative"
+          className="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden"
         >
-          <div className="absolute top-0 right-0 w-48 h-48 bg-gray-800 rounded-bl-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-gray-800 rounded-tr-full -ml-10 -mb-10 opacity-50 pointer-events-none"></div>
-          
           {success ? (
             <motion.div 
-              initial={{ scale: 0.8, opacity: 0 }} 
+              initial={{ scale: 0.9, opacity: 0 }} 
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", bounce: 0.4 }}
-              className="text-center space-y-6 py-4 relative z-10"
+              className="text-center space-y-6 py-4"
             >
-              <div className="w-16 h-16 theme-bg-light theme-text rounded-full flex items-center justify-center mx-auto mb-2 relative">
-                <div className="absolute inset-0 theme-bg rounded-full animate-ping opacity-20"></div>
-                <CheckCircle2 className="w-8 h-8 relative z-10" />
+              <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/30">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
 
-              {course.product_type === 'ebook' ? (
-                <>
-                  <h2 className="text-2xl font-bold">Commande validée !</h2>
-                  <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
-                    Merci <strong className="text-white">{name}</strong>. Votre demande pour l'e-book <strong>{course.title}</strong> a bien été enregistrée.
-                  </p>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black text-white">
+                  {isEbook ? "Commande enregistrée !" : "Inscription confirmée !"}
+                </h2>
+                <p className="text-slate-300 text-sm max-w-md mx-auto">
+                  Merci <strong className="text-white">{name}</strong>. Votre demande a bien été prise en compte.
+                </p>
+              </div>
 
-                  {course.price_fcfa === 0 && course.download_file_url ? (
-                    <div className="p-6 bg-purple-600/20 border border-purple-500/30 rounded-2xl text-center space-y-4 max-w-md mx-auto">
-                      <p className="text-sm text-purple-200">Votre e-book gratuit est prêt à être téléchargé !</p>
-                      <a
-                        href={course.download_file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-md"
-                      >
-                        <Download className="w-5 h-5 text-white" />
-                        <span>Télécharger l'E-book (PDF)</span>
-                      </a>
-                    </div>
-                  ) : (
-                    <p className="text-amber-300 text-sm p-4 bg-gray-800/80 rounded-xl border border-gray-700 text-center mt-4">
-                      ⏳ Dès que l'administrateur aura validé votre paiement Mobile Money, votre e-book sera débloqué et téléchargeable dans votre <strong>Espace Personnel</strong>.
-                    </p>
-                  )}
-
-                  <div className="pt-4">
-                    <a 
-                      href="/client/hub" 
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-gray-950 hover:bg-gray-100 rounded-xl font-bold transition-all"
-                    >
-                      <User className="w-4 h-4 text-gray-600" />
-                      Accéder à mon Espace Personnel
-                    </a>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {(course.is_date_tbd || !course.date_time) ? (
-                    <>
-                      <h2 className="text-2xl font-bold">Pré-inscription validée !</h2>
-                      <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
-                        Merci <strong className="text-white">{name}</strong>. Votre pré-inscription a été prise en compte. Nous vous informerons dès que la date sera fixée.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="text-2xl font-bold">Inscription confirmée !</h2>
-                      <p className="text-gray-300 max-w-md mx-auto leading-relaxed">
-                        Merci <strong className="text-white">{name}</strong>. Votre inscription à la formation a été enregistrée avec succès. Voici les informations pour y accéder :
-                      </p>
-                    </>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 text-left">
-                    {course.whatsapp_link && (
-                      <a href={course.whatsapp_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-800/80 rounded-xl hover:bg-gray-700 transition-colors border border-gray-700 shadow-sm">
-                        <div className="p-2 theme-bg-light theme-text rounded-lg">
-                          <MessageCircle className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-white">Groupe WhatsApp</div>
-                          <div className="text-xs text-gray-400">Rejoindre les autres participants</div>
-                        </div>
-                      </a>
-                    )}
-                    
-                    {course.google_meet_link && (
-                      <a href={course.google_meet_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-800/80 rounded-xl hover:bg-gray-700 transition-colors border border-gray-700 shadow-sm">
-                        <div className="p-2 theme-bg-light theme-text rounded-lg">
-                          <Video className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-white">Google Meet</div>
-                          <div className="text-xs text-gray-400">Lien de la visioconférence</div>
-                        </div>
-                      </a>
-                    )}
-                    
-                    {course.guide_url && (
-                      <div className="col-span-1 sm:col-span-2 mt-4 p-5 bg-gray-800/80 rounded-2xl border border-gray-700 shadow-sm">
-                        <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                          <FileText className="w-5 h-5 theme-text" />
-                          Guide de préparation
-                        </h3>
-                        <p className="text-sm text-gray-300 mb-4">
-                          {parseCourseQuizSettings(course.guide_text).guideText || 'Nous avons préparé un guide pour vous aider à bien démarrer. Téléchargez-le et lisez-le avant la session.'}
-                        </p>
-                        <a 
-                          href={course.guide_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-900 font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-md"
-                        >
-                          <Download className="w-4 h-4" />
-                          Télécharger le guide
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {!course.is_date_tbd && course.date_time && (
-                    <div className="mt-8 pt-8 border-t border-gray-800">
-                      <h3 className="text-lg font-bold text-white mb-2">Ajoutez cet événement à votre agenda</h3>
-                      <div className="relative inline-block text-left mt-2">
-                        <button 
-                          onClick={() => setShowCalendarMenu(!showCalendarMenu)}
-                          className="flex items-center gap-2 px-4 py-3 bg-gray-800/80 text-white border border-gray-700 rounded-xl hover:bg-gray-700 transition-colors shadow-sm font-medium"
-                        >
-                          <Calendar className="w-5 h-5 theme-text" />
-                          Ajouter au calendrier
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
-                        </button>
-                        
-                        {showCalendarMenu && (
-                          <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 z-50 overflow-hidden">
-                            <div className="py-1">
-                              <a
-                                href={generateGoogleCalendarLink()}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium"
-                              >
-                                Ajouter à Google Agenda
-                              </a>
-                              <button
-                                onClick={generateIcs}
-                                className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors font-medium text-left border-t border-gray-100"
-                              >
-                                Télécharger pour Outlook/Apple
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {!(course.whatsapp_link || course.google_meet_link || course.guide_url) && (
-                    <p className="text-gray-300 text-sm p-4 bg-gray-800/80 rounded-xl border border-gray-700 text-center mt-4 shadow-inner">
-                      L'administrateur vous contactera bientôt avec les informations d'accès à la formation.
-                    </p>
-                  )}
-                </>
-              )}
+              <div className="pt-4">
+                <Link 
+                  to="/client/hub" 
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-100 transition-colors text-sm shadow-lg"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Accéder à mon Espace Personnel</span>
+                </Link>
+              </div>
             </motion.div>
           ) : (
-            <div className="relative z-10">
+            <div className="max-w-md mx-auto space-y-6">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-black text-white">
+                  {isEbook ? "Commander cet E-book 📖" : "S'inscrire à la formation 🎉"}
+                </h2>
+                <p className="text-xs text-slate-400">Renseignez vos coordonnées ci-dessous pour procéder.</p>
+              </div>
+
               {!clientId ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 theme-bg-light theme-text rounded-full flex items-center justify-center mx-auto mb-4">
-                    <User className="w-8 h-8" />
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2">Compte Requis</h2>
-                  <p className="text-gray-400 mb-6">Vous devez disposer d'un compte (gratuit) pour procéder à l'inscription.</p>
+                <div className="text-center py-6 space-y-4">
+                  <p className="text-xs text-slate-300">Veuillez vous connecter à votre compte pour procéder.</p>
                   <button 
-                    onClick={() => {
-                      navigate(`/client/login?redirect=${encodeURIComponent(`/course/${id}`)}`);
-                    }}
-                    className="inline-flex justify-center items-center px-8 py-3 theme-bg rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-lg"
+                    onClick={() => navigate(`/client/login?redirect=${encodeURIComponent(`/course/${id}`)}`)}
+                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-sm transition-all cursor-pointer"
                   >
                     Se connecter pour s'inscrire
                   </button>
                 </div>
-              ) : course.product_type !== 'ebook' && course.remainingSeats === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="w-8 h-8" />
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2">Complet</h2>
-                  <p className="text-gray-400">Désolé, cette formation est complète. Les inscriptions sont fermées.</p>
-                </div>
               ) : (
-                <>
-                  <div className="text-center mb-8">
-                    {course.product_type === 'ebook' ? (
-                      <>
-                        <h2 className="text-2xl font-bold mb-2">Commandez votre E-book 📖</h2>
-                        <p className="text-gray-400 text-sm">Complétez ce formulaire pour obtenir votre livre numérique.</p>
-                      </>
-                    ) : (
-                      <>
-                        <h2 className="text-2xl font-bold mb-2">Réservez votre place 🎉</h2>
-                        <p className="text-gray-400 text-sm">Complétez ce formulaire pour vous inscrire à la formation.</p>
-                      </>
-                    )}
-                    
-                    {course.product_type !== 'ebook' && course.remainingSeats !== null && course.remainingSeats > 0 && (
-                      <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 rounded-full text-sm font-bold shadow-sm">
-                        <AlertCircle className="w-4 h-4" />
-                        Plus que {course.remainingSeats} {course.remainingSeats > 1 ? 'places disponibles' : 'place disponible'} !
-                      </div>
-                    )}
-                  </div>
-                  
+                <form onSubmit={handleRegister} className="space-y-4">
                   {formError && (
-                    <div className="mb-6 p-4 rounded-xl bg-red-900/50 border border-red-500/50 text-red-300 text-sm text-center flex items-center justify-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
+                    <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-red-300 text-xs text-center">
                       {formError}
                     </div>
                   )}
 
-                  <form onSubmit={handleRegister} className="space-y-4 max-w-md mx-auto">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1.5">Nom complet</label>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Nom complet</label>
+                    <input
+                      required
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="Ex: Kouamé Jean"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Adresse email</label>
+                    <input
+                      required
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="vous@email.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Téléphone</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="w-1/3 px-3 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="+237">🇨🇲 +237</option>
+                        <option value="+225">🇨🇮 +225</option>
+                        <option value="+221">🇸🇳 +221</option>
+                        <option value="+228">🇹🇬 +228</option>
+                        <option value="+229">🇧🇯 +229</option>
+                        <option value="+241">🇬🇦 +241</option>
+                        <option value="+33">🇫🇷 +33</option>
+                      </select>
                       <input
                         required
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent transition-shadow text-sm"
-                        placeholder="Ex: Kouamé Jean"
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-2/3 px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                        placeholder="Numéro sans l'indicatif"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1.5">Adresse email</label>
-                      <input
-                        required
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent transition-shadow text-sm"
-                        placeholder="vous@email.com"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1.5">Numéro de téléphone</label>
-                      <div className="flex gap-2">
-                        <select
-                          value={countryCode}
-                          onChange={(e) => setCountryCode(e.target.value)}
-                          className="block w-1/3 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent transition-shadow text-sm"
-                          required
+                  </div>
+
+                  {!isEbook && effectivePrice > 0 && (
+                    <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                      <label className="block text-xs font-bold text-slate-300">Mode de paiement</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('full')}
+                          className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            paymentMode === 'full' 
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' 
+                              : 'bg-slate-900 border-slate-800 text-slate-400'
+                          }`}
                         >
-                          <option value="+237">🇨🇲 +237 (Cameroun)</option>
-                          <option value="+225">🇨🇮 +225 (Côte d'Ivoire)</option>
-                          <option value="+221">🇸🇳 +221 (Sénégal)</option>
-                          <option value="+228">🇹🇬 +228 (Togo)</option>
-                          <option value="+229">🇧🇯 +229 (Bénin)</option>
-                          <option value="+226">🇧🇫 +226 (Burkina Faso)</option>
-                          <option value="+241">🇬🇦 +241 (Gabon)</option>
-                          <option value="+242">🇨🇬 +242 (Congo)</option>
-                          <option value="+243">🇨🇩 +243 (RDC)</option>
-                          <option value="+33">🇫🇷 +33 (France)</option>
-                          <option value="+1">🇺🇸/🇨🇦 +1 (USA/Canada)</option>
-                        </select>
-                        <input
-                          required
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className="block w-2/3 px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-white focus:border-transparent transition-shadow text-sm"
-                          placeholder="Numéro sans l'indicatif"
-                        />
+                          Paiement 100%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('installments')}
+                          className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            paymentMode === 'installments' 
+                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' 
+                              : 'bg-slate-900 border-slate-800 text-slate-400'
+                          }`}
+                        >
+                          Paiement en 2 Tranches
+                        </button>
                       </div>
                     </div>
+                  )}
 
-                    {course.product_type !== 'ebook' && effectivePrice > 0 && (
-                      <div className="bg-gray-800/30 border border-gray-700/50 p-4 rounded-2xl space-y-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-sm font-bold text-gray-300">Option de paiement</label>
-                          {appliedPromo && (
-                            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                              <Ticket className="w-3.5 h-3.5" />
-                              Code {appliedPromo.code} inclus
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMode('full')}
-                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-                              paymentMode === 'full' 
-                                ? 'bg-white text-gray-900 border-white shadow-lg shadow-white/5' 
-                                : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMode === 'full' ? 'border-gray-900' : 'border-gray-600'}`}>
-                                {paymentMode === 'full' && <div className="w-2 h-2 bg-gray-900 rounded-full" />}
-                              </div>
-                              <span className="text-sm font-bold">Paiement complet</span>
-                            </div>
-                            <span className="text-sm font-black">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMode('installments')}
-                            className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-                              paymentMode === 'installments' 
-                                ? 'bg-white text-gray-900 border-white shadow-lg shadow-white/5' 
-                                : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMode === 'installments' ? 'border-gray-900' : 'border-gray-600'}`}>
-                                {paymentMode === 'installments' && <div className="w-2 h-2 bg-gray-900 rounded-full" />}
-                              </div>
-                              <span className="text-sm font-bold">Paiement en 2 tranches</span>
-                            </div>
-                            <span className="text-sm font-black">2 x {Math.floor(effectivePrice / 2).toLocaleString('fr-FR')} FCFA</span>
-                          </button>
-                        </div>
-                        {paymentMode === 'installments' && (
-                          <p className="text-[10px] text-emerald-400 font-medium px-1">
-                            ℹ️ Vous réglez 50% aujourd'hui pour valider votre place, et le reste plus tard.
-                          </p>
-                        )}
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-4 px-4 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black rounded-xl transition-all text-sm mt-4 cursor-pointer shadow-lg"
+                  >
+                    {submitting ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Validation...</span>
                       </div>
+                    ) : (
+                      effectivePrice > 0 
+                        ? `Continuer vers le paiement (${effectivePrice.toLocaleString('fr-FR')} FCFA)` 
+                        : (isEbook ? "Obtenir gratuitement" : "Confirmer l'inscription")
                     )}
-
-                    {effectivePrice > 0 && (
-                      <div className="pt-2">
-                        <p className="text-xs text-gray-400">
-                          ℹ️ Le règlement de <strong>{effectivePrice.toLocaleString('fr-FR')} FCFA</strong> s'effectue par transfert Mobile Money au <strong>+237 650989019</strong>.
-                        </p>
-                      </div>
-                    )}
-                    
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-xl shadow-md text-base font-bold text-gray-900 bg-white hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-white disabled:opacity-50 transition-colors mt-6 transform active:scale-95"
-                    >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5 text-gray-900" />
-                          Traitement en cours...
-                        </>
-                      ) : course.price_fcfa > 0 ? (
-                        `Continuer vers le paiement (Transfert au +237 650989019)`
-                      ) : (
-                        course.product_type === 'ebook' ? 'Télécharger l\'e-book gratuitement' : ((course.is_date_tbd || !course.date_time) ? 'Se pré-inscrire' : 'S\'inscrire')
-                      )}
-                    </button>
-                  </form>
-                </>
+                  </button>
+                </form>
               )}
             </div>
           )}
         </motion.section>
 
-        {/* Footer / Links */}
-        <div className="mt-16 text-center space-y-6 pb-12">
-          <h3 className="text-xl font-bold text-gray-900">Pour aller plus loin</h3>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <a 
-              href="/" 
-              className="inline-flex justify-center items-center gap-2 px-6 py-3 theme-bg-light theme-text rounded-xl font-semibold hover:opacity-80 transition-opacity shadow-sm border theme-border"
-            >
-              <Globe className="w-5 h-5 theme-text" />
-              Visiter le site officiel
-            </a>
-            <a 
-              href="https://youtube.com/@excellerchezpierre?si=VjYob_33LerLzC99" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex justify-center items-center gap-2 px-6 py-3 bg-red-500/10 text-red-500 rounded-xl font-semibold hover:bg-red-500/20 transition-colors border border-red-500/20 shadow-sm"
-            >
-              <Youtube className="w-5 h-5" />
-              Découvrir sur YouTube
-            </a>
-          </div>
-        </div>
       </main>
 
-      {/* Footer Unifié */}
-      <Footer />
-      {/* Floating Action Button (Mobile) */}
-      <div className="fixed bottom-4 left-0 right-0 px-4 z-50 sm:hidden">
-        <a 
-          href={`https://wa.me/237698389030?text=${encodeURIComponent(course ? `Bonjour Pierre ! Je suis sur la page de la formation "${course.title}" (${course.price ? `${course.price} FCFA` : 'Gratuit'}). J'aimerais poser une question.` : "Bonjour Pierre ! Je consulte vos formations et souhaite poser une question.")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white font-bold py-3.5 px-6 rounded-full shadow-[0_4px_14px_0_rgba(37,211,102,0.39)] hover:bg-[#128C7E] hover:shadow-[0_6px_20px_rgba(37,211,102,0.23)] transition-all active:scale-95"
+      {/* 4. CTA FIXE DISCRET MOBILE */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800 p-3 sm:hidden shadow-2xl flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold text-slate-400 line-clamp-1">{course.title}</p>
+          <p className="text-sm font-black text-emerald-400">
+            {basePrice === 0 ? "Gratuit" : `${effectivePrice.toLocaleString('fr-FR')} FCFA`}
+          </p>
+        </div>
+        <button
+          onClick={scrollToForm}
+          className="px-5 py-2.5 bg-emerald-500 active:scale-95 text-slate-950 font-black text-xs rounded-xl transition-all shrink-0 cursor-pointer shadow-md"
         >
-          <MessageCircle className="w-5 h-5" />
-          Contacter sur WhatsApp
-        </a>
+          {isEbook ? "Obtenir l'E-book" : "S'inscrire"}
+        </button>
       </div>
 
       {/* Review Modal */}
       {showReviewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
+            className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative text-white"
           >
-            {reviewSuccess ? (
-              <div className="p-8 text-center space-y-4">
-                <div className="w-16 h-16 theme-bg-light theme-text rounded-full flex items-center justify-center mx-auto mb-2">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">Merci pour votre avis !</h3>
-                <p className="text-gray-500">Votre témoignage a été ajouté avec succès.</p>
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white">Laissez un avis</h3>
+              <button onClick={() => setShowReviewModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleReviewSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Nom et prénom</label>
+                <input 
+                  required 
+                  type="text" 
+                  value={reviewName}
+                  onChange={e => setReviewName(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs"
+                  placeholder="Ex: Kouamé Jean"
+                />
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-900">Laissez un avis</h3>
-                  <button onClick={() => setShowReviewModal(false)} className="text-gray-400 hover:text-gray-600">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Statut / Fonction</label>
+                <input 
+                  required 
+                  type="text" 
+                  value={reviewStatus}
+                  onChange={e => setReviewStatus(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs"
+                  placeholder="Ex: Analyste de données"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">Note</label>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      className="cursor-pointer"
+                    >
+                      <Star className={`w-6 h-6 ${reviewRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-slate-700'}`} />
+                    </button>
+                  ))}
                 </div>
-                <form onSubmit={handleReviewSubmit} className="p-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom et prénom</label>
-                    <input 
-                      required 
-                      type="text" 
-                      value={reviewName}
-                      onChange={e => setReviewName(e.target.value)}
-                      className="block w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Ex: Kouamé Jean"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Statut (Niveau d'étude, Poste)</label>
-                    <input 
-                      required 
-                      type="text" 
-                      value={reviewStatus}
-                      onChange={e => setReviewStatus(e.target.value)}
-                      className="block w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Ex: Étudiant en Master, Analyste"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Note</label>
-                    <div className="flex items-center gap-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setReviewRating(star)}
-                          className="focus:outline-none hover:scale-110 transition-transform"
-                        >
-                          <Star className={`w-8 h-8 ${reviewRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Commentaire</label>
-                    <textarea 
-                      required 
-                      value={reviewComment}
-                      onChange={e => setReviewComment(e.target.value)}
-                      rows={4}
-                      className="block w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Votre avis sur la formation..."
-                    />
-                  </div>
-                  <button 
-                    type="submit" 
-                    disabled={reviewSubmitting}
-                    className="w-full py-3 theme-bg rounded-xl text-white font-bold disabled:opacity-50"
-                  >
-                    {reviewSubmitting ? 'Envoi...' : 'Envoyer mon avis'}
-                  </button>
-                </form>
-              </>
-            )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Commentaire</label>
+                <textarea 
+                  required 
+                  value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs"
+                  placeholder="Votre avis..."
+                />
+              </div>
+              <button 
+                type="submit" 
+                disabled={reviewSubmitting}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                {reviewSubmitting ? 'Envoi...' : 'Envoyer mon avis'}
+              </button>
+            </form>
           </motion.div>
         </div>
       )}
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
+            className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative text-white"
           >
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">Finaliser votre règlement</h3>
-              <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white">Paiement Mobile Money</h3>
+              <button onClick={() => setShowPaymentModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
               </button>
             </div>
             
-            <form onSubmit={(e) => { e.preventDefault(); submitRegistration(false); }} className="p-6 space-y-5">
-              
-              {/* Payment Mode Choice */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-bold text-gray-900">Option de paiement :</label>
-                  {appliedPromo && (
-                    <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
-                      <Ticket className="w-3.5 h-3.5" />
-                      Code {appliedPromo.code} (-{appliedPromo.discount_value}{appliedPromo.discount_type === 'fixed' ? ' FCFA' : '%'})
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode('full')}
-                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${
-                      paymentMode === 'full' 
-                        ? 'border-emerald-600 bg-emerald-50' 
-                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-                    }`}
-                  >
-                    <CheckCircle2 className={`w-5 h-5 mb-1 ${paymentMode === 'full' ? 'text-emerald-600' : 'text-gray-300'}`} />
-                    <span className="text-xs font-bold text-gray-900">Totalité</span>
-                    <span className="text-[10px] text-gray-600 font-bold">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode('installments')}
-                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${
-                      paymentMode === 'installments' 
-                        ? 'border-emerald-600 bg-emerald-50' 
-                        : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-                    }`}
-                  >
-                    <Clock className={`w-5 h-5 mb-1 ${paymentMode === 'installments' ? 'text-emerald-600' : 'text-gray-300'}`} />
-                    <span className="text-xs font-bold text-gray-900">2 Tranches</span>
-                    <span className="text-[10px] text-gray-600 font-bold">{Math.floor(effectivePrice * 0.5).toLocaleString('fr-FR')} FCFA x 2</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">
-                  {paymentMode === 'full' ? (
-                    <>Pour débloquer votre accès à <strong>{course?.title}</strong>, veuillez effectuer un transfert manuel de <strong>{effectivePrice.toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
-                  ) : (
-                    <>Pour valider votre inscription (1ère tranche de 50%), veuillez effectuer un transfert manuel de <strong>{Math.floor(effectivePrice * 0.5).toLocaleString('fr-FR')} FCFA</strong> par Mobile Money.</>
-                  )}
+            <form onSubmit={(e) => { e.preventDefault(); submitRegistration(false); }} className="p-6 space-y-4">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
+                <p className="text-slate-300">
+                  Effectuez le transfert Mobile Money de <strong className="text-emerald-400">{effectivePrice.toLocaleString('fr-FR')} FCFA</strong> au numéro :
                 </p>
+                <p className="font-mono font-bold text-white text-sm bg-slate-900 p-2 rounded-lg border border-slate-800 text-center">
+                  +237 650 989 019
+                </p>
+                <p className="text-[10px] text-slate-400 italic text-center">Titulaire : Pierre Valdeze Mbom Mbom</p>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3 text-sm border border-gray-100">
-                <p className="font-semibold text-gray-700">Instructions de paiement Cameroun :</p>
-                <div className="space-y-2 font-medium">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-                    <span className="text-gray-600">MTN Mobile Money :</span>
-                    <span className="text-gray-950 font-bold font-mono">+237 650 989 019</span>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1 italic">
-                    Titulaire : Pierre Valdeze Mbom Mbom
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-semibold text-gray-950">
-                  Numéro de transaction (ID du SMS) *
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  ID Transaction SMS *
                 </label>
                 <input 
                   required 
                   type="text" 
                   value={transactionId}
                   onChange={e => setTransactionId(e.target.value)}
-                  className="block w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm placeholder-gray-400"
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
                   placeholder="Ex: AP2607.1340.C359"
                 />
-                <p className="text-xs text-gray-400">
-                  Saisissez le code de référence unique indiqué sur le SMS de confirmation de transfert.
-                </p>
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
                 <button 
                   type="submit" 
                   disabled={submitting || !transactionId}
-                  className="w-full py-3 px-4 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2 shadow-md"
+                  className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                 >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      Validation...
-                    </>
-                  ) : (
-                    'Confirmer le transfert au +237 650989019'
-                  )}
+                  {submitting ? 'Validation...' : 'Confirmer le transfert'}
                 </button>
                 <button 
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-500 font-medium rounded-xl transition-colors text-xs"
+                  className="w-full py-2 bg-slate-800 text-slate-400 font-bold rounded-xl text-xs"
                 >
                   Annuler
                 </button>
@@ -1718,22 +1519,23 @@ END:VCALENDAR`;
       {/* Toast Notification */}
       {toast.show && (
         <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="bg-gray-900 border border-gray-800 text-white p-4 rounded-2xl shadow-xl flex items-start gap-3">
-            <div className="shrink-0 mt-0.5">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-            </div>
+          <div className="bg-slate-900 border border-slate-800 text-white p-4 rounded-2xl shadow-xl flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
             <div className="flex-grow">
-              <p className="text-sm font-semibold">{toast.message}</p>
+              <p className="text-xs font-bold">{toast.message}</p>
             </div>
             <button 
               onClick={() => setToast({ ...toast, show: false })}
-              className="shrink-0 text-gray-400 hover:text-gray-300 transition-colors"
+              className="text-slate-400 hover:text-white"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
+
+      {/* Footer Unifié */}
+      <Footer />
     </div>
   );
 }
