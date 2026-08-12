@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { ensureClientProfile } from '../lib/profileUtils';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { getQuizClassForScore, QUIZ_CLASSES, extractCoursePromoCodes, PromoCode } from '../lib/promoUtils';
 import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, Users, HelpCircle, ExternalLink, Zap, Ticket, Loader2 } from 'lucide-react';
@@ -272,6 +273,12 @@ export default function PublicQuizChallenge() {
         discount_value: quizClass.defaultDiscount,
         discount_type: 'percentage'
       };
+
+      await ensureClientProfile(userId, {
+        first_name: participantForm.firstName,
+        last_name: participantForm.lastName,
+        phone: `${participantForm.whatsappCountry}${participantForm.whatsappNumber}`
+      });
 
       await supabase.from('course_proposals').insert({
         client_id: userId,

@@ -26,7 +26,11 @@ import {
   ChevronRight,
   ChevronDown,
   Filter,
-  Smartphone
+  Smartphone,
+  Briefcase,
+  FileText,
+  Eye,
+  Mail
 } from 'lucide-react';
 import { AdminChat } from '../components/AdminChat';
 import { 
@@ -54,20 +58,28 @@ export default function AdminClients() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const tabParam = searchParams.get('tab') as 'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients' | null;
-  const [activeTab, setActiveTab] = useState<'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients'>(tabParam || 'payments');
+  const tabParam = searchParams.get('tab') as 'payments' | 'service_requests' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients' | null;
+  const [activeTab, setActiveTab] = useState<'payments' | 'service_requests' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients'>(tabParam || 'payments');
 
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+  const [serviceRequests, setServiceRequests] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
   const [studentsData, setStudentsData] = useState<any[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
 
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const [loadingServiceRequests, setLoadingServiceRequests] = useState(false);
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [allClientsData, setAllClientsData] = useState<any[]>([]);
   const [loadingAllClients, setLoadingAllClients] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Service Requests filters & modal
+  const [serviceRequestFilter, setServiceRequestFilter] = useState<'Toutes' | 'Nouvelles' | 'En cours' | 'Terminées'>('Toutes');
+  const [serviceRequestSearch, setServiceRequestSearch] = useState('');
+  const [selectedServiceRequest, setSelectedServiceRequest] = useState<any | null>(null);
+  const [editingAdminNotes, setEditingAdminNotes] = useState('');
 
   // Proposal filter
   const [proposalFilter, setProposalFilter] = useState<'pending' | 'all'>('pending');
@@ -86,6 +98,7 @@ export default function AdminClients() {
 
   useEffect(() => {
     fetchPendingPayments();
+    fetchServiceRequests();
     fetchProposals();
     fetchUnreadMessages();
 
@@ -110,6 +123,9 @@ export default function AdminClients() {
   }, [proposalFilter]);
 
   useEffect(() => {
+    if (activeTab === 'service_requests') {
+      fetchServiceRequests();
+    }
     if (activeTab === 'students' || activeTab === 'commerciaux') {
       fetchStudentsData();
     }
@@ -123,9 +139,71 @@ export default function AdminClients() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const changeTab = (tab: 'payments' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients') => {
+  const changeTab = (tab: 'payments' | 'service_requests' | 'proposals' | 'students' | 'commerciaux' | 'messages' | 'all_clients') => {
     setActiveTab(tab);
     setSearchParams({ tab });
+  };
+
+  const fetchServiceRequests = async () => {
+    try {
+      setLoadingServiceRequests(true);
+      const { data, error } = await supabase
+        .from('service_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setServiceRequests(data || []);
+    } catch (err: any) {
+      console.error('Erreur chargement demandes de services:', err.message);
+    } finally {
+      setLoadingServiceRequests(false);
+    }
+  };
+
+  const handleUpdateServiceRequestStatus = async (id: string, newStatus: string, adminNotes?: string) => {
+    try {
+      const updatePayload: any = { 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      };
+      if (adminNotes !== undefined) {
+        updatePayload.admin_notes = adminNotes;
+      }
+      if (newStatus === 'Contactée' || newStatus === 'En cours') {
+        updatePayload.contacted_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('service_requests')
+        .update(updatePayload)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      showNotification("Statut de la demande mis à jour");
+      setServiceRequests(prev => prev.map(sr => sr.id === id ? { ...sr, ...updatePayload } : sr));
+      if (selectedServiceRequest?.id === id) {
+        setSelectedServiceRequest((prev: any) => prev ? { ...prev, ...updatePayload } : null);
+      }
+    } catch (err: any) {
+      notify.error("Erreur mise à jour: " + err.message);
+    }
+  };
+
+  const handleDeleteServiceRequest = async (id: string) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cette demande de service ?")) return;
+    try {
+      const { error } = await supabase.from('service_requests').delete().eq('id', id);
+      if (error) throw error;
+      showNotification("Demande supprimée.");
+      setServiceRequests(prev => prev.filter(s => s.id !== id));
+      if (selectedServiceRequest?.id === id) {
+        setSelectedServiceRequest(null);
+      }
+    } catch (err: any) {
+      notify.error("Erreur suppression: " + err.message);
+    }
   };
 
   const fetchUnreadMessages = async () => {
@@ -569,6 +647,31 @@ export default function AdminClients() {
     });
   }, [studentsData, studentsSearch, studentsCourseFilter, studentsProgressFilter, studentsStatusFilter]);
 
+  const filteredServiceRequests = useMemo(() => {
+    return serviceRequests.filter(req => {
+      const searchLower = serviceRequestSearch.toLowerCase();
+      const matchesSearch = 
+        !serviceRequestSearch.trim() ||
+        (req.first_name || '').toLowerCase().includes(searchLower) ||
+        (req.last_name || '').toLowerCase().includes(searchLower) ||
+        (req.email || '').toLowerCase().includes(searchLower) ||
+        (req.phone || '').includes(searchLower) ||
+        (req.domain || '').toLowerCase().includes(searchLower) ||
+        (req.service_type || '').toLowerCase().includes(searchLower);
+
+      let matchesStatus = true;
+      if (serviceRequestFilter === 'Nouvelles') {
+        matchesStatus = req.status === 'Nouvelle';
+      } else if (serviceRequestFilter === 'En cours') {
+        matchesStatus = ['En cours', 'Contactée', 'Devis envoyé'].includes(req.status);
+      } else if (serviceRequestFilter === 'Terminées') {
+        matchesStatus = ['Acceptée', 'Refusée', 'Terminée'].includes(req.status);
+      }
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [serviceRequests, serviceRequestSearch, serviceRequestFilter]);
+
   if (activeTab === 'messages') {
     return <AdminChat onBack={() => changeTab('payments')} />;
   }
@@ -607,7 +710,7 @@ export default function AdminClients() {
         </div>
 
         {/* Navigation Tabs Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           <button
             onClick={() => changeTab('payments')}
             className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 relative ${
@@ -627,6 +730,28 @@ export default function AdminClients() {
             <div>
               <h3 className="font-bold text-sm">Paiements</h3>
               <p className={`text-[11px] ${activeTab === 'payments' ? 'text-emerald-200' : 'text-gray-500'}`}>En attente</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => changeTab('service_requests')}
+            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 relative ${
+              activeTab === 'service_requests'
+                ? 'bg-teal-900 text-white border-teal-900 shadow-md ring-2 ring-teal-600'
+                : 'bg-white text-gray-900 border-gray-100 hover:border-teal-200 shadow-sm'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <Briefcase className={`w-5 h-5 ${activeTab === 'service_requests' ? 'text-white' : 'text-teal-600'}`} />
+              {serviceRequests.filter(sr => sr.status === 'Nouvelle').length > 0 && (
+                <span className="px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-black rounded-full animate-pulse">
+                  {serviceRequests.filter(sr => sr.status === 'Nouvelle').length}
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="font-bold text-sm">Prestations</h3>
+              <p className={`text-[11px] ${activeTab === 'service_requests' ? 'text-teal-200' : 'text-gray-500'}`}>Demandes services</p>
             </div>
           </button>
 
@@ -718,6 +843,281 @@ export default function AdminClients() {
             </div>
           </button>
         </div>
+
+        {/* TAB DEMANDES DE SERVICES / PRESTATIONS */}
+        {activeTab === 'service_requests' && (
+          <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-teal-600" />
+                  Demandes de services & prestations ({filteredServiceRequests.length})
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Accompagnements personnalisés, analyses de données et aides méthodologiques
+                </p>
+              </div>
+
+              <button
+                onClick={fetchServiceRequests}
+                disabled={loadingServiceRequests}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-700 rounded-xl hover:bg-teal-100 transition-colors text-xs font-bold shrink-0 self-start sm:self-auto"
+              >
+                <RefreshCw className={`w-4 h-4 ${loadingServiceRequests ? 'animate-spin' : ''}`} />
+                Actualiser
+              </button>
+            </div>
+
+            {/* FILTRES & RECHERCHE */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              
+              {/* Barre de recherche */}
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={serviceRequestSearch}
+                  onChange={e => setServiceRequestSearch(e.target.value)}
+                  placeholder="Rechercher par nom, e-mail, téléphone, domaine..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                />
+              </div>
+
+              {/* Pills de statut */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 shrink-0">
+                {(['Toutes', 'Nouvelles', 'En cours', 'Terminées'] as const).map(filter => (
+                  <button
+                    key={filter}
+                    onClick={() => setServiceRequestFilter(filter)}
+                    className={`px-3 py-2 rounded-xl text-xs font-extrabold transition-colors whitespace-nowrap ${
+                      serviceRequestFilter === filter
+                        ? 'bg-teal-900 text-white shadow-xs'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+
+            </div>
+
+            {loadingServiceRequests ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+              </div>
+            ) : filteredServiceRequests.length === 0 ? (
+              <div className="text-center py-12 border border-dashed border-gray-200 rounded-3xl bg-gray-50/50">
+                <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="font-bold text-gray-900 text-base mb-1">Aucune demande trouvée</h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  {serviceRequestSearch || serviceRequestFilter !== 'Toutes'
+                    ? "Aucune demande ne correspond à vos critères de recherche."
+                    : "Les demandes envoyées depuis la page 'Services' apparaîtront ici."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                
+                {/* VUE TABLEAU DESKTOP / VUE CARTES MOBILE */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        <th className="py-3 px-4">Client</th>
+                        <th className="py-3 px-4">Type & Domaine</th>
+                        <th className="py-3 px-4">Budget</th>
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4">Statut</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-sm">
+                      {filteredServiceRequests.map(req => (
+                        <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-gray-900">
+                              {req.last_name} {req.first_name}
+                            </div>
+                            <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                              <span>{req.email}</span>
+                              <span>•</span>
+                              <span>{req.phone}</span>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-800 rounded-lg text-xs font-bold border border-teal-100 mb-1">
+                              {req.service_type}
+                            </span>
+                            <div className="text-xs text-gray-600 font-medium truncate max-w-[180px]">
+                              {req.domain}
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-black text-emerald-700">
+                            {req.budget ? `${Number(req.budget).toLocaleString('fr-FR')} FCFA` : <span className="text-gray-400 font-normal italic">Non précisé</span>}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-xs text-gray-500 font-medium">
+                            {new Date(req.created_at).toLocaleDateString('fr-FR', {
+                              day: '2-digit', month: 'short', year: 'numeric'
+                            })}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <select
+                              value={req.status}
+                              onChange={e => handleUpdateServiceRequestStatus(req.id, e.target.value)}
+                              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border outline-none cursor-pointer transition-all ${
+                                req.status === 'Nouvelle' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                req.status === 'En cours' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                req.status === 'Contactée' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                req.status === 'Devis envoyé' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                req.status === 'Acceptée' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                req.status === 'Refusée' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                'bg-gray-100 text-gray-700 border-gray-200'
+                              }`}
+                            >
+                              <option value="Nouvelle">Nouvelle</option>
+                              <option value="En cours">En cours</option>
+                              <option value="Contactée">Contactée</option>
+                              <option value="Devis envoyé">Devis envoyé</option>
+                              <option value="Acceptée">Acceptée</option>
+                              <option value="Refusée">Refusée</option>
+                              <option value="Terminée">Terminée</option>
+                            </select>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setSelectedServiceRequest(req);
+                                  setEditingAdminNotes(req.admin_notes || '');
+                                }}
+                                className="px-3 py-1.5 bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Détails</span>
+                              </button>
+
+                              <a
+                                href={getWhatsAppLink(req.phone, `${req.first_name} ${req.last_name}`, `Demande ${req.service_type}`)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl transition-colors"
+                                title="Contacter sur WhatsApp"
+                              >
+                                <Phone className="w-4 h-4" />
+                              </a>
+
+                              <button
+                                onClick={() => handleDeleteServiceRequest(req.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                                title="Supprimer la demande"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* VUE CARTES MOBILE (Mobile-First Card Layout) */}
+                <div className="lg:hidden space-y-3.5">
+                  {filteredServiceRequests.map(req => (
+                    <div key={req.id} className="bg-slate-50 border border-gray-200/80 rounded-2xl p-4 shadow-2xs space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="inline-block px-2 py-0.5 bg-teal-100 text-teal-900 rounded-md text-[10px] font-extrabold uppercase mb-1">
+                            {req.service_type}
+                          </span>
+                          <h3 className="font-extrabold text-gray-900 text-sm">
+                            {req.last_name} {req.first_name}
+                          </h3>
+                          <p className="text-xs text-gray-600 font-medium">Domaine : {req.domain}</p>
+                        </div>
+
+                        <select
+                          value={req.status}
+                          onChange={e => handleUpdateServiceRequestStatus(req.id, e.target.value)}
+                          className={`px-2 py-1 rounded-lg text-xs font-bold border outline-none shrink-0 ${
+                            req.status === 'Nouvelle' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            req.status === 'En cours' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            req.status === 'Contactée' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                            req.status === 'Devis envoyé' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            req.status === 'Acceptée' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            req.status === 'Refusée' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                            'bg-gray-100 text-gray-700 border-gray-200'
+                          }`}
+                        >
+                          <option value="Nouvelle">Nouvelle</option>
+                          <option value="En cours">En cours</option>
+                          <option value="Contactée">Contactée</option>
+                          <option value="Devis envoyé">Devis envoyé</option>
+                          <option value="Acceptée">Acceptée</option>
+                          <option value="Refusée">Refusée</option>
+                          <option value="Terminée">Terminée</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs bg-white p-2.5 rounded-xl border border-gray-100">
+                        <div>
+                          <span className="text-gray-400 font-bold uppercase text-[10px] block">Budget</span>
+                          <span className="font-black text-emerald-700">
+                            {req.budget ? `${Number(req.budget).toLocaleString('fr-FR')} FCFA` : 'Non spécifié'}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-gray-400 font-bold uppercase text-[10px] block">Date</span>
+                          <span className="text-gray-600 font-semibold">
+                            {new Date(req.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedServiceRequest(req);
+                            setEditingAdminNotes(req.admin_notes || '');
+                          }}
+                          className="flex-1 py-2 bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Voir le besoin</span>
+                        </button>
+
+                        <a
+                          href={getWhatsAppLink(req.phone, `${req.first_name} ${req.last_name}`, `Demande ${req.service_type}`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+
+                        <button
+                          onClick={() => handleDeleteServiceRequest(req.id)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tab Content Section */}
         {activeTab === 'payments' && (
@@ -1320,6 +1720,132 @@ export default function AdminClients() {
                 {savingPromo ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DÉTAILS DEMANDE DE SERVICE */}
+      {selectedServiceRequest && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto space-y-6 animate-in fade-in zoom-in-95">
+            
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
+              <div>
+                <span className="px-2.5 py-0.5 bg-teal-100 text-teal-900 rounded-md text-[10px] font-black uppercase">
+                  {selectedServiceRequest.service_type}
+                </span>
+                <h3 className="text-xl font-extrabold text-gray-900 mt-1">
+                  {selectedServiceRequest.last_name} {selectedServiceRequest.first_name}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Soumis le {new Date(selectedServiceRequest.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSelectedServiceRequest(null)}
+                className="p-2 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* INFORMATIONS CLIENT & DOMAINE */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-gray-100">
+              <div>
+                <span className="text-gray-400 font-bold uppercase text-[10px] block mb-0.5">Domaine</span>
+                <span className="font-extrabold text-gray-900">{selectedServiceRequest.domain}</span>
+              </div>
+
+              <div>
+                <span className="text-gray-400 font-bold uppercase text-[10px] block mb-0.5">Budget prévu</span>
+                <span className="font-black text-emerald-700 text-sm">
+                  {selectedServiceRequest.budget ? `${Number(selectedServiceRequest.budget).toLocaleString('fr-FR')} FCFA` : 'Non précisé'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-gray-400 font-bold uppercase text-[10px] block mb-0.5">Téléphone</span>
+                <a href={`tel:${selectedServiceRequest.phone}`} className="font-bold text-blue-600 hover:underline">
+                  {selectedServiceRequest.phone}
+                </a>
+              </div>
+
+              <div>
+                <span className="text-gray-400 font-bold uppercase text-[10px] block mb-0.5">E-mail</span>
+                <a href={`mailto:${selectedServiceRequest.email}`} className="font-bold text-blue-600 hover:underline">
+                  {selectedServiceRequest.email}
+                </a>
+              </div>
+            </div>
+
+            {/* DESCRIPTION PRÉCISE DU BESOIN */}
+            <div>
+              <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider mb-2">
+                Description détaillée du besoin
+              </h4>
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl text-xs sm:text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">
+                {selectedServiceRequest.description}
+              </div>
+            </div>
+
+            {/* CHANGER LE STATUT & NOTES ADMIN */}
+            <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between gap-4">
+                <label className="text-xs font-extrabold text-gray-800 uppercase tracking-wider">
+                  Statut de la demande
+                </label>
+                <select
+                  value={selectedServiceRequest.status}
+                  onChange={e => handleUpdateServiceRequestStatus(selectedServiceRequest.id, e.target.value)}
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none cursor-pointer"
+                >
+                  <option value="Nouvelle">Nouvelle</option>
+                  <option value="En cours">En cours</option>
+                  <option value="Contactée">Contactée</option>
+                  <option value="Devis envoyé">Devis envoyé</option>
+                  <option value="Acceptée">Acceptée</option>
+                  <option value="Refusée">Refusée</option>
+                  <option value="Terminée">Terminée</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-gray-800 uppercase tracking-wider mb-1">
+                  Notes internes d'administration
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingAdminNotes}
+                  onChange={e => setEditingAdminNotes(e.target.value)}
+                  placeholder="Inscrivez ici vos notes de suivi, devis proposé, retours téléphoniques..."
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 font-medium outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+
+            {/* BOUTONS D'ACTION */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <a
+                href={getWhatsAppLink(selectedServiceRequest.phone, `${selectedServiceRequest.first_name} ${selectedServiceRequest.last_name}`, `Demande ${selectedServiceRequest.service_type}`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-sm"
+              >
+                <Phone className="w-4 h-4" />
+                <span>Contacter sur WhatsApp</span>
+              </a>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  onClick={() => handleUpdateServiceRequestStatus(selectedServiceRequest.id, selectedServiceRequest.status, editingAdminNotes)}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white font-bold rounded-xl text-xs transition-colors"
+                >
+                  Enregistrer les notes
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}

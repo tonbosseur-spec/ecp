@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
 import { findReferralCode, recordReferralSale, ReferralCodeInfo } from '../lib/referralService';
+import Footer from '../components/Footer';
 import { Loader2, Calendar, User, ChevronDown, ChevronUp, Play, CheckCircle2, MessageCircle, Video, FileText, AlertCircle, Download, Globe, Youtube, Star, Facebook, Linkedin, Send, CalendarOff, ArrowLeft, X, CheckCircle, Clock, Ticket, Tag, Sparkles, Check, BookOpen, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -1485,38 +1486,8 @@ END:VCALENDAR`;
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="mt-12 border-t theme-border-light bg-white/50 pt-10 pb-8 px-4 text-center">
-        <div className="max-w-3xl mx-auto flex flex-col items-center gap-6">
-          <div className="flex items-center gap-6">
-            <a href="https://www.linkedin.com/in/pierre-valdeze-mbom-mbom-75a660217" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors" title="LinkedIn">
-              <Linkedin className="w-6 h-6" />
-            </a>
-            <a href="https://facebook.com/pierrembom" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500 transition-colors" title="Facebook">
-              <Facebook className="w-6 h-6" />
-            </a>
-            <a href="https://t.me/pierrembom" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-400 transition-colors" title="Telegram">
-              <Send className="w-6 h-6" />
-            </a>
-            <a 
-              href={`https://wa.me/237698389030?text=${encodeURIComponent(course ? `Bonjour Pierre ! Je suis sur la page de la formation "${course.title}" (${course.price ? `${course.price} FCFA` : 'Gratuit'}). J'aimerais avoir plus d'informations.` : "Bonjour Pierre ! Je consulte vos formations et souhaite poser une question.")}`} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-gray-400 theme-text transition-colors" 
-              title="WhatsApp"
-            >
-              <MessageCircle className="w-6 h-6" />
-            </a>
-          </div>
-          <div className="space-y-2 text-sm text-gray-500 font-medium">
-            <p>© 2026 Exceller chez Pierre. Tous droits réservés.</p>
-            <div className="flex items-center justify-center gap-4">
-              <button className="hover:opacity-80 theme-text transition-opacity">Mentions légales</button>
-              <button className="hover:opacity-80 theme-text transition-opacity">Politique de confidentialité</button>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Footer Unifié */}
+      <Footer />
       {/* Floating Action Button (Mobile) */}
       <div className="fixed bottom-4 left-0 right-0 px-4 z-50 sm:hidden">
         <a 

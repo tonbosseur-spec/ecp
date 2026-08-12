@@ -137,6 +137,7 @@ export default function App() {
       <Route path="/" element={<RootRedirector />} />
       <Route path="/expertises" element={<ExpertisesPage />} />
       <Route path="/methodology" element={<HowItWorksPage />} />
+      <Route path="/ressources" element={<HowItWorksPage />} />
       <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
       <Route path="/confidentialite" element={<ConfidentialitePage />} />
       <Route path="/cgu" element={<CGUPage />} />

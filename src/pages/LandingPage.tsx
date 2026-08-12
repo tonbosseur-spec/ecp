@@ -5,6 +5,18 @@ import { supabase } from '../lib/supabaseClient';
 import ClientNavBar from '../components/ClientNavBar';
 import Footer from '../components/Footer';
 import { useToast } from '../components/Toast';
+
+function formatDescriptionHtml(text: string | null | undefined): string {
+  if (!text) return '';
+  const hasHtml = /<[a-z][\s\S]*>/i.test(text);
+  if (hasHtml) {
+    return text;
+  }
+  return text
+    .split('\n\n')
+    .map(p => `<p class="mb-1 leading-relaxed">${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+}
 import { 
   GraduationCap, 
   Flame, 
@@ -81,6 +93,8 @@ export default function LandingPage() {
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [latestCourse, setLatestCourse] = useState<any>(null);
+  const [featuredEbooks, setFeaturedEbooks] = useState<any[]>([]);
+  const [loadingEbooks, setLoadingEbooks] = useState(true);
   const navigate = useNavigate();
 
   // Profile selector state for 'JE CHOISIS' section
@@ -101,7 +115,39 @@ export default function LandingPage() {
     });
     fetchTestimonials();
     fetchLatestCourse();
+    fetchFeaturedEbooks();
   }, []);
+
+  const fetchFeaturedEbooks = async () => {
+    try {
+      setLoadingEbooks(true);
+      let { data, error } = await supabase
+        .from('courses')
+        .select('*, trainers(name, photo_url)')
+        .eq('product_type', 'ebook')
+        .eq('is_active', true)
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false })
+        .limit(4);
+
+      if (error) {
+        const { data: fallbackData } = await supabase
+          .from('courses')
+          .select('*, trainers(name, photo_url)')
+          .eq('product_type', 'ebook')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(4);
+        data = fallbackData;
+      }
+
+      setFeaturedEbooks(data || []);
+    } catch (err) {
+      console.error("Erreur chargement e-books vitrine:", err);
+    } finally {
+      setLoadingEbooks(false);
+    }
+  };
 
   const fetchLatestCourse = async () => {
     try {
@@ -393,20 +439,20 @@ export default function LandingPage() {
 
             {/* Carte 4 */}
             <Link
-              to="/catalogue"
+              to="/methodology"
               className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-1 flex flex-col group"
             >
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition-transform shadow-sm">
                 📚
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight">
-                Apprendre avec des ressources
+                Apprendre avec nos e-books
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed mb-6 flex-1">
-                Découvrir des livres, guides et supports pratiques.
+                Découvrir des livres, guides et manuels d'analyse pratiques.
               </p>
               <div className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 group-hover:text-emerald-800 transition-colors mt-auto pt-4 border-t border-gray-100">
-                <span>Découvrir</span>
+                <span>Accéder aux e-books</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </Link>
@@ -494,7 +540,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <Link
-                to="/catalogue"
+                to="/methodology"
                 className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 hover:text-emerald-800 transition-colors pt-3 border-t border-emerald-100"
               >
                 <span>Voir les e-books</span>
@@ -502,6 +548,105 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* SECTION E-BOOKS À LA UNE */}
+      <section className="py-16 bg-slate-50 border-b border-gray-100 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+            <div>
+              <span className="text-xs font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-100/80">
+                Bibliothèque Numérique
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight mt-3">
+                Nos E-books & Guides à la une
+              </h2>
+              <p className="text-gray-600 text-sm sm:text-base mt-2 max-w-xl">
+                Des manuels d'analyse de données clairs et directement applicables à vos projets.
+              </p>
+            </div>
+            <Link
+              to="/methodology"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-2xl transition-all shadow-md shrink-0 active:scale-95"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Accéder à tous les e-books</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {loadingEbooks ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white rounded-3xl p-4 border border-gray-150 animate-pulse h-80" />
+              ))}
+            </div>
+          ) : featuredEbooks.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredEbooks.map((ebook) => {
+                const isFree = !ebook.price_fcfa || ebook.price_fcfa === 0;
+                const formattedPrice = isFree ? "Gratuit" : `${Number(ebook.price_fcfa).toLocaleString('fr-FR')} FCFA`;
+
+                return (
+                  <Link
+                    key={ebook.id}
+                    to={`/course/${ebook.id}`}
+                    className="group bg-white rounded-3xl border border-gray-150 shadow-xs hover:shadow-xl hover:border-emerald-200 transition-all duration-300 flex flex-col overflow-hidden active:scale-[0.98]"
+                  >
+                    <div className="relative w-full h-48 bg-slate-900 overflow-hidden flex items-center justify-center">
+                      {ebook.cover_image_url ? (
+                        <img
+                          src={ebook.cover_image_url}
+                          alt={ebook.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-emerald-600 via-teal-700 to-slate-900 p-5 flex flex-col justify-between text-white">
+                          <span className="text-[10px] font-black uppercase text-emerald-200">E-Book</span>
+                          <h4 className="font-bold text-sm line-clamp-2">{ebook.title}</h4>
+                          <span className="text-[10px] text-emerald-100">Exceller chez Pierre</span>
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3">
+                        <span className={`font-black text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider text-white ${isFree ? 'bg-emerald-500' : 'bg-slate-900/80'}`}>
+                          {isFree ? 'Gratuit' : 'E-book'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-5 flex flex-col flex-1 justify-between">
+                      <div>
+                        <h3 className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors line-clamp-2 text-sm mb-2">
+                          {ebook.title}
+                        </h3>
+                        {ebook.description && (
+                          <div 
+                            className="text-gray-500 text-xs line-clamp-2 leading-relaxed mb-3 [&_*]:inline [&_*]:m-0 [&_*]:font-normal [&_strong]:font-bold [&_b]:font-bold [&_em]:italic"
+                            dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(ebook.description) }}
+                          />
+                        )}
+                      </div>
+                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                        <span className="font-black text-gray-900">{formattedPrice}</span>
+                        <span className="text-emerald-600 font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                          Découvrir <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl p-8 border border-gray-150 text-center max-w-lg mx-auto">
+              <BookOpen className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
+              <h3 className="font-bold text-gray-900 text-base mb-1">Bibliothèque en cours d'enrichissement</h3>
+              <p className="text-xs text-gray-500 mb-4">De nouveaux e-books seront très prochainement disponibles.</p>
+              <Link to="/methodology" className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:underline">
+                Accéder à la section Ressources <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -727,7 +872,7 @@ export default function LandingPage() {
 
                 <div className="pt-4 flex flex-col sm:flex-row gap-3">
                   <Link
-                    to="/catalogue"
+                    to="/methodology"
                     className="flex-1 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />

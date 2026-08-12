@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabaseClient';
+import { ensureClientProfile } from '../lib/profileUtils';
 import ClientNavBar from '../components/ClientNavBar';
+import AuthRequiredModal from '../components/AuthRequiredModal';
+import Footer from '../components/Footer';
 import { 
   Loader2, 
   Calendar, 
@@ -137,7 +140,7 @@ export default function Marketplace() {
         }
         
         if (coursesData) {
-          const availableCourses = coursesData.filter(c => !userCourseIds.includes(c.id));
+          const availableCourses = coursesData.filter(c => c.product_type !== 'ebook' && !userCourseIds.includes(c.id));
           setCourses(availableCourses);
         }
       } catch (err) {
@@ -153,12 +156,16 @@ export default function Marketplace() {
   // Handle click on "Je veux cette formation ✋" for inactive courses
   const handleExpressInterest = async (courseId: string) => {
     if (!session) {
-      navigate(`/client/login?redirect=${encodeURIComponent('/catalogue')}`);
+      setAuthModalReason("Pour manifester votre intérêt pour cette formation et être informé de sa disponibilité, veuillez vous connecter ou créer un compte.");
+      setShowAuthModal(true);
       return;
     }
 
     try {
       setSubmittingProposal(true);
+
+      // Ensure client profile exists in client_profiles table to avoid FK constraint error
+      await ensureClientProfile(session.user.id, session.user.user_metadata);
 
       // Check if already proposed
       const { data: existing } = await supabase
@@ -216,7 +223,8 @@ export default function Marketplace() {
 
   const handleOpenProposalModal = () => {
     if (!session) {
-      navigate(`/client/login?redirect=${encodeURIComponent('/catalogue?action=propose')}`);
+      setAuthModalReason("Pour faire une proposition de formation personnalisée et pouvoir suivre son évolution, vous devez créer un compte ou vous connecter.");
+      setShowAuthModal(true);
       return;
     }
     setShowProposalModal(true);
@@ -238,6 +246,10 @@ export default function Marketplace() {
 
     try {
       setSubmittingProposal(true);
+
+      // Ensure client profile exists in client_profiles table to avoid FK constraint error
+      await ensureClientProfile(session.user.id, session.user.user_metadata);
+
       const { error } = await supabase
         .from('course_proposals')
         .insert({
@@ -327,27 +339,6 @@ export default function Marketplace() {
               </button>
             )}
           </div>
-        </div>
-
-        {/* Custom Proposal Call-to-Action Banner */}
-        <div className="mb-12 bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 rounded-[2.5rem] p-8 sm:p-10 text-white shadow-xl shadow-blue-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="absolute inset-0 bg-cover bg-center opacity-10 mix-blend-overlay" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80')" }}></div>
-          <div className="relative z-10 space-y-3 text-center md:text-left max-w-xl">
-            <h2 className="text-2xl sm:text-3xl font-black flex items-center justify-center md:justify-start gap-3 tracking-tight">
-              <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
-              Accompagnement personnalisé
-            </h2>
-            <p className="text-blue-100 text-base sm:text-lg leading-relaxed font-medium">
-              Besoin d'une formation sur mesure ou d'un suivi spécifique pour vos projets ? Nous concevons le programme idéal pour vous.
-            </p>
-          </div>
-          <button
-            onClick={handleOpenProposalModal}
-            className="relative z-10 shrink-0 px-8 py-4 bg-white text-blue-700 font-black rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-50 transition-all hover:scale-105 active:scale-95 text-base flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Réservez un accompagnement</span>
-          </button>
         </div>
 
         {courses.length === 0 ? (
@@ -504,42 +495,46 @@ export default function Marketplace() {
                     </div>
                   </div>
                   
-                  <div className="px-6 py-5 border-t border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-auto">
-                    <div className="flex items-center gap-3 shrink-0">
+                  <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50 flex flex-col items-center text-center gap-3.5 mt-auto">
+                    {/* Informations Formateur */}
+                    <div className="flex items-center justify-center gap-3">
                       {course.trainers?.photo_url ? (
                         <img 
                           src={course.trainers.photo_url} 
                           alt={`Photo de ${course.trainers.name}`} 
-                          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border-2 border-white shadow-sm text-gray-500">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border-2 border-white shadow-sm text-gray-500 shrink-0">
                           <User className="w-5 h-5" />
                         </div>
                       )}
-                      <div className="text-sm">
-                        <p className="text-gray-500 text-xs">Formateur</p>
-                        <p className="font-medium text-gray-900 truncate max-w-[150px]">{course.trainers?.name}</p>
+                      <div className="text-left text-sm">
+                        <p className="text-gray-400 text-[11px] font-semibold uppercase tracking-wider">Formateur</p>
+                        <p className="font-bold text-gray-900 truncate max-w-[200px]">{course.trainers?.name}</p>
                       </div>
                     </div>
                     
-                    {isInactive ? (
-                      <button 
-                        onClick={() => handleExpressInterest(course.id)}
-                        disabled={submittingProposal}
-                        className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold rounded-xl transition-all shadow-sm text-sm"
-                      >
-                        <span>Je veux cette formation ✋</span>
-                      </button>
-                    ) : (
-                      <Link 
-                        to={`/course/${course.id}`}
-                        className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors shadow-sm group-hover:bg-blue-600 text-sm"
-                      >
-                        <span>{(course.is_date_tbd || !course.date_time) ? "Se pré-inscrire" : "S'inscrire"}</span>
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Link>
-                    )}
+                    {/* Bouton centré en dessous du nom du formateur */}
+                    <div className="w-full pt-1 flex justify-center">
+                      {isInactive ? (
+                        <button 
+                          onClick={() => handleExpressInterest(course.id)}
+                          disabled={submittingProposal}
+                          className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold rounded-xl transition-all shadow-sm text-sm"
+                        >
+                          <span>Je veux cette formation ✋</span>
+                        </button>
+                      ) : (
+                        <Link 
+                          to={`/course/${course.id}`}
+                          className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors shadow-sm text-sm"
+                        >
+                          <span>{(course.is_date_tbd || !course.date_time) ? "Se pré-inscrire" : "S'inscrire"}</span>
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               );
@@ -578,6 +573,9 @@ export default function Marketplace() {
           </div>
         </div>
       </main>
+
+      {/* Footer Unifié */}
+      <Footer />
 
       {/* Toast Notification */}
       {toast.show && (
@@ -735,6 +733,14 @@ export default function Marketplace() {
           </div>
         </div>
       )}
+
+      {/* Modal d'authentification requise */}
+      <AuthRequiredModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        description={authModalReason || undefined}
+        redirectPath={authModalReason.includes('proposition') ? '/catalogue?action=propose' : '/catalogue'}
+      />
     </div>
   );
 }
