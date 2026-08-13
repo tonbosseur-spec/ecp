@@ -93,6 +93,20 @@ function formatDescriptionHtml(text: string | null | undefined): string {
     .join('');
 }
 
+function getYoutubeEmbedUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}?autoplay=1&rel=0` : null;
+}
+
+function getYoutubeVideoId(url?: string | null): string | null {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
 export default function PublicCoursePage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -101,6 +115,7 @@ export default function PublicCoursePage() {
   const [error, setError] = useState<string | null>(null);
   const [isInactive, setIsInactive] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -235,6 +250,11 @@ export default function PublicCoursePage() {
   const basePrice = course?.price_fcfa || 0;
   const discountCalculation = appliedPromo ? calculateDiscountedPrice(basePrice, appliedPromo) : { finalPrice: basePrice, discountAmount: 0, savings: 0 };
   const effectivePrice = discountCalculation.finalPrice || 0;
+
+  // Video YouTube calculations
+  const rawVideoUrl = course?.youtube_video_url || course?.video_url || course?.trailer_url || course?.course_modules?.find((m: any) => m.youtube_url)?.youtube_url;
+  const youtubeEmbedUrl = getYoutubeEmbedUrl(rawVideoUrl);
+  const youtubeVideoId = getYoutubeVideoId(rawVideoUrl);
 
   // Accordion State
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
@@ -796,16 +816,17 @@ END:VCALENDAR`;
                   <MessageCircle className="w-4 h-4 text-emerald-400" />
                   <span>Question WhatsApp</span>
                 </a>
-              ) : course.youtube_video_url && (
-                <a
-                  href={course.youtube_video_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl border border-slate-700/80 transition-all text-sm"
+              ) : youtubeEmbedUrl && (
+                <button
+                  type="button"
+                  onClick={() => setShowVideoModal(true)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-4 bg-red-600/15 hover:bg-red-600/25 text-red-400 hover:text-red-300 font-bold rounded-2xl border border-red-500/30 hover:border-red-500/50 shadow-lg shadow-red-950/20 transition-all text-sm cursor-pointer group"
                 >
-                  <Youtube className="w-4 h-4 text-red-500" />
+                  <div className="w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-xs">
+                    <Play className="w-3 h-3 fill-current ml-0.5" />
+                  </div>
                   <span>Extrait Vidéo</span>
-                </a>
+                </button>
               )}
             </div>
           </motion.div>
@@ -841,6 +862,58 @@ END:VCALENDAR`;
                 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-2"
               dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(course.description) }}
             />
+
+            {/* Video Teaser Card */}
+            {youtubeEmbedUrl && (
+              <div 
+                onClick={() => setShowVideoModal(true)}
+                className="mt-6 relative rounded-2xl overflow-hidden border border-slate-700/60 bg-slate-950 group cursor-pointer shadow-xl hover:border-red-500/50 transition-all duration-300"
+              >
+                {youtubeVideoId ? (
+                  <div className="relative aspect-video w-full overflow-hidden">
+                    <img
+                      src={`https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`}
+                      alt="Aperçu vidéo"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                    
+                    {/* Play button overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-2xl shadow-red-600/50 group-hover:scale-110 transition-all duration-300 backdrop-blur-xs border border-red-400/40">
+                        <Play className="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" />
+                      </div>
+                    </div>
+
+                    {/* Bottom overlay badge */}
+                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
+                      <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-700/80 shadow-md">
+                        <Youtube className="w-4 h-4 text-red-500" />
+                        <span className="text-xs font-bold">Aperçu Vidéo disponible</span>
+                      </div>
+                      <span className="text-xs font-bold text-emerald-400 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/80 shadow-md hidden sm:inline-flex items-center gap-1.5">
+                        <Play className="w-3 h-3 fill-current" /> Lancer la vidéo
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-5 flex items-center justify-between bg-gradient-to-r from-red-950/40 via-slate-900 to-slate-900">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center shadow-lg shadow-red-600/30 shrink-0">
+                        <Play className="w-6 h-6 fill-current ml-0.5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">Extrait Vidéo de Présentation</h4>
+                        <p className="text-xs text-slate-400">Regarder l'aperçu vidéo directement depuis la page</p>
+                      </div>
+                    </div>
+                    <span className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl transition-all shrink-0">
+                      Visionner
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </motion.section>
         )}
 
@@ -1465,6 +1538,80 @@ END:VCALENDAR`;
           </div>
         </div>
       )}
+
+      {/* Modale Vidéo YouTube Moderne */}
+      <AnimatePresence>
+        {showVideoModal && youtubeEmbedUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 md:p-10">
+            {/* Arrière-plan flouté sombre */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowVideoModal(false)}
+              className="fixed inset-0 bg-slate-950/85 backdrop-blur-md cursor-pointer"
+            />
+
+            {/* Boîte de la Modale */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl shadow-red-950/50 overflow-hidden z-10 flex flex-col my-auto"
+            >
+              {/* En-tête de la Modale */}
+              <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800/80 bg-slate-900/90">
+                <div className="flex items-center gap-3 pr-4 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-red-600/15 border border-red-500/30 text-red-500 flex items-center justify-center shrink-0">
+                    <Youtube className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-red-400 block">Extrait Vidéo YouTube</span>
+                    <h3 className="text-sm sm:text-base font-bold text-white truncate">{course?.title}</h3>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowVideoModal(false)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors shrink-0 cursor-pointer"
+                  title="Fermer la vidéo"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Lecteur Vidéo Responsive 16:9 */}
+              <div className="relative w-full bg-black aspect-video">
+                <iframe
+                  src={youtubeEmbedUrl}
+                  title={course?.title || "Vidéo de présentation"}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+
+              {/* Pied de la Modale */}
+              <div className="p-3.5 sm:p-4 bg-slate-950/90 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Présentation vidéo officielle de la formation</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowVideoModal(false);
+                    scrollToForm();
+                  }}
+                  className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl transition-all text-xs cursor-pointer w-full sm:w-auto text-center"
+                >
+                  S'inscrire à cette formation
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Footer Unifié */}
       <Footer />

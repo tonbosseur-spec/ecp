@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
 import VerifiedBadge from '../components/VerifiedBadge';
-import NotificationBell from '../components/NotificationBell';
 import { Loader2, Copy, CheckCircle2, Store, Users, ExternalLink, Calendar, CreditCard, Clock, MessageCircle, Check, X, RefreshCw, Link as LinkIcon, MessageSquare, Edit2, Target, ArrowLeft, Activity, Smartphone, Mail } from 'lucide-react';
 import { parseCourseQuizSettings, encodeCourseQuizSettings } from '../lib/quizUtils';
 
@@ -237,9 +236,6 @@ export default function AdminHub() {
               <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Hub & Marketplace</h1>
               <p className="text-xs sm:text-sm text-gray-500">Catalogue marketplace, inscriptions et quizz publics</p>
             </div>
-          </div>
-          <div className="w-full sm:w-auto shrink-0 flex items-center justify-between sm:justify-end gap-2">
-            <NotificationBell userRole="admin" />
           </div>
         </div>
 

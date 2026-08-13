@@ -297,65 +297,126 @@ export async function sendLiveMessage(message: LiveMessage): Promise<LiveMessage
   return message;
 }
 
-// Upload recording file to Supabase Storage bucket
+// Upload recording file to private Supabase Storage bucket ('live-recordings')
 export async function uploadSessionRecording(
   sessionId: string,
   blob: Blob,
   fileName: string
 ): Promise<string | null> {
-  const filePath = `${sessionId}/${fileName}`;
-  const bucketCandidates = ['live-recordings', 'recordings', 'public', 'videos'];
+  const storagePath = `${sessionId}/${fileName}`;
 
-  // Try creating 'live-recordings' bucket programmatically if missing
   try {
-    await supabase.storage.createBucket('live-recordings', { public: true });
-  } catch (err) {
-    // Bucket might already exist or need admin privileges
-  }
+    const { data, error } = await supabase.storage
+      .from('live-recordings')
+      .upload(storagePath, blob, {
+        contentType: blob.type || 'video/webm',
+        upsert: true,
+      });
 
-  for (const bucket of bucketCandidates) {
-    try {
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, blob, {
-          contentType: blob.type || 'video/webm',
-          upsert: true,
-        });
-
-      if (!error && data) {
-        const { data: publicUrlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(filePath);
-        return publicUrlData?.publicUrl || null;
-      }
-    } catch (err) {
-      console.warn(`Attempt to upload to bucket '${bucket}' failed:`, err);
+    if (!error && data) {
+      return storagePath;
+    } else if (error) {
+      console.warn('Upload recording error:', error.message);
     }
+  } catch (err) {
+    console.warn('Failed to upload session recording:', err);
   }
 
   return null;
 }
 
-// Save recording entry in Supabase database table
+// Save recording metadata entry in Supabase session_recordings table
 export async function saveSessionRecordingMetadata(
   sessionId: string,
-  recordingUrl: string,
+  storagePath: string,
   durationSeconds: number,
   title?: string
 ): Promise<void> {
   try {
-    await supabase.from('session_recordings').insert([
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    const { error } = await supabase.from('session_recordings').insert([
       {
         id: `rec-${Date.now()}`,
         session_id: sessionId,
-        recording_url: recordingUrl,
+        user_id: user?.id || null,
+        storage_path: storagePath,
+        recording_url: storagePath,
         duration_seconds: durationSeconds,
         title: title || 'Enregistrement de la session',
         created_at: new Date().toISOString(),
       },
     ]);
+
+    if (error) {
+      console.warn('Failed to save session recording metadata in Supabase:', error.message);
+    }
   } catch (err) {
     console.warn('Failed to save session recording metadata in Supabase:', err);
+  }
+}
+
+// Generate a temporary signed URL (valid for 1 hour) for private video playback
+export async function getRecordingSignedUrl(
+  storagePath: string,
+  expiresInSeconds: number = 3600
+): Promise<string | null> {
+  try {
+    if (!storagePath) return null;
+
+    const { data, error } = await supabase.storage
+      .from('live-recordings')
+      .createSignedUrl(storagePath, expiresInSeconds);
+
+    if (error || !data) {
+      console.warn('Failed to create signed URL for recording:', error?.message);
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (err) {
+    console.warn('Error in getRecordingSignedUrl:', err);
+    return null;
+  }
+}
+
+// Fetch session recordings for a session
+export async function fetchSessionRecordings(sessionId: string): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('session_recordings')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Error fetching session recordings:', error.message);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.warn('Error fetching session recordings:', err);
+    return [];
+  }
+}
+
+// Delete session recording entry and its storage object
+export async function deleteSessionRecording(recordingId: string, storagePath: string): Promise<boolean> {
+  try {
+    // 1. Delete object from Storage bucket
+    await supabase.storage.from('live-recordings').remove([storagePath]);
+
+    // 2. Delete entry from session_recordings table
+    const { error } = await supabase
+      .from('session_recordings')
+      .delete()
+      .eq('id', recordingId);
+
+    return !error;
+  } catch (err) {
+    console.warn('Error deleting session recording:', err);
+    return false;
   }
 }
 

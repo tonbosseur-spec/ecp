@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import VerifiedBadge from '../components/VerifiedBadge';
-import NotificationBell from '../components/NotificationBell';
 import { 
   Loader2, 
   Calendar, 
@@ -77,6 +76,7 @@ export default function ClientHub() {
   });
   const [copiedCodeToast, setCopiedCodeToast] = useState(false);
   const [copiedLinkToast, setCopiedLinkToast] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Course detailed content (LMS) states
   const [activeCourseContentReg, setActiveCourseContentReg] = useState<any | null>(null);
@@ -429,8 +429,15 @@ export default function ClientHub() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/client/login');
+    setIsLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoggingOut(false);
+      navigate('/client/login');
+    }
   };
 
   if (loading) {
@@ -574,13 +581,14 @@ export default function ClientHub() {
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <NotificationBell userId={profile?.id} userRole="client" />
-              <button 
-                onClick={handleLogout}
-                className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-colors"
-                title="Déconnexion"
+              <button
+                onClick={() => navigate('/mobile-landing')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-2xl text-xs font-bold transition-all active:scale-95 shadow-2xs"
+                title="Découvrir l'application"
               >
-                <LogOut className="w-5 h-5" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Découvrir l'application</span>
+                <span className="sm:hidden">Découvrir</span>
               </button>
             </div>
           </div>
@@ -827,6 +835,28 @@ export default function ClientHub() {
                 <div>
                   <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Paramètres</h3>
                   <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Profil & Sécurité</p>
+                </div>
+              </button>
+
+              {/* Découvrir l'application */}
+              <button 
+                onClick={() => navigate('/mobile-landing')}
+                className="col-span-1 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/20 active:scale-95 transition-all duration-300 text-white relative overflow-hidden aspect-square"
+              >
+                <div className="absolute top-0 right-0 p-3 opacity-15 transform translate-x-2 -translate-y-2">
+                  <Sparkles className="w-20 h-20 text-white" />
+                </div>
+                <div className="relative z-10 flex justify-between w-full items-start">
+                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black backdrop-blur-sm border border-white/20">
+                    Présentation
+                  </span>
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-base sm:text-lg font-bold text-white leading-tight mb-0.5">Découvrir l'app</h3>
+                  <p className="text-emerald-100 text-[11px] sm:text-xs font-medium line-clamp-1">Revoir la présentation</p>
                 </div>
               </button>
             </div>
@@ -2133,6 +2163,33 @@ export default function ClientHub() {
         {activeSection === 'settings' && (
           <ClientSettings profile={profile} referralCode={referralCode} onUpdateProfile={setProfile} />
         )}
+
+        {/* Bouton Se déconnecter en bas de page (Même design que dans l'espace Admin) */}
+        <div className="mt-8 pt-6 border-t border-gray-200/60">
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full group bg-white hover:bg-rose-50/80 p-4 sm:p-5 rounded-3xl border border-rose-100 shadow-xs hover:shadow-md transition-all duration-300 flex items-center justify-between gap-4 active:scale-98 cursor-pointer"
+          >
+            <div className="flex items-center gap-3.5 sm:gap-3">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center group-hover:bg-rose-600 group-hover:text-white transition-colors shrink-0">
+                {isLoggingOut ? <Loader2 className="w-5 h-5 animate-spin" /> : <LogOut className="w-5 h-5" />}
+              </div>
+              <div className="text-left">
+                <h3 className="text-sm sm:text-base font-extrabold text-gray-900 group-hover:text-rose-900 transition-colors">
+                  Se déconnecter
+                </h3>
+                <p className="text-[11px] sm:text-xs text-gray-500 group-hover:text-rose-700/80 transition-colors">
+                  Fermer la session
+                </p>
+              </div>
+            </div>
+
+            <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white rounded-xl text-xs font-bold transition-colors shrink-0">
+              Déconnexion
+            </div>
+          </button>
+        </div>
       </main>
     </div>
   );

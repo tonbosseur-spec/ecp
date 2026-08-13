@@ -24,6 +24,7 @@ export default function ManageTrainers() {
   const [photoUrl, setPhotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activeMobileTab, setActiveMobileTab] = useState<'list' | 'create'>('list');
 
   useEffect(() => {
     fetchTrainers();
@@ -66,6 +67,7 @@ export default function ManageTrainers() {
         setName('');
         setDescription('');
         setPhotoUrl('');
+        setActiveMobileTab('list');
       }
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'ajout du formateur.');
@@ -149,20 +151,59 @@ export default function ManageTrainers() {
         </div>
       )}
 
+      {/* Mobile Navigation Tabs (Visible only on mobile < lg) */}
+      <div className="flex lg:hidden items-center p-1.5 bg-slate-100 rounded-2xl border border-slate-200 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab('list')}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeMobileTab === 'list'
+              ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Users className="w-4 h-4 text-indigo-600" />
+          <span>Liste ({filteredTrainers.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveMobileTab('create')}
+          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            activeMobileTab === 'create'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>+ Créer un Formateur</span>
+        </button>
+      </div>
+
       {/* Main Grid for PC */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* Left Column: Create Form */}
-        <div className="lg:col-span-5 xl:col-span-4 sticky top-6">
+        <div className={`lg:col-span-5 xl:col-span-4 lg:sticky lg:top-6 ${activeMobileTab === 'create' ? 'block' : 'hidden lg:block'}`}>
           <form onSubmit={handleSubmit} className="space-y-5 bg-white p-6 sm:p-7 rounded-3xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
-                <UserPlus className="w-5 h-5" />
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">Ajouter un Formateur</h2>
+                  <p className="text-xs text-slate-500">Remplissez la fiche du nouveau formateur</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">Ajouter un Formateur</h2>
-                <p className="text-xs text-slate-500">Remplissez la fiche du nouveau formateur</p>
-              </div>
+              
+              {/* Mobile Back to List Button */}
+              <button
+                type="button"
+                onClick={() => setActiveMobileTab('list')}
+                className="lg:hidden px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+              >
+                Voir la liste
+              </button>
             </div>
             
             <div>
@@ -234,14 +275,26 @@ export default function ManageTrainers() {
           </form>
         </div>
 
-        {/* Right Column: List of Trainers on Desktop PC */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-5">
+        {/* Right Column: List of Trainers */}
+        <div className={`lg:col-span-7 xl:col-span-8 space-y-5 ${activeMobileTab === 'list' ? 'block' : 'hidden lg:block'}`}>
           {/* Search bar and Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-sm">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <Award className="w-5 h-5 text-indigo-600" />
-              <span>Liste des Formateurs ({filteredTrainers.length})</span>
-            </h2>
+            <div className="flex items-center justify-between w-full sm:w-auto">
+              <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <Award className="w-5 h-5 text-indigo-600" />
+                <span>Liste des Formateurs ({filteredTrainers.length})</span>
+              </h2>
+
+              {/* Mobile Quick Add Button */}
+              <button
+                type="button"
+                onClick={() => setActiveMobileTab('create')}
+                className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>+ Créer</span>
+              </button>
+            </div>
 
             <div className="relative min-w-[240px]">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />

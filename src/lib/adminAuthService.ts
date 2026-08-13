@@ -90,16 +90,18 @@ export async function checkIsAdmin(email?: string | null): Promise<boolean> {
   if (cleanEmail === SUPERADMIN_EMAIL.toLowerCase()) return true;
 
   try {
+    const { data } = await supabase
+      .from('client_profiles')
+      .select('role')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (data?.role === 'admin') return true;
+
     const adminEmails = await fetchAdminEmails();
     return adminEmails.includes(cleanEmail);
   } catch (e) {
-    // Fallback check against localStorage
-    try {
-      const local = getLocalAdmins();
-      return local.some((u) => u.email?.toLowerCase().trim() === cleanEmail);
-    } catch (err) {
-      return false;
-    }
+    return false;
   }
 }
 

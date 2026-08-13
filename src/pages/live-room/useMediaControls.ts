@@ -357,10 +357,10 @@ export function useMediaControls({
         const fileName = `recording-${session?.id || 'live'}-${dateStr}.webm`;
         const dur = recordingDuration;
 
-        const publicUrl = await uploadSessionRecording(session?.id || 'live', blob, fileName);
+        const storagePath = await uploadSessionRecording(session?.id || 'live', blob, fileName);
 
-        if (publicUrl) {
-          await saveSessionRecordingMetadata(session?.id || 'live', publicUrl, dur, session?.title);
+        if (storagePath) {
+          await saveSessionRecordingMetadata(session?.id || 'live', storagePath, dur, session?.title);
           store.showToast('✅ Vidéo sauvegardée dans le bucket Supabase avec succès !');
         } else {
           store.showToast('ℹ️ Envoi Supabase effectué / Téléchargement local de secours.');

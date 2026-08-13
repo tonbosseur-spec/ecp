@@ -56,8 +56,20 @@ export default function LiveDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUserEmail(session.user.email || null);
-        const isAdmin = session.user.email === 'pmbom@ecp.cm';
-        setIsTrainer(isAdmin);
+        const isSuperAdmin = session.user.email === 'pmbom@ecp.cm';
+
+        // Query client_profiles for role
+        const { data: profile } = await supabase
+          .from('client_profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        const userRole = profile?.role || 'client';
+        const isAdmin = isSuperAdmin || userRole === 'admin';
+        const isTrainerUser = isAdmin || userRole === 'trainer';
+
+        setIsTrainer(isTrainerUser);
 
         if (!isAdmin) {
           // Fetch user's approved course registrations

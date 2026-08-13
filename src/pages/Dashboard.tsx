@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import NotificationBell from '../components/NotificationBell';
 import AdminManagementModal from '../components/AdminManagementModal';
 import { 
   BookOpen, 
@@ -160,9 +159,6 @@ export default function Dashboard() {
                 <h1 className="text-2xl sm:text-3xl lg:text-3xl xl:text-4xl font-extrabold lg:font-black tracking-tight text-white lg:bg-clip-text lg:text-transparent lg:bg-gradient-to-r lg:from-white lg:via-slate-100 lg:to-indigo-200">
                   Accueil Administration
                 </h1>
-                <div className="lg:hidden shrink-0">
-                  <NotificationBell userRole="admin" />
-                </div>
               </div>
 
               {currentUserEmail && (
@@ -174,11 +170,8 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Quick Metrics Bar & Bell */}
+            {/* Quick Metrics Bar */}
             <div className="flex items-center gap-3 lg:gap-3 w-full lg:w-auto shrink-0">
-              <div className="hidden lg:flex items-center justify-center p-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 shadow-sm hover:bg-white/20 transition-all shrink-0">
-                <NotificationBell userRole="admin" />
-              </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 lg:gap-2.5 w-full sm:w-auto">
                 {/* 1. Formations */}
                 <div className="bg-white/10 backdrop-blur-md border border-white/10 px-3 py-2.5 sm:px-4 sm:py-3 lg:px-3 lg:py-2 rounded-2xl lg:rounded-xl text-center min-w-[110px] lg:min-w-[95px] xl:min-w-[105px] lg:hover:bg-white/20 lg:hover:border-white/25 lg:transition-all lg:duration-200">

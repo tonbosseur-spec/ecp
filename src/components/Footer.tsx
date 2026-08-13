@@ -12,7 +12,8 @@ import {
   Briefcase, 
   FileText, 
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Users
 } from 'lucide-react';
 
 interface FooterProps {
@@ -124,6 +125,12 @@ export default function Footer({ adminWhatsAppPhone = "237698389030" }: FooterPr
                 <Link to="/catalogue" className="hover:text-white transition-colors flex items-center gap-2">
                   <BookOpen className="w-3.5 h-3.5 text-slate-500" />
                   <span>Catalogue des Formations</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/formateurs" className="hover:text-white transition-colors flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Nos formateurs</span>
                 </Link>
               </li>
               <li>

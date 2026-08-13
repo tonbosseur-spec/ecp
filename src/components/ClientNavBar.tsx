@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { User, Menu, X, Sparkles } from 'lucide-react';
 import VerifiedBadge from './VerifiedBadge';
-import NotificationBell from './NotificationBell';
 
 interface ClientNavBarProps {
   currentSession?: any;
@@ -15,6 +14,7 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
   const navLinks = [
     { path: '/', label: 'Accueil' },
     { path: '/catalogue', label: 'Formations' },
+    { path: '/formateurs', label: 'Formateurs' },
     { path: '/expertises', label: 'Services' },
     { path: '/methodology', label: 'Ressources' },
   ];
@@ -69,10 +69,6 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
 
         {/* Right Action Controls */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {currentSession && (
-            <NotificationBell userId={currentSession?.user?.id} userRole="client" />
-          )}
-
           <Link
             to={currentSession ? "/client/hub" : "/client/login"}
             className="text-xs font-bold text-gray-700 dark:text-gray-200 hover:text-blue-600 transition-colors px-3 py-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center gap-1.5 shrink-0"
