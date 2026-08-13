@@ -119,11 +119,13 @@ export async function fetchLiveSessionByCode(roomCode: string): Promise<LiveSess
 
 // Create new Live Session in Supabase
 export async function createLiveSession(sessionData: Omit<LiveSession, 'id' | 'created_at' | 'status'>): Promise<LiveSession> {
-  const newSession: LiveSession = {
+  const newSession: Record<string, any> = {
     ...sessionData,
     id: 'live-' + Date.now(),
     status: 'scheduled',
     created_at: new Date().toISOString(),
+    course_id: sessionData.course_id ? sessionData.course_id : null,
+    description: sessionData.description || '',
   };
 
   const { data, error } = await supabase

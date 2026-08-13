@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Lock, Globe, Video, Copy, Check, Sparkles, BookOpen } from 'lucide-react';
+import { X, Calendar, Clock, Lock, Globe, Video, Copy, Check, Sparkles, BookOpen, AlertCircle } from 'lucide-react';
 import { createLiveSession, generateRoomCode, LiveSession } from '../../lib/liveService';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -32,9 +32,11 @@ export default function CreateLiveModal({
   const [roomCode] = useState(generateRoomCode());
   const [submitting, setSubmitting] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      setErrorMessage(null);
       fetchCourses();
     }
   }, [isOpen]);
@@ -69,10 +71,12 @@ export default function CreateLiveModal({
 
     try {
       setSubmitting(true);
+      setErrorMessage(null);
       const { data: { session } } = await supabase.auth.getSession();
       const trainerEmail = session?.user?.email || 'pmbom@ecp.cm';
+      const trainerId = session?.user?.id || trainerEmail;
       const trainerName = session?.user?.user_metadata?.first_name 
-        ? `${session.user.user_metadata.first_name} ${session.user.user_metadata.last_name || ''}`
+        ? `${session.user.user_metadata.first_name} ${session.user.user_metadata.last_name || ''}`.trim()
         : 'Pierre Valdeze Mbom';
 
       const scheduledAt = new Date(`${date}T${time}:00`).toISOString();
@@ -81,7 +85,7 @@ export default function CreateLiveModal({
         title,
         course_id: courseId || undefined,
         course_title: courseTitle || undefined,
-        trainer_id: trainerEmail,
+        trainer_id: trainerId,
         trainer_name: trainerName,
         scheduled_at: scheduledAt,
         duration_minutes: Number(duration),
@@ -94,8 +98,9 @@ export default function CreateLiveModal({
 
       onSessionCreated(created);
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur création live:', err);
+      setErrorMessage(err?.message || 'Erreur lors de la programmation de la séance live. Vérifiez vos permissions.');
     } finally {
       setSubmitting(false);
     }
@@ -154,6 +159,13 @@ export default function CreateLiveModal({
             )}
           </button>
         </div>
+
+        {errorMessage && (
+          <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-2.5 text-xs text-red-700 font-medium">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">{errorMessage}</div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">

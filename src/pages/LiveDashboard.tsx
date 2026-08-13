@@ -271,13 +271,15 @@ export default function LiveDashboard() {
                 Aucune séance programmée ne correspond aux filtres actuels.
               </p>
             </div>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-2xl shadow-md hover:bg-indigo-700 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Programmer une séance</span>
-            </button>
+            {isTrainer && (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-2xl shadow-md hover:bg-indigo-700 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Programmer une séance</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

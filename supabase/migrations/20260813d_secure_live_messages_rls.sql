@@ -20,7 +20,7 @@ BEGIN
   SELECT TRIM(CONCAT(first_name, ' ', last_name))
   INTO v_official_name
   FROM public.client_profiles
-  WHERE id = auth.uid();
+  WHERE id::text = auth.uid()::text;
 
   -- Override or assign user_name with official profile name
   IF v_official_name IS NOT NULL AND v_official_name <> '' THEN

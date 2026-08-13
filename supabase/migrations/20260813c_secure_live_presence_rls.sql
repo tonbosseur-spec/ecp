@@ -9,15 +9,17 @@ SET search_path = public, pg_temp
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.live_sessions s
-    WHERE (s.id = p_session_id OR s.room_code = p_session_id)
+    WHERE (s.id::text = p_session_id OR s.room_code::text = p_session_id)
       AND (
         public.is_admin()
-        OR s.trainer_id = (auth.jwt() ->> 'email')
+        OR s.trainer_id::text = (auth.jwt() ->> 'email')
+        OR s.trainer_id::text = auth.uid()::text
         OR s.course_id IS NULL
+        OR s.course_id = ''
         OR EXISTS (
           SELECT 1 FROM public.registrations r
-          WHERE r.client_id = auth.uid()
-            AND r.course_id = s.course_id
+          WHERE r.client_id::text = auth.uid()::text
+            AND r.course_id::text = s.course_id::text
             AND r.payment_status = 'approved'
         )
       )

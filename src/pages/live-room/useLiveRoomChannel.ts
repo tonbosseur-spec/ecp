@@ -61,6 +61,7 @@ export function useLiveRoomChannel({
 
     const channel = supabase.channel(channelName, {
       config: {
+        private: true,
         presence: {
           key: user.id,
         },

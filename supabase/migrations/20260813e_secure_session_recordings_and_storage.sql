@@ -38,8 +38,8 @@ WITH CHECK (
     public.is_admin()
     OR EXISTS (
       SELECT 1 FROM public.live_sessions s
-      WHERE (s.id = session_id OR s.room_code = session_id)
-        AND (s.trainer_id = (auth.jwt() ->> 'email') OR s.trainer_id = auth.uid()::text)
+      WHERE (s.id::text = session_id::text OR s.room_code::text = session_id::text)
+        AND (s.trainer_id::text = (auth.jwt() ->> 'email') OR s.trainer_id::text = auth.uid()::text)
     )
   )
 );
@@ -52,8 +52,8 @@ USING (
   public.is_admin()
   OR EXISTS (
     SELECT 1 FROM public.live_sessions s
-    WHERE (s.id = session_id OR s.room_code = session_id)
-      AND (s.trainer_id = (auth.jwt() ->> 'email') OR s.trainer_id = auth.uid()::text)
+    WHERE (s.id::text = session_id::text OR s.room_code::text = session_id::text)
+      AND (s.trainer_id::text = (auth.jwt() ->> 'email') OR s.trainer_id::text = auth.uid()::text)
   )
 );
 
@@ -87,8 +87,8 @@ WITH CHECK (
     public.is_admin()
     OR EXISTS (
       SELECT 1 FROM public.live_sessions s
-      WHERE (s.id = split_part(name, '/', 1) OR s.room_code = split_part(name, '/', 1))
-        AND (s.trainer_id = (auth.jwt() ->> 'email') OR s.trainer_id = auth.uid()::text)
+      WHERE (s.id::text = split_part(name, '/', 1) OR s.room_code::text = split_part(name, '/', 1))
+        AND (s.trainer_id::text = (auth.jwt() ->> 'email') OR s.trainer_id::text = auth.uid()::text)
     )
   )
 );
@@ -102,8 +102,8 @@ USING (
     public.is_admin()
     OR EXISTS (
       SELECT 1 FROM public.live_sessions s
-      WHERE (s.id = split_part(name, '/', 1) OR s.room_code = split_part(name, '/', 1))
-        AND (s.trainer_id = (auth.jwt() ->> 'email') OR s.trainer_id = auth.uid()::text)
+      WHERE (s.id::text = split_part(name, '/', 1) OR s.room_code::text = split_part(name, '/', 1))
+        AND (s.trainer_id::text = (auth.jwt() ->> 'email') OR s.trainer_id::text = auth.uid()::text)
     )
   )
 );

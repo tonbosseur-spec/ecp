@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Lock, Globe, Video, Sparkles, BookOpen, Edit3 } from 'lucide-react';
+import { X, Calendar, Clock, Lock, Globe, Video, Sparkles, BookOpen, Edit3, AlertCircle } from 'lucide-react';
 import { updateLiveSession, LiveSession } from '../../lib/liveService';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -29,9 +29,11 @@ export default function EditLiveModal({
 
   const [coursesList, setCoursesList] = useState<{ id: string; title: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && session) {
+      setErrorMessage(null);
       setTitle(session.title || '');
       setCourseId(session.course_id || '');
       setCourseTitle(session.course_title || '');
@@ -85,6 +87,7 @@ export default function EditLiveModal({
 
     try {
       setSubmitting(true);
+      setErrorMessage(null);
       const scheduledAt = date && time ? new Date(`${date}T${time}:00`).toISOString() : session.scheduled_at;
 
       const updated = await updateLiveSession(session.id, {
@@ -101,10 +104,13 @@ export default function EditLiveModal({
 
       if (updated) {
         onSessionUpdated(updated);
+        onClose();
+      } else {
+        setErrorMessage('Impossible de mettre à jour la séance. Vérifiez vos permissions.');
       }
-      onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur mise à jour live:', err);
+      setErrorMessage(err?.message || 'Erreur lors de la mise à jour de la séance live.');
     } finally {
       setSubmitting(false);
     }
@@ -131,6 +137,13 @@ export default function EditLiveModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {errorMessage && (
+          <div className="mt-4 p-3.5 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-2.5 text-xs text-red-700 font-medium">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1 leading-relaxed">{errorMessage}</div>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
