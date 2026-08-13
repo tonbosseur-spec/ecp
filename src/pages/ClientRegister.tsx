@@ -153,10 +153,12 @@ export default function ClientRegister() {
         <div className="relative z-10 p-12 xl:p-16 flex flex-col h-full justify-between max-w-2xl mx-auto w-full">
           <div>
             {!Capacitor.isNativePlatform() && (
-              <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-16">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-sm font-semibold">Retour à l'accueil</span>
-              </Link>
+              <div className="mb-12">
+                <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm font-semibold">Retour à l'accueil</span>
+                </Link>
+              </div>
             )}
 
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 font-extrabold text-xs uppercase tracking-wider mb-6">

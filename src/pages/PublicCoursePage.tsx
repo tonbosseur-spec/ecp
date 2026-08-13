@@ -366,6 +366,7 @@ END:VCALENDAR`;
       if (courseError) throw courseError;
       
       if (courseData.is_active === false || courseData.is_archived === true) {
+        setCourse(courseData);
         setIsInactive(true);
         setLoading(false);
         return;
@@ -581,12 +582,12 @@ END:VCALENDAR`;
           </div>
           <h2 className="text-2xl font-black text-white tracking-tight">Produit indisponible</h2>
           <p className="text-slate-400 text-sm leading-relaxed">
-            Ce produit n'est actuellement plus disponible à l'inscription. Merci de consulter notre catalogue.
+            Ce produit n'est actuellement plus disponible à l'inscription. Merci de consulter {course?.product_type === 'ebook' ? 'nos ressources' : 'notre catalogue'}.
           </p>
           <div className="pt-2">
-            <Link to="/catalogue" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-100 transition-colors text-sm">
+            <Link to={course?.product_type === 'ebook' ? '/methodology' : '/catalogue'} className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-100 transition-colors text-sm">
               <ArrowLeft className="w-4 h-4" />
-              <span>Voir le catalogue</span>
+              <span>Voir {course?.product_type === 'ebook' ? 'les ressources' : 'le catalogue'}</span>
             </Link>
           </div>
         </div>
@@ -650,11 +651,11 @@ END:VCALENDAR`;
       }`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <Link 
-            to="/catalogue" 
+            to={isEbook ? "/methodology" : "/catalogue"} 
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-bold transition-all backdrop-blur-md"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Catalogue</span>
+            <span>{isEbook ? "Ressources" : "Catalogue"}</span>
           </Link>
 
           <Link to="/" className="text-sm sm:text-base font-black tracking-tight text-white hover:opacity-90 transition-opacity">
@@ -694,189 +695,120 @@ END:VCALENDAR`;
         </div>
 
         {/* Hero Content Container */}
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 w-full">
-          {isEbook ? (
-            /* E-BOOK HERO LAYOUT */
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-              {/* Couverture E-book 3D Card (Desktop & Mobile) */}
-              <div className="lg:col-span-5 flex justify-center lg:justify-start">
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ duration: 0.6 }}
-                  className="relative group max-w-[260px] sm:max-w-[300px] w-full"
-                >
-                  <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl blur-xl opacity-40 group-hover:opacity-70 transition duration-500"></div>
-                  <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl aspect-[3/4] flex items-center justify-center">
-                    {course.cover_image_url ? (
-                      <img 
-                        src={course.cover_image_url} 
-                        alt={course.title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-contain sm:object-cover bg-slate-950"
-                      />
-                    ) : (
-                      <div className="p-8 text-center space-y-4">
-                        <BookOpen className="w-16 h-16 text-purple-400 mx-auto" />
-                        <span className="text-xs font-bold text-purple-300 uppercase tracking-widest block">Livre Numérique</span>
-                        <p className="text-white font-black text-lg line-clamp-3">{course.title}</p>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* Détails E-Book */}
-              <div className="lg:col-span-7 space-y-5 text-center lg:text-left">
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-black tracking-wide uppercase">
-                    <BookMarked className="w-3.5 h-3.5" />
-                    E-Book Numérique (PDF)
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 w-full text-center space-y-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="space-y-6"
+          >
+            {/* Badges */}
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              {isEbook ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-black uppercase tracking-wider">
+                    <BookMarked className="w-4 h-4" />
+                    E-book Numérique
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-extrabold">
-                    <Zap className="w-3.5 h-3.5" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-extrabold uppercase tracking-wider">
+                    <Zap className="w-4 h-4" />
                     Accès Immédiat
                   </span>
-                </div>
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black uppercase tracking-wider">
+                    <GraduationCap className="w-4 h-4" />
+                    Formation en Ligne
+                  </span>
+                  {(course.is_date_tbd || !course.date_time) ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Date à venir
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold capitalize">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {formattedDate}
+                    </span>
+                  )}
+                  {course.course_modules && course.course_modules.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold">
+                      <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                      {course.course_modules.length} {course.course_modules.length > 1 ? 'modules' : 'module'}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
 
-                <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
-                  {course.title}
-                </h1>
+            {/* Titre principal */}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
+              {course.title}
+            </h1>
 
-                {course.trainers?.name && (
-                  <p className="text-slate-300 text-sm sm:text-base font-medium flex items-center justify-center lg:justify-start gap-2">
-                    <span>Par</span>
-                    <strong className="text-white font-bold">{course.trainers.name}</strong>
-                  </p>
+            {/* Formateur / Auteur */}
+            {course.trainers?.name && (
+              <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-medium text-slate-300">
+                {course.trainers.photo_url ? (
+                  <img src={course.trainers.photo_url} alt={course.trainers.name} className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <User className="w-4 h-4 text-emerald-400" />
                 )}
+                <span>{isEbook ? "Auteur" : "Formateur"} : <strong className="text-white font-bold">{course.trainers.name}</strong></span>
+              </div>
+            )}
 
-                <div className="flex items-center justify-center lg:justify-start gap-3 pt-1">
-                  <div className="text-3xl sm:text-4xl font-black text-white">
-                    {basePrice === 0 ? (
-                      <span className="text-emerald-400">GRATUIT</span>
-                    ) : appliedPromo ? (
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-emerald-400">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
-                        <span className="text-lg text-slate-500 line-through">{basePrice.toLocaleString('fr-FR')} FCFA</span>
-                      </div>
-                    ) : (
-                      <span>{basePrice.toLocaleString('fr-FR')} <span className="text-xl text-slate-400 font-medium">FCFA</span></span>
-                    )}
+            {/* Tarif Hero */}
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <div className="text-3xl sm:text-4xl font-black text-white">
+                {basePrice === 0 ? (
+                  <span className="text-emerald-400">GRATUIT</span>
+                ) : appliedPromo ? (
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-emerald-400">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
+                    <span className="text-lg text-slate-500 line-through">{basePrice.toLocaleString('fr-FR')} FCFA</span>
                   </div>
-                </div>
-
-                {/* Hero Actions */}
-                <div className="pt-3 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
-                  <button
-                    onClick={scrollToForm}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl shadow-xl shadow-emerald-950/50 hover:scale-105 active:scale-95 transition-all text-base cursor-pointer"
-                  >
-                    <span>{mainCtaText}</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </button>
-
-                  <a
-                    href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour Pierre ! Je souhaite acheter l'e-book "${course.title}".`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl border border-slate-700/80 transition-all text-sm"
-                  >
-                    <MessageCircle className="w-4 h-4 text-emerald-400" />
-                    <span>Question WhatsApp</span>
-                  </a>
-                </div>
+                ) : (
+                  <span>{basePrice.toLocaleString('fr-FR')} <span className="text-xl text-slate-400 font-medium">FCFA</span></span>
+                )}
               </div>
             </div>
-          ) : (
-            /* FORMATION HERO LAYOUT */
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="max-w-3xl mx-auto text-center space-y-6"
-            >
-              {/* Badges de formation */}
-              <div className="flex flex-wrap items-center justify-center gap-2.5">
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black uppercase tracking-wider">
-                  <GraduationCap className="w-4 h-4" />
-                  Formation en Ligne
-                </span>
 
-                {(course.is_date_tbd || !course.date_time) ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Date à venir
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold capitalize">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {formattedDate}
-                  </span>
-                )}
+            {/* CTAs */}
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
+              <button
+                onClick={scrollToForm}
+                disabled={!isEbook && course.remainingSeats === 0}
+                className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-2xl shadow-xl shadow-emerald-950/60 hover:scale-105 active:scale-95 transition-all text-base cursor-pointer"
+              >
+                <span>{mainCtaText}</span>
+                <ArrowRight className="w-5 h-5" />
+              </button>
 
-                {course.course_modules && course.course_modules.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-xs font-bold">
-                    <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                    {course.course_modules.length} {course.course_modules.length > 1 ? 'modules' : 'module'}
-                  </span>
-                )}
-              </div>
-
-              {/* Titre principal */}
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
-                {course.title}
-              </h1>
-
-              {/* Formateur */}
-              {course.trainers?.name && (
-                <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-medium text-slate-300">
-                  {course.trainers.photo_url ? (
-                    <img src={course.trainers.photo_url} alt={course.trainers.name} className="w-6 h-6 rounded-full object-cover" />
-                  ) : (
-                    <User className="w-4 h-4 text-emerald-400" />
-                  )}
-                  <span>Formateur : <strong className="text-white font-bold">{course.trainers.name}</strong></span>
-                </div>
-              )}
-
-              {/* Tarif Hero */}
-              <div className="pt-2 flex items-center justify-center gap-3">
-                <span className="text-3xl sm:text-4xl font-black text-white">
-                  {basePrice === 0 ? (
-                    <span className="text-emerald-400">GRATUIT</span>
-                  ) : appliedPromo ? (
-                    <span className="text-emerald-400">{effectivePrice.toLocaleString('fr-FR')} FCFA</span>
-                  ) : (
-                    <span>{basePrice.toLocaleString('fr-FR')} <span className="text-xl text-slate-400 font-normal">FCFA</span></span>
-                  )}
-                </span>
-              </div>
-
-              {/* CTA principal */}
-              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-                <button
-                  onClick={scrollToForm}
-                  disabled={course.remainingSeats === 0}
-                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-black rounded-2xl shadow-xl shadow-emerald-950/60 hover:scale-105 active:scale-95 transition-all text-base cursor-pointer"
+              {isEbook ? (
+                <a
+                  href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour Pierre ! Je souhaite acheter l'e-book "${course.title}".`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl border border-slate-700/80 transition-all text-sm"
                 >
-                  <span>{mainCtaText}</span>
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-
-                {course.youtube_video_url && (
-                  <a
-                    href={course.youtube_video_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl border border-slate-700/80 transition-all text-sm"
-                  >
-                    <Youtube className="w-4 h-4 text-red-500" />
-                    <span>Extrait Vidéo</span>
-                  </a>
-                )}
-              </div>
-            </motion.div>
-          )}
+                  <MessageCircle className="w-4 h-4 text-emerald-400" />
+                  <span>Question WhatsApp</span>
+                </a>
+              ) : course.youtube_video_url && (
+                <a
+                  href={course.youtube_video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl border border-slate-700/80 transition-all text-sm"
+                >
+                  <Youtube className="w-4 h-4 text-red-500" />
+                  <span>Extrait Vidéo</span>
+                </a>
+              )}
+            </div>
+          </motion.div>
         </div>
       </section>
 

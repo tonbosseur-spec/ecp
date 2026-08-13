@@ -108,15 +108,7 @@ export default function ClientLogin() {
   };
 
   const handleVisitWebsite = async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await Browser.open({ url: 'https://excellerchezpierre-eight.vercel.app' });
-      } catch (err) {
-        window.open('https://excellerchezpierre-eight.vercel.app', '_blank');
-      }
-    } else {
-      navigate(-1);
-    }
+    navigate('/');
   };
 
   return (
