@@ -163,6 +163,59 @@ class WebREngine {
           // Dynamic import to guarantee zero bundle overhead on initial page load
           const { WebR } = await import('@r-wasm/webr');
 
+          // Ensure WebR Service Worker is registered and fully 'activated' before webR.init()
+          if ('serviceWorker' in navigator) {
+            try {
+              const reg = await navigator.serviceWorker.register('/webr/webr-serviceworker.js', { scope: '/webr/' });
+              if (!reg.active) {
+                await new Promise<void>((resolve) => {
+                  const checkActive = () => {
+                    if (reg.active) {
+                      resolve();
+                      return true;
+                    }
+                    return false;
+                  };
+
+                  if (checkActive()) return;
+
+                  const sw = reg.installing || reg.waiting;
+                  if (sw) {
+                    const handleStateChange = () => {
+                      if (sw.state === 'activated' || checkActive()) {
+                        sw.removeEventListener('statechange', handleStateChange);
+                        resolve();
+                      }
+                    };
+                    sw.addEventListener('statechange', handleStateChange);
+                  } else {
+                    const handleUpdateFound = () => {
+                      const newSw = reg.installing;
+                      if (newSw) {
+                        const handleStateChange = () => {
+                          if (newSw.state === 'activated' || checkActive()) {
+                            newSw.removeEventListener('statechange', handleStateChange);
+                            resolve();
+                          }
+                        };
+                        newSw.addEventListener('statechange', handleStateChange);
+                      }
+                    };
+                    reg.addEventListener('updatefound', handleUpdateFound);
+
+                    const interval = setInterval(() => {
+                      if (checkActive()) {
+                        clearInterval(interval);
+                      }
+                    }, 50);
+                  }
+                });
+              }
+            } catch (swErr) {
+              console.warn('WebR Service Worker registration pre-check notice:', swErr);
+            }
+          }
+
           // Instantiate WebR with self-hosted runtime files
           const webR = new WebR({
             baseUrl: '/webr/',
