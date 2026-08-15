@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { TrainingSession, TrainingExercise } from '../types';
 import REditorConsole, { REditorConsoleRef } from '../components/REditorConsole';
-import { validateCode, RValidationResult } from '../lib/webrEngine';
+import { validateCode, resetREnvironment, RValidationResult } from '../lib/webrEngine';
 
 export default function ClientTrainingSession() {
   const { id } = useParams<{ id: string }>();
@@ -75,6 +75,13 @@ export default function ClientTrainingSession() {
       if (timer) clearInterval(timer);
     };
   }, [loading, errorMessage, isCompletedState, exercises.length]);
+
+  // Reset R environment when switching to a new R exercise
+  useEffect(() => {
+    if (exercises.length > 0 && exercises[currentIndex]?.exercise_type === 'r_code') {
+      resetREnvironment().catch(console.warn);
+    }
+  }, [currentIndex, exercises]);
 
   // Load session and exercises securely
   useEffect(() => {
@@ -147,6 +154,7 @@ export default function ClientTrainingSession() {
           order_index,
           options,
           starter_code,
+          expected_output,
           hint,
           test_cases,
           created_at

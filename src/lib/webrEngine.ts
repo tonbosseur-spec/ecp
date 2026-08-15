@@ -471,6 +471,9 @@ class WebREngine {
       });
 
       const validationPromise = (async (): Promise<RValidationResult> => {
+        // Ensure global environment is clean before evaluating student code
+        await shelter.evalR("rm(list = ls(envir = .GlobalEnv, all.names = TRUE), envir = .GlobalEnv)");
+
         // Step 1: Execute student code with stream & condition capture
         const studentCapture = await shelter.captureR(code, {
           withAutoprint: false,
@@ -656,21 +659,70 @@ class WebREngine {
       const jsVal = await evalRes.toJs();
       await shelter.purge();
 
-      if (!jsVal || typeof jsVal !== 'object') return [];
+      if (!jsVal || typeof jsVal !== 'object' || jsVal.type !== 'list' || !Array.isArray(jsVal.values)) {
+        return [];
+      }
 
       const resultList: RObjectInfo[] = [];
-      const keys = Object.keys(jsVal);
-      for (const k of keys) {
-        const item = jsVal[k];
-        if (item && item.name) {
+      for (let i = 0; i < jsVal.values.length; i++) {
+        const item = jsVal.values[i];
+        if (!item || item.type !== 'list' || !item.names || !item.values) continue;
+
+        const getField = (fieldName: string) => {
+          const idx = item.names.indexOf(fieldName);
+          return idx !== -1 ? item.values[idx] : undefined;
+        };
+        const getScalar = (fieldName: string) => {
+          const field = getField(fieldName);
+          return field?.values ? field.values[0] : field;
+        };
+        const getArray = (fieldName: string) => {
+          const field = getField(fieldName);
+          return field?.values ? Array.from(field.values) : (Array.isArray(field) ? field : null);
+        };
+        const parsePreviewData = (fieldVal: any, previewType: string) => {
+          if (!fieldVal) return undefined;
+          if (previewType === 'vector' || previewType === 'summary') {
+            return fieldVal.values ? Array.from(fieldVal.values) : fieldVal;
+          }
+          if (previewType === 'dataframe' && fieldVal.type === 'list' && fieldVal.names) {
+            const getSubField = (fName: string) => {
+              const idx = fieldVal.names.indexOf(fName);
+              return idx !== -1 ? fieldVal.values[idx] : undefined;
+            };
+            const columnsField = getSubField('columns');
+            const columns = columnsField?.values ? Array.from(columnsField.values) : [];
+
+            const rowsField = getSubField('rows');
+            const rows = [];
+            if (rowsField && rowsField.type === 'list' && rowsField.values) {
+              for (const rowItem of rowsField.values) {
+                rows.push(rowItem?.values ? Array.from(rowItem.values) : []);
+              }
+            }
+
+            const totalRowsField = getSubField('totalRows');
+            const totalRows = totalRowsField?.values ? totalRowsField.values[0] : 0;
+
+            const totalColsField = getSubField('totalCols');
+            const totalCols = totalColsField?.values ? totalColsField.values[0] : 0;
+
+            return { columns, rows, totalRows, totalCols };
+          }
+          return fieldVal?.values ? fieldVal.values[0] : fieldVal;
+        };
+
+        const name = getScalar('name');
+        if (name) {
+          const pType = getScalar('previewType') || 'scalar';
           resultList.push({
-            name: String(item.name.values ? item.name.values[0] : item.name),
-            className: String(item.className?.values ? item.className.values[0] : (item.className || 'object')),
-            type: String(item.type?.values ? item.type.values[0] : (item.type || 'unknown')),
-            length: Number(item.length?.values ? item.length.values[0] : (item.length || 0)),
-            dimensions: item.dimensions?.values ? Array.from(item.dimensions.values) as [number, number] : (Array.isArray(item.dimensions) ? item.dimensions : null),
-            previewType: (item.previewType?.values ? item.previewType.values[0] : item.previewType) || 'scalar',
-            previewData: item.previewData?.toJs ? await item.previewData.toJs() : item.previewData,
+            name: String(name),
+            className: String(getScalar('className') || 'object'),
+            type: String(getScalar('type') || 'unknown'),
+            length: Number(getScalar('length') || 0),
+            dimensions: getArray('dimensions') as [number, number] | null,
+            previewType: pType,
+            previewData: parsePreviewData(getField('previewData'), pType),
           });
         }
       }
