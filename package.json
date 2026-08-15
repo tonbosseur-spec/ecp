@@ -23,7 +23,6 @@
     "@capacitor/status-bar": "^8.0.3",
     "@capgo/capacitor-native-biometric": "^8.6.2",
     "@google/genai": "^2.4.0",
-    "@r-wasm/webr": "^0.2.0",
     "@supabase/supabase-js": "^2.110.5",
     "@tailwindcss/vite": "^4.1.14",
     "@tanstack/react-query": "^5.101.4",
@@ -38,6 +37,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.18.1",
+    "webr": "^0.6.0",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.14"
   },

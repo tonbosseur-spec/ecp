@@ -40,7 +40,7 @@ export interface WebRExecutionResult {
   errors: string[];
   executionTimeMs: number;
   resultValue?: any;
-  svgGraphic?: string;
+  graphicDataUrl?: string;
 }
 
 export interface RTestCase {
@@ -184,7 +184,7 @@ class WebREngine {
 
         const loadPromise = (async () => {
           // Dynamic import to guarantee zero bundle overhead on initial page load
-          const { WebR } = await import('@r-wasm/webr');
+          const { WebR } = await import('webr');
 
           // Ensure WebR Service Worker is registered and fully 'activated' before webR.init()
           if ('serviceWorker' in navigator) {
@@ -313,14 +313,6 @@ class WebREngine {
       });
 
       const executionPromise = (async () => {
-        // Prepare SVG plot capture device
-        try {
-          await shelter.evalR(`
-            .webr_svg_file <- tempfile(fileext = ".svg")
-            svg(.webr_svg_file, width = 7, height = 5)
-          `);
-        } catch {}
-
         // Execute R code with stream and condition capture
         const capture = await shelter.captureR(code, {
           withAutoprint: true,
@@ -328,26 +320,23 @@ class WebREngine {
           captureConditions: true,
         });
 
-        // Extract graphics SVG if generated
-        let capturedSvg: string | undefined = undefined;
+        // Extract graphics if generated (via webr::canvas())
+        let graphicDataUrl: string | undefined = undefined;
         try {
-          const svgEval = await shelter.evalR(`
-            suppressWarnings(try({ dev.off() }, silent = TRUE))
-            if (file.exists(.webr_svg_file) && file.info(.webr_svg_file)$size > 150) {
-              .svg_str <- paste(readLines(.webr_svg_file), collapse = "\n")
-              unlink(.webr_svg_file)
-              .svg_str
-            } else {
-              suppressWarnings(try(unlink(.webr_svg_file), silent = TRUE))
-              ""
+          if (capture.images && capture.images.length > 0) {
+            const imgBitmap = capture.images[capture.images.length - 1];
+            const canvas = document.createElement('canvas');
+            canvas.width = imgBitmap.width;
+            canvas.height = imgBitmap.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(imgBitmap, 0, 0);
+              graphicDataUrl = canvas.toDataURL('image/png');
             }
-          `);
-          const svgJs = await svgEval.toJs();
-          const rawSvg = svgJs?.values ? svgJs.values[0] : (typeof svgJs === 'string' ? svgJs : '');
-          if (typeof rawSvg === 'string' && rawSvg.trim().startsWith('<svg')) {
-            capturedSvg = rawSvg.trim();
           }
-        } catch {}
+        } catch (e) {
+          console.warn("Failed to extract ImageBitmap:", e);
+        }
 
         // Extract console outputs
         if (capture.output && Array.isArray(capture.output)) {
@@ -381,10 +370,10 @@ class WebREngine {
         // Purge shelter memory objects
         await shelter.purge();
 
-        return { resultValue, capturedSvg };
+        return { resultValue, graphicDataUrl };
       })();
 
-      const { resultValue, capturedSvg } = await Promise.race([executionPromise, timeoutPromise]);
+      const { resultValue, graphicDataUrl } = await Promise.race([executionPromise, timeoutPromise]);
 
       if (timeoutId) clearTimeout(timeoutId);
 
@@ -419,7 +408,7 @@ class WebREngine {
         errors,
         executionTimeMs,
         resultValue,
-        svgGraphic: capturedSvg,
+        graphicDataUrl,
       };
     } catch (err: any) {
       if (timeoutId) clearTimeout(timeoutId);
@@ -577,15 +566,21 @@ class WebREngine {
 
         for (const tc of validTestCases) {
           // Wrapped safely in tryCatch: evaluates truthiness and returns integer 1L (passed) or 0L (failed)
-          const sanitizedTestRCode = `tryCatch({ as.integer(isTRUE(as.logical((${tc.code}))[1])) }, error = function(e) 0L, warning = function(w) 0L)`;
+          const sanitizedTestRCode = `tryCatch({ .t_res <- { ${tc.code} }; as.integer(isTRUE(as.logical(.t_res)[1])) }, error = function(e) paste0("ERR:", conditionMessage(e)), warning = function(w) 0L)`;
 
           let isPassed = false;
           try {
             const evalResult = await shelter.evalR(sanitizedTestRCode);
             const jsVal = await evalResult.toJs();
             const raw = jsVal?.values ? jsVal.values[0] : jsVal;
-            isPassed = raw === 1 || raw === true;
-          } catch {
+            if (typeof raw === 'string' && raw.startsWith('ERR:')) {
+              console.warn(`Erreur d'évaluation du critère "${tc.description || 'Critère'}":`, raw.replace('ERR:', ''));
+              isPassed = false;
+            } else {
+              isPassed = raw === 1 || raw === true;
+            }
+          } catch (e) {
+            console.warn(`Erreur JS lors de l'évaluation du critère "${tc.description || 'Critère'}":`, e);
             isPassed = false;
           }
 

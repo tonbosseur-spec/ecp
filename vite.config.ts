@@ -20,7 +20,7 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'node_modules/@r-wasm/webr/dist/{R.bin.wasm,R.bin.data,R.bin.js,libRblas.so,libRlapack.so,webr-worker.js,webr-serviceworker.js,webr.mjs}',
+          src: 'node_modules/webr/dist/{R.bin.wasm,R.bin.data,R.bin.js,libRblas.so,libRlapack.so,webr-worker.js,webr-serviceworker.js,webr.mjs}',
           dest: 'webr',
           rename: { stripBase: true },
         },
@@ -29,7 +29,7 @@ export default defineConfig({
     {
       name: 'copy-webr-vfs',
       closeBundle() {
-        const src = path.resolve(__dirname, 'node_modules/@r-wasm/webr/dist/vfs');
+        const src = path.resolve(__dirname, 'node_modules/webr/dist/vfs');
         const dest = path.resolve(__dirname, 'dist/webr/vfs');
         if (fs.existsSync(src)) {
           fs.cpSync(src, dest, { recursive: true });

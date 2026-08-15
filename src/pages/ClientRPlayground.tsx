@@ -113,7 +113,7 @@ export default function ClientRPlayground() {
       setLastResult(result);
 
       // Auto switch tab if graphic was produced
-      if (result.svgGraphic) {
+      if (result.graphicDataUrl) {
         setActiveTab('graphics');
       } else {
         setActiveTab('result');
@@ -483,7 +483,7 @@ export default function ClientRPlayground() {
                 >
                   <BarChart2 className="w-3.5 h-3.5 text-pink-600" />
                   <span>Graphique</span>
-                  {lastResult?.svgGraphic && (
+                  {lastResult?.graphicDataUrl && (
                     <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
                   )}
                 </button>
@@ -692,16 +692,15 @@ export default function ClientRPlayground() {
               {/* TAB 3: R SVG Graphics Display */}
               {activeTab === 'graphics' && (
                 <div className="space-y-3 font-sans text-xs flex flex-col items-center justify-center min-h-[260px]">
-                  {lastResult?.svgGraphic ? (
+                  {lastResult?.graphicDataUrl ? (
                     <div className="w-full space-y-2 flex flex-col items-center">
                       <div className="text-[11px] font-bold text-gray-400 flex items-center justify-between w-full pb-1 border-b border-gray-100">
                         <span>Graphique R généré</span>
-                        <span className="text-pink-600">SVG vectoriel</span>
+                        <span className="text-pink-600">Image Bitmap (PNG)</span>
                       </div>
-                      <div 
-                        className="w-full bg-white p-2 rounded-xl border border-gray-200 flex justify-center overflow-auto max-h-[400px]"
-                        dangerouslySetInnerHTML={{ __html: lastResult.svgGraphic }}
-                      />
+                      <div className="w-full bg-white p-2 rounded-xl border border-gray-200 flex justify-center overflow-auto max-h-[400px]">
+                        <img src={lastResult.graphicDataUrl} alt="Graphique R" className="max-w-full h-auto" />
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-12 text-gray-400 space-y-2">
