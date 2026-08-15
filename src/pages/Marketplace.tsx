@@ -417,6 +417,7 @@ export default function Marketplace() {
                       <img 
                         src={course.cover_image_url} 
                         alt={`Image de couverture : ${course.title}`} 
+                        crossOrigin="anonymous"
                         className="w-full h-full object-cover"
                       />
                     ) : (

@@ -96,6 +96,7 @@ export default function DownloadAppPage() {
                     <img 
                       src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i + 20}`} 
                       alt={`Avatar de l'apprenant ${i}`} 
+                      crossOrigin="anonymous"
                       referrerPolicy="no-referrer"
                     />
                   </div>

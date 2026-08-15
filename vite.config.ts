@@ -20,7 +20,7 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'node_modules/webr/dist/{R.bin.wasm,R.bin.data,R.bin.js,libRblas.so,libRlapack.so,webr-worker.js,webr-serviceworker.js,webr.mjs}',
+          src: 'node_modules/webr/dist/{R.wasm,R.js,libRblas.so,libRlapack.so,webr-worker.js,webr.mjs}',
           dest: 'webr',
           rename: { stripBase: true },
         },

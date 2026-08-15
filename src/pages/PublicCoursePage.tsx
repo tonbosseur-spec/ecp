@@ -702,6 +702,7 @@ END:VCALENDAR`;
             <img 
               src={course.cover_image_url} 
               alt={course.title}
+              crossOrigin="anonymous"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover object-center scale-105 filter blur-xs opacity-40 sm:opacity-50"
             />

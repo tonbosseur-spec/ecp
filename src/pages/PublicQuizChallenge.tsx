@@ -1057,6 +1057,7 @@ export default function PublicQuizChallenge() {
                     <img 
                       src={course.trainers.photo_url} 
                       alt={`Photo de ${course.trainers.name}`} 
+                      crossOrigin="anonymous"
                       className="w-10 h-10 rounded-full object-cover border border-slate-700"
                     />
                   ) : (

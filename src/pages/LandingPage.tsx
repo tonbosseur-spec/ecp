@@ -919,6 +919,7 @@ export default function LandingPage() {
                     <img
                       src="https://titncxnaixghtoerkfiu.supabase.co/storage/v1/object/sign/Images/file_00000000a6e871f49516e7166eb65c0f.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hODRjMTA3My1lMDY4LTQxYzQtYjJkYi1hNGUyMDk0MGE2NzciLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJJbWFnZXMvZmlsZV8wMDAwMDAwMGE2ZTg3MWY0OTUxNmU3MTY2ZWI2NWMwZi5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0MTk3ODQyLCJleHAiOjE4MTU3MzM4NDJ9.Eir17hsCyqArRAxa3wrQI0TU0Od2xcsw1wgj-fL4BB8"
                       alt="Votre Cadeau de Bienvenue"
+                      crossOrigin="anonymous"
                       referrerPolicy="no-referrer"
                       className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-[1.02]"
                     />
