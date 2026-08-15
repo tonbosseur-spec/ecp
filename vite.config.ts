@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
 import path from 'path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -25,6 +26,17 @@ export default defineConfig({
         },
       ],
     }),
+    {
+      name: 'copy-webr-vfs',
+      closeBundle() {
+        const src = path.resolve(__dirname, 'node_modules/@r-wasm/webr/dist/vfs');
+        const dest = path.resolve(__dirname, 'dist/webr/vfs');
+        if (fs.existsSync(src)) {
+          fs.cpSync(src, dest, { recursive: true });
+          console.log('[copy-webr-vfs] Copied WebR VFS directory to dist/webr/vfs');
+        }
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
