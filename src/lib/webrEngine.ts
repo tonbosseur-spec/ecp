@@ -14,6 +14,23 @@
 
 export type WebRStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error';
 
+export interface RObjectDataFramePreview {
+  columns: string[];
+  rows: string[][];
+  totalRows: number;
+  totalCols: number;
+}
+
+export interface RObjectInfo {
+  name: string;
+  className: string;
+  type: string;
+  length: number;
+  dimensions?: [number, number] | null;
+  previewType: 'dataframe' | 'vector' | 'summary' | 'scalar';
+  previewData?: any;
+}
+
 export interface WebRExecutionResult {
   success: boolean;
   output: string;
@@ -23,6 +40,7 @@ export interface WebRExecutionResult {
   errors: string[];
   executionTimeMs: number;
   resultValue?: any;
+  svgGraphic?: string;
 }
 
 export interface RTestCase {
@@ -33,6 +51,11 @@ export interface RTestCase {
 export interface RTestResultDetail {
   description: string;
   passed: boolean;
+}
+
+export interface ValidateCodeOptions {
+  timeoutMs?: number;
+  expectedOutput?: string | null;
 }
 
 export interface RValidationResult {
@@ -290,12 +313,41 @@ class WebREngine {
       });
 
       const executionPromise = (async () => {
+        // Prepare SVG plot capture device
+        try {
+          await shelter.evalR(`
+            .webr_svg_file <- tempfile(fileext = ".svg")
+            svg(.webr_svg_file, width = 7, height = 5)
+          `);
+        } catch {}
+
         // Execute R code with stream and condition capture
         const capture = await shelter.captureR(code, {
           withAutoprint: true,
           captureStreams: true,
           captureConditions: true,
         });
+
+        // Extract graphics SVG if generated
+        let capturedSvg: string | undefined = undefined;
+        try {
+          const svgEval = await shelter.evalR(`
+            suppressWarnings(try({ dev.off() }, silent = TRUE))
+            if (file.exists(.webr_svg_file) && file.info(.webr_svg_file)$size > 150) {
+              .svg_str <- paste(readLines(.webr_svg_file), collapse = "\n")
+              unlink(.webr_svg_file)
+              .svg_str
+            } else {
+              suppressWarnings(try(unlink(.webr_svg_file), silent = TRUE))
+              ""
+            }
+          `);
+          const svgJs = await svgEval.toJs();
+          const rawSvg = svgJs?.values ? svgJs.values[0] : (typeof svgJs === 'string' ? svgJs : '');
+          if (typeof rawSvg === 'string' && rawSvg.trim().startsWith('<svg')) {
+            capturedSvg = rawSvg.trim();
+          }
+        } catch {}
 
         // Extract console outputs
         if (capture.output && Array.isArray(capture.output)) {
@@ -329,10 +381,10 @@ class WebREngine {
         // Purge shelter memory objects
         await shelter.purge();
 
-        return { resultValue };
+        return { resultValue, capturedSvg };
       })();
 
-      const { resultValue } = await Promise.race([executionPromise, timeoutPromise]);
+      const { resultValue, capturedSvg } = await Promise.race([executionPromise, timeoutPromise]);
 
       if (timeoutId) clearTimeout(timeoutId);
 
@@ -367,6 +419,7 @@ class WebREngine {
         errors,
         executionTimeMs,
         resultValue,
+        svgGraphic: capturedSvg,
       };
     } catch (err: any) {
       if (timeoutId) clearTimeout(timeoutId);
@@ -405,7 +458,7 @@ class WebREngine {
   public async validateCode(
     code: string,
     testCases: RTestCase[] | string | any,
-    options: { timeoutMs?: number } = {}
+    options: ValidateCodeOptions = {}
   ): Promise<RValidationResult> {
     // Parse test cases safely if string was provided
     let parsedTestCases: RTestCase[] = [];
@@ -420,17 +473,36 @@ class WebREngine {
     }
 
     // Filter out invalid items
-    const validTestCases = parsedTestCases.filter(
+    const validTestCases = [...parsedTestCases.filter(
       (tc) => tc && typeof tc.code === 'string' && tc.code.trim().length > 0
-    );
+    )];
 
-    // If no test cases defined, return empty success
+    // If expectedOutput is provided, append an automatic expected output check test case if not already present
+    const expOutStr = options.expectedOutput ? options.expectedOutput.trim() : '';
+    if (expOutStr) {
+      const alreadyHasExpTest = validTestCases.some(tc => tc.code.includes(expOutStr));
+      if (!alreadyHasExpTest) {
+        const escapedExp = expOutStr.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        validTestCases.push({
+          description: `Résultat attendu : "${expOutStr}"`,
+          code: `tryCatch({
+            .res_val <- tryCatch(eval(parse(text = ${JSON.stringify(code)})), error = function(e) NULL)
+            .res_str <- paste(as.character(.res_val), collapse = " ")
+            .exp_str <- "${escapedExp}"
+            isTRUE(.res_str == .exp_str || trimws(.res_str) == trimws(.exp_str) || grepl(.exp_str, .res_str, fixed = TRUE))
+          }, error = function(e) FALSE)`
+        });
+      }
+    }
+
+    // If no test cases defined and no expected output, reject validation
     if (validTestCases.length === 0) {
       return {
-        success: true,
+        success: false,
         passed: 0,
         total: 0,
         tests: [],
+        error: "Aucun critère de validation (test unitaire ou résultat attendu) n'est configuré pour cet exercice.",
         executionTimeMs: 0,
       };
     }
@@ -571,6 +643,118 @@ class WebREngine {
   }
 
   /**
+   * Returns a list of all objects currently defined in the R global workspace (.GlobalEnv).
+   */
+  public async getEnvironmentObjects(): Promise<RObjectInfo[]> {
+    if (!this.isReady() || !this.webRInstance) {
+      return [];
+    }
+    try {
+      const shelter = await new this.webRInstance.Shelter();
+      const inspectCode = `
+        local({
+          objs <- ls(envir = .GlobalEnv, all.names = FALSE)
+          res <- list()
+          for (name in objs) {
+            if (startsWith(name, ".")) next
+            val <- get(name, envir = .GlobalEnv)
+            obj_class <- paste(class(val), collapse = ", ")
+            obj_type <- typeof(val)
+            
+            dims <- NULL
+            len <- length(val)
+            if (is.data.frame(val) || is.matrix(val) || is.array(val)) {
+              dims <- as.integer(dim(val))
+            }
+            
+            p_type <- "scalar"
+            p_data <- NULL
+            
+            if (is.data.frame(val)) {
+              p_type <- "dataframe"
+              cols <- colnames(val)
+              nrows <- min(nrow(val), 50)
+              rows <- list()
+              if (nrows > 0 && length(cols) > 0) {
+                for (i in 1:nrows) {
+                  r_vals <- sapply(1:length(cols), function(j) {
+                    v <- val[i, j]
+                    if (is.null(v) || is.na(v)) "NA" else as.character(v)
+                  })
+                  rows[[i]] <- r_vals
+                }
+              }
+              p_data <- list(columns = cols, rows = rows, totalRows = nrow(val), totalCols = length(cols))
+            } else if (is.vector(val) || is.factor(val)) {
+              p_type <- "vector"
+              char_vals <- as.character(val)
+              if (length(char_vals) <= 50) {
+                p_data <- char_vals
+              } else {
+                p_data <- c(char_vals[1:45], paste("... (+", length(char_vals) - 45, "éléments)"))
+              }
+            } else {
+              p_type <- "summary"
+              p_data <- capture.output(str(val))
+            }
+            
+            res[[name]] <- list(
+              name = name,
+              className = obj_class,
+              type = obj_type,
+              length = len,
+              dimensions = dims,
+              previewType = p_type,
+              previewData = p_data
+            )
+          }
+          res
+        })
+      `;
+      const evalRes = await shelter.evalR(inspectCode);
+      const jsVal = await evalRes.toJs();
+      await shelter.purge();
+
+      if (!jsVal || typeof jsVal !== 'object') return [];
+
+      const resultList: RObjectInfo[] = [];
+      const keys = Object.keys(jsVal);
+      for (const k of keys) {
+        const item = jsVal[k];
+        if (item && item.name) {
+          resultList.push({
+            name: String(item.name.values ? item.name.values[0] : item.name),
+            className: String(item.className?.values ? item.className.values[0] : (item.className || 'object')),
+            type: String(item.type?.values ? item.type.values[0] : (item.type || 'unknown')),
+            length: Number(item.length?.values ? item.length.values[0] : (item.length || 0)),
+            dimensions: item.dimensions?.values ? Array.from(item.dimensions.values) as [number, number] : (Array.isArray(item.dimensions) ? item.dimensions : null),
+            previewType: (item.previewType?.values ? item.previewType.values[0] : item.previewType) || 'scalar',
+            previewData: item.previewData?.toJs ? await item.previewData.toJs() : item.previewData,
+          });
+        }
+      }
+      return resultList;
+    } catch (err) {
+      console.warn("Erreur lors de la récupération des objets R:", err);
+      return [];
+    }
+  }
+
+  /**
+   * Resets all variables and objects in the global R environment (.GlobalEnv).
+   */
+  public async resetEnvironment(): Promise<void> {
+    if (!this.isReady() || !this.webRInstance) return;
+    try {
+      const shelter = await new this.webRInstance.Shelter();
+      await shelter.evalR("rm(list = ls(envir = .GlobalEnv, all.names = TRUE), envir = .GlobalEnv)");
+      await shelter.purge();
+    } catch (err) {
+      console.warn("Erreur réinitialisation environnement R:", err);
+    }
+  }
+
+  /**
    * Closes WebR instance and frees WebAssembly resources.
    */
   public async close(): Promise<void> {
@@ -594,8 +778,10 @@ export const initWebR = () => webrEngine.init();
 export const isWebRReady = () => webrEngine.isReady();
 export const isWebRRunning = () => webrEngine.isRunning();
 export const executeRCode = (code: string, options?: { timeoutMs?: number }) => webrEngine.execute(code, options);
-export const validateCode = (code: string, testCases: RTestCase[] | string | any, options?: { timeoutMs?: number }) => webrEngine.validateCode(code, testCases, options);
+export const validateCode = (code: string, testCases: RTestCase[] | string | any, options?: ValidateCodeOptions) => webrEngine.validateCode(code, testCases, options);
 export const validateRCode = validateCode;
+export const getEnvironmentObjects = () => webrEngine.getEnvironmentObjects();
+export const resetREnvironment = () => webrEngine.resetEnvironment();
 export const stopWebR = () => webrEngine.close();
 export const getWebRState = () => webrEngine.getState();
 export const subscribeWebRState = (listener: WebRStateListener) => webrEngine.subscribe(listener);

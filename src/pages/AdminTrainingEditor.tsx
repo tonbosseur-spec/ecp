@@ -24,7 +24,8 @@ import {
   Terminal,
   Play,
   Check,
-  Plus
+  Plus,
+  AlertTriangle
 } from 'lucide-react';
 import { TrainingActivityType, TrainingDifficultyLevel } from '../types';
 
@@ -1363,16 +1364,21 @@ export default function AdminTrainingEditor() {
 
                               {/* Test cases list */}
                               {ex.test_cases.length === 0 ? (
-                                <div className="p-4 bg-gray-50 border border-dashed border-gray-200 rounded-2xl text-center">
-                                  <p className="text-xs text-gray-500 font-medium">
-                                    Aucun test unitaire configuré pour cet exercice.
+                                <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl text-center space-y-2">
+                                  <p className="text-xs text-amber-800 font-bold flex items-center justify-center gap-1.5">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                    <span>Aucun critère de validation configuré</span>
+                                  </p>
+                                  <p className="text-[11px] text-amber-700 max-w-md mx-auto">
+                                    Sans test de validation unitaire ou résultat attendu, l'exercice ne pourra pas être validé automatiquement par l'étudiant.
                                   </p>
                                   <button
                                     type="button"
                                     onClick={() => handleAddTestCase(exIndex)}
-                                    className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-bold underline"
+                                    className="mt-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs active:scale-95 inline-flex items-center gap-1 cursor-pointer"
                                   >
-                                    + Ajouter un premier critère de validation
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>+ Ajouter un premier critère de validation</span>
                                   </button>
                                 </div>
                               ) : (

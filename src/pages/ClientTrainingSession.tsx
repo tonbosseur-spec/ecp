@@ -292,7 +292,9 @@ export default function ClientTrainingSession() {
       setValidatingR(prev => ({ ...prev, [exercise.id]: true }));
 
       // 1. Run automatic validation engine locally in WebR (No user-tampered score accepted)
-      const result = await validateCode(code, exercise.test_cases || []);
+      const result = await validateCode(code, exercise.test_cases || [], {
+        expectedOutput: exercise.expected_output || undefined,
+      });
       
       setValidationResults(prev => ({
         ...prev,
@@ -302,24 +304,26 @@ export default function ClientTrainingSession() {
       // 2. Derive strict, non-tamperable score based strictly on WebR test outcomes
       const totalTests = result.total || 0;
       const passedTests = result.passed || 0;
-      const isCorrect = result.success;
+      const isCorrect = result.success && totalTests > 0;
       
       let computedScore = 0;
       if (isCorrect) {
         computedScore = 100;
       } else if (totalTests > 0) {
         computedScore = Math.round((passedTests / totalTests) * 100);
-      } else if (!result.error) {
-        computedScore = 100;
+      } else {
+        computedScore = 0;
       }
 
       // Display immediate feedback to student
-      if (result.success) {
+      if (isCorrect) {
         toast.success("🎉 Exercice validé avec succès !");
+      } else if (totalTests === 0) {
+        toast.error(result.error || "Aucun critère de validation n'est configuré pour cet exercice.");
       } else if (result.error) {
-        toast.error("Votre code a généré une erreur.");
+        toast.error(`Votre code a généré une erreur : ${result.error}`);
       } else {
-        toast.error(`Certains critères ne sont pas encore satisfaits (${passedTests}/${totalTests}).`);
+        toast.error(`Certains critères ne sont pas encore satisfaits (${passedTests}/${totalTests} validés).`);
       }
 
       // 3. Persist progress into Supabase tables: training_attempts and training_exercise_attempts
