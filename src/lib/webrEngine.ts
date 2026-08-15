@@ -186,65 +186,22 @@ class WebREngine {
           // Dynamic import to guarantee zero bundle overhead on initial page load
           const { WebR } = await import('@r-wasm/webr');
 
-          // Ensure WebR Service Worker is registered and fully 'activated' before webR.init()
-          if ('serviceWorker' in navigator) {
-            try {
-              const reg = await navigator.serviceWorker.register('/webr/webr-serviceworker.js', { scope: '/webr/' });
-              if (!reg.active) {
-                await new Promise<void>((resolve) => {
-                  const checkActive = () => {
-                    if (reg.active) {
-                      resolve();
-                      return true;
-                    }
-                    return false;
-                  };
+          // Instantiate WebR using official R-Wasm CDN
+          let webR: any = null;
 
-                  if (checkActive()) return;
-
-                  const sw = reg.installing || reg.waiting;
-                  if (sw) {
-                    const handleStateChange = () => {
-                      if (sw.state === 'activated' || checkActive()) {
-                        sw.removeEventListener('statechange', handleStateChange);
-                        resolve();
-                      }
-                    };
-                    sw.addEventListener('statechange', handleStateChange);
-                  } else {
-                    const handleUpdateFound = () => {
-                      const newSw = reg.installing;
-                      if (newSw) {
-                        const handleStateChange = () => {
-                          if (newSw.state === 'activated' || checkActive()) {
-                            newSw.removeEventListener('statechange', handleStateChange);
-                            resolve();
-                          }
-                        };
-                        newSw.addEventListener('statechange', handleStateChange);
-                      }
-                    };
-                    reg.addEventListener('updatefound', handleUpdateFound);
-
-                    const interval = setInterval(() => {
-                      if (checkActive()) {
-                        clearInterval(interval);
-                      }
-                    }, 50);
-                  }
-                });
-              }
-            } catch (swErr) {
-              console.warn('WebR Service Worker registration pre-check notice:', swErr);
-            }
+          try {
+            // First try default initialization (uses official CDN matching package version)
+            webR = new WebR();
+            await webR.init();
+          } catch (initErr) {
+            console.warn("Premier essai WebR par défaut échoué, tentative avec URL CDN explicite :", initErr);
+            // Fallback to explicit CDN URL if default options fail
+            webR = new WebR({
+              baseUrl: 'https://webr.r-wasm.org/v0.4.2/',
+            });
+            await webR.init();
           }
 
-          // Instantiate WebR with self-hosted runtime files
-          const webR = new WebR({
-            baseUrl: '/webr/',
-            serviceWorkerUrl: '/webr/',
-          });
-          await webR.init();
           return webR;
         })();
 
@@ -313,34 +270,42 @@ class WebREngine {
       });
 
       const executionPromise = (async () => {
-        // Prepare SVG plot capture device
+        // Prepare SVG plot capture device in .GlobalEnv
         try {
-          await shelter.evalR(`
-            .webr_svg_file <- tempfile(fileext = ".svg")
-            svg(.webr_svg_file, width = 7, height = 5)
+          await this.webRInstance!.evalR(`
+            local({
+              .GlobalEnv$.webr_temp_svg <- tempfile(fileext = ".svg")
+              suppressWarnings(try({ dev.off() }, silent = TRUE))
+              svg(.GlobalEnv$.webr_temp_svg, width = 7, height = 5)
+            })
           `);
         } catch {}
 
-        // Execute R code with stream and condition capture
-        const capture = await shelter.captureR(code, {
+        // Execute R code in .GlobalEnv so assignments persist across executions
+        const wrappedUserCode = `eval(parse(text = ${JSON.stringify(code)}), envir = .GlobalEnv)`;
+        const capture = await shelter.captureR(wrappedUserCode, {
           withAutoprint: true,
           captureStreams: true,
           captureConditions: true,
         });
 
-        // Extract graphics SVG if generated
+        // Close graphics device and read SVG if generated
         let capturedSvg: string | undefined = undefined;
         try {
-          const svgEval = await shelter.evalR(`
-            suppressWarnings(try({ dev.off() }, silent = TRUE))
-            if (file.exists(.webr_svg_file) && file.info(.webr_svg_file)$size > 150) {
-              .svg_str <- paste(readLines(.webr_svg_file), collapse = "\n")
-              unlink(.webr_svg_file)
-              .svg_str
-            } else {
-              suppressWarnings(try(unlink(.webr_svg_file), silent = TRUE))
-              ""
-            }
+          const svgEval = await this.webRInstance!.evalR(`
+            local({
+              suppressWarnings(try({ dev.off() }, silent = TRUE))
+              svg_file <- .GlobalEnv$.webr_temp_svg
+              .GlobalEnv$.webr_temp_svg <- NULL
+              if (!is.null(svg_file) && file.exists(svg_file) && file.info(svg_file)$size > 150) {
+                res <- paste(readLines(svg_file), collapse = "\\n")
+                suppressWarnings(try(unlink(svg_file), silent = TRUE))
+                res
+              } else {
+                if (!is.null(svg_file)) suppressWarnings(try(unlink(svg_file), silent = TRUE))
+                ""
+              }
+            })
           `);
           const svgJs = await svgEval.toJs();
           const rawSvg = svgJs?.values ? svgJs.values[0] : (typeof svgJs === 'string' ? svgJs : '');
