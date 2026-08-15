@@ -132,17 +132,20 @@ export function useLiveRoomChannel({
         });
       })
       .on('broadcast', { event: 'chat' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'chat', payload);
         if (payload.payload) {
           store.addMessage(payload.payload as LiveMessage);
         }
       })
       .on('broadcast', { event: 'reaction' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'reaction', payload);
         if (payload.payload) {
           const { user_name, emoji } = payload.payload;
           store.showToast(`${user_name} a réagi avec ${emoji}`);
         }
       })
       .on('broadcast', { event: 'participant_update' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'participant_update', payload);
         if (payload.payload) {
           const { user_id, ...updates } = payload.payload;
           store.updateParticipant(user_id, updates);
@@ -153,6 +156,7 @@ export function useLiveRoomChannel({
         }
       })
       .on('broadcast', { event: 'trainer_action' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'trainer_action', payload);
         const { action, target_user_id } = payload.payload;
         if (target_user_id === user.id || target_user_id === 'all') {
           if (action === 'mute') {
@@ -172,26 +176,31 @@ export function useLiveRoomChannel({
         }
       })
       .on('broadcast', { event: 'webrtc_offer' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'webrtc_offer', payload);
         if (payload.payload) {
           webrtc.handleWebRTCOffer(payload.payload, channel, user.id);
         }
       })
       .on('broadcast', { event: 'webrtc_answer' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'webrtc_answer', payload);
         if (payload.payload) {
           webrtc.handleWebRTCAnswer(payload.payload, user.id);
         }
       })
       .on('broadcast', { event: 'webrtc_ice_candidate' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'webrtc_ice_candidate', payload);
         if (payload.payload) {
           webrtc.handleWebRTCCandidate(payload.payload, user.id);
         }
       })
       .on('broadcast', { event: 'webrtc_request_offer' }, (payload) => {
+        console.log('[LiveRoom] Broadcast reçu:', 'webrtc_request_offer', payload);
         if (payload.payload && payload.payload.sender_id && payload.payload.sender_id !== user.id) {
           webrtc.initiateOffer(payload.payload.sender_id, channel, user.id);
         }
       })
       .subscribe(async (status) => {
+        console.log('[LiveRoom] Statut abonnement canal:', status, 'pour', user.id);
         if (status === 'SUBSCRIBED') {
           await channel.track(meParticipant);
           channel.send({
@@ -199,6 +208,9 @@ export function useLiveRoomChannel({
             event: 'webrtc_request_offer',
             payload: { sender_id: user.id },
           });
+        } else {
+          console.warn('[LiveRoom] ÉCHEC ABONNEMENT:', status);
+          store.showToast('Connexion à la réunion instable, veuillez recharger la page.');
         }
       });
   };

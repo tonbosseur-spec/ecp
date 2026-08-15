@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Loader2, User, Image as ImageIcon, ArrowLeft, UserPlus, Search, Trash2, Award, Users, CheckCircle } from 'lucide-react';
+import { Loader2, User, Image as ImageIcon, ArrowLeft, UserPlus, Search, Trash2, Award, Users, CheckCircle, Edit, X } from 'lucide-react';
 import { NativeImageUploader } from '../components/NativeImageUploader';
+import { TrainerAvatar } from '../components/TrainerAvatar';
 
 interface Trainer {
   id: string;
@@ -19,10 +20,12 @@ export default function ManageTrainers() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeMobileTab, setActiveMobileTab] = useState<'list' | 'create'>('list');
 
@@ -47,30 +50,74 @@ export default function ManageTrainers() {
     }
   };
 
+  const handleEditClick = (trainer: Trainer) => {
+    setEditingId(trainer.id);
+    setName(trainer.name);
+    setDescription(trainer.description || '');
+    setPhotoUrl(trainer.photo_url || '');
+    setSuccessMessage(null);
+    setError(null);
+    setActiveMobileTab('create');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setName('');
+    setDescription('');
+    setPhotoUrl('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     setSubmitting(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
-      const { data, error } = await supabase
-        .from('trainers')
-        .insert([{ name: name.trim(), description: description.trim(), photo_url: photoUrl }])
-        .select()
-        .single();
+      if (editingId) {
+        // Update existing trainer
+        const { data, error } = await supabase
+          .from('trainers')
+          .update({
+            name: name.trim(),
+            description: description.trim(),
+            photo_url: photoUrl,
+          })
+          .eq('id', editingId)
+          .select()
+          .single();
 
-      if (error) throw error;
-      
-      if (data) {
-        setTrainers([...trainers, data].sort((a, b) => a.name.localeCompare(b.name)));
-        setName('');
-        setDescription('');
-        setPhotoUrl('');
-        setActiveMobileTab('list');
+        if (error) throw error;
+
+        if (data) {
+          setTrainers(trainers.map(t => t.id === editingId ? data : t).sort((a, b) => a.name.localeCompare(b.name)));
+          handleCancelEdit();
+          setActiveMobileTab('list');
+          setSuccessMessage(`Le formateur "${data.name}" a été mis à jour avec succès.`);
+        }
+      } else {
+        // Create new trainer
+        const { data, error } = await supabase
+          .from('trainers')
+          .insert([{ name: name.trim(), description: description.trim(), photo_url: photoUrl }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        if (data) {
+          setTrainers([...trainers, data].sort((a, b) => a.name.localeCompare(b.name)));
+          setName('');
+          setDescription('');
+          setPhotoUrl('');
+          setActiveMobileTab('list');
+          setSuccessMessage(`Le formateur "${data.name}" a été ajouté avec succès.`);
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de l\'ajout du formateur.');
+      setError(err.message || 'Erreur lors de l\'enregistrement du formateur.');
     } finally {
       setSubmitting(false);
     }
@@ -151,6 +198,21 @@ export default function ManageTrainers() {
         </div>
       )}
 
+      {successMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5 font-semibold">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-600 hover:text-emerald-800 p-1 rounded-lg"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Mobile Navigation Tabs (Visible only on mobile < lg) */}
       <div className="flex lg:hidden items-center p-1.5 bg-slate-100 rounded-2xl border border-slate-200 shadow-2xs">
         <button
@@ -182,28 +244,43 @@ export default function ManageTrainers() {
       {/* Main Grid for PC */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Left Column: Create Form */}
+        {/* Left Column: Create or Edit Form */}
         <div className={`lg:col-span-5 xl:col-span-4 lg:sticky lg:top-6 ${activeMobileTab === 'create' ? 'block' : 'hidden lg:block'}`}>
           <form onSubmit={handleSubmit} className="space-y-5 bg-white p-6 sm:p-7 rounded-3xl shadow-sm border border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
-                  <UserPlus className="w-5 h-5" />
+                  {editingId ? <Edit className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900">Ajouter un Formateur</h2>
-                  <p className="text-xs text-slate-500">Remplissez la fiche du nouveau formateur</p>
+                  <h2 className="text-base font-extrabold text-slate-900">
+                    {editingId ? 'Modifier le Formateur' : 'Ajouter un Formateur'}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {editingId ? 'Mettez à jour les informations du formateur' : 'Remplissez la fiche du nouveau formateur'}
+                  </p>
                 </div>
               </div>
               
-              {/* Mobile Back to List Button */}
-              <button
-                type="button"
-                onClick={() => setActiveMobileTab('list')}
-                className="lg:hidden px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
-              >
-                Voir la liste
-              </button>
+              {editingId ? (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+                  title="Annuler la modification"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                /* Mobile Back to List Button */
+                <button
+                  type="button"
+                  onClick={() => setActiveMobileTab('list')}
+                  className="lg:hidden px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+                >
+                  Voir la liste
+                </button>
+              )}
             </div>
             
             <div>
@@ -228,7 +305,7 @@ export default function ManageTrainers() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
+                rows={4}
                 className="block w-full px-4 py-3 border border-slate-200 rounded-2xl text-slate-900 focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm resize-none shadow-xs font-medium"
                 placeholder="Spécialiste en gestion d'entreprise, +10 ans d'expérience..."
               />
@@ -244,7 +321,7 @@ export default function ManageTrainers() {
 
             {photoUrl && (
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Ou URL directe de l'image</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">URL de l'image de profil</label>
                 <input
                   type="url"
                   value={photoUrl}
@@ -255,23 +332,34 @@ export default function ManageTrainers() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting || !name.trim()}
-              className="w-full flex justify-center items-center gap-2 py-3.5 px-5 border border-transparent rounded-2xl shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="animate-spin h-5 w-5 text-white" />
-                  <span>Enregistrement...</span>
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  <span>Ajouter le Formateur</span>
-                </>
+            <div className="flex items-center gap-2">
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="py-3.5 px-4 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-100 transition-all cursor-pointer shrink-0"
+                >
+                  Annuler
+                </button>
               )}
-            </button>
+              <button
+                type="submit"
+                disabled={submitting || !name.trim()}
+                className="flex-1 flex justify-center items-center gap-2 py-3.5 px-5 border border-transparent rounded-2xl shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5 text-white" />
+                    <span>Enregistrement...</span>
+                  </>
+                ) : (
+                  <>
+                    {editingId ? <CheckCircle className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                    <span>{editingId ? 'Mettre à jour le Formateur' : 'Ajouter le Formateur'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -288,7 +376,10 @@ export default function ManageTrainers() {
               {/* Mobile Quick Add Button */}
               <button
                 type="button"
-                onClick={() => setActiveMobileTab('create')}
+                onClick={() => {
+                  handleCancelEdit();
+                  setActiveMobileTab('create');
+                }}
                 className="lg:hidden inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -327,20 +418,17 @@ export default function ManageTrainers() {
               {filteredTrainers.map((trainer) => (
                 <div 
                   key={trainer.id} 
-                  className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between group"
+                  className={`bg-white p-5 rounded-3xl shadow-sm border transition-all flex flex-col justify-between group ${
+                    editingId === trainer.id ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+                  }`}
                 >
                   <div className="flex items-start gap-4">
-                    {trainer.photo_url ? (
-                      <img 
-                        src={trainer.photo_url} 
-                        alt={`Photo de ${trainer.name}`} 
-                        className="w-14 h-14 rounded-2xl object-cover bg-slate-100 border border-slate-200 shadow-xs shrink-0" 
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 text-indigo-600">
-                        <User className="w-7 h-7" />
-                      </div>
-                    )}
+                    <TrainerAvatar
+                      photoUrl={trainer.photo_url}
+                      name={trainer.name}
+                      className="w-14 h-14 rounded-2xl object-cover bg-slate-100 border border-slate-200 shadow-xs shrink-0"
+                      fallbackClassName="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 text-indigo-600 font-bold text-sm"
+                    />
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -366,18 +454,28 @@ export default function ManageTrainers() {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       Formateur Certifié
                     </span>
-                    <button
-                      onClick={() => handleDelete(trainer.id, trainer.name)}
-                      disabled={deletingId === trainer.id}
-                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                      title="Supprimer ce formateur"
-                    >
-                      {deletingId === trainer.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-red-600" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditClick(trainer)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                        title="Modifier les informations de ce formateur"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Modifier</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(trainer.id, trainer.name)}
+                        disabled={deletingId === trainer.id}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                        title="Supprimer ce formateur"
+                      >
+                        {deletingId === trainer.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

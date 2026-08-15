@@ -7,6 +7,7 @@ import { getQuizClassForScore, QUIZ_CLASSES, extractCoursePromoCodes, PromoCode 
 import { Play, CheckCircle2, XCircle, ArrowRight, Award, ChevronDown, ChevronUp, Copy, Check, Clock, Dices, Gift, ChevronLeft, Target, Trophy, Sparkles, User, Users, HelpCircle, ExternalLink, Zap, Ticket, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
+import { TrainerAvatar } from '../components/TrainerAvatar';
 
 interface Question {
   id?: string;
@@ -479,17 +480,12 @@ export default function PublicQuizChallenge() {
               {/* Formateur Référent Card */}
               {course?.trainers && (
                 <div className="mb-10 pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-left max-w-xl mx-auto bg-slate-50/60 p-5 sm:p-6 rounded-2xl border border-slate-200/60 shadow-xs">
-                  {course.trainers.photo_url ? (
-                    <img
-                      src={course.trainers.photo_url}
-                      alt={`Photo de ${course.trainers.name}`}
-                      className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md shrink-0"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-2xl flex items-center justify-center shrink-0 shadow-md">
-                      {course.trainers.name ? course.trainers.name.substring(0, 2).toUpperCase() : 'TR'}
-                    </div>
-                  )}
+                  <TrainerAvatar
+                    photoUrl={course.trainers.photo_url}
+                    name={course.trainers.name}
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md shrink-0"
+                    fallbackClassName="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-md"
+                  />
                   <div className="flex-1 text-center sm:text-left">
                     <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">

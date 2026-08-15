@@ -6,6 +6,7 @@ import { ensureClientProfile } from '../lib/profileUtils';
 import ClientNavBar from '../components/ClientNavBar';
 import AuthRequiredModal from '../components/AuthRequiredModal';
 import Footer from '../components/Footer';
+import { TrainerAvatar } from '../components/TrainerAvatar';
 import { 
   Loader2, 
   Calendar, 
@@ -498,20 +499,15 @@ export default function Marketplace() {
                   <div className="px-6 py-5 border-t border-gray-100 bg-gray-50/50 flex flex-col items-center text-center gap-3.5 mt-auto">
                     {/* Informations Formateur */}
                     <div className="flex items-center justify-center gap-3">
-                      {course.trainers?.photo_url ? (
-                        <img 
-                          src={course.trainers.photo_url} 
-                          alt={`Photo de ${course.trainers.name}`} 
-                          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center border-2 border-white shadow-sm text-gray-500 shrink-0">
-                          <User className="w-5 h-5" />
-                        </div>
-                      )}
+                      <TrainerAvatar
+                        photoUrl={course.trainers?.photo_url}
+                        name={course.trainers?.name}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-xs shrink-0"
+                        fallbackClassName="w-10 h-10 rounded-full bg-indigo-50 border-2 border-white shadow-xs flex items-center justify-center text-indigo-600 font-bold text-xs shrink-0"
+                      />
                       <div className="text-left text-sm">
                         <p className="text-gray-400 text-[11px] font-semibold uppercase tracking-wider">Formateur</p>
-                        <p className="font-bold text-gray-900 truncate max-w-[200px]">{course.trainers?.name}</p>
+                        <p className="font-bold text-gray-900 truncate max-w-[200px]">{course.trainers?.name || 'Formateur ECP'}</p>
                       </div>
                     </div>
                     

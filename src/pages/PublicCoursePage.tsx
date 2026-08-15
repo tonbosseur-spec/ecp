@@ -5,6 +5,7 @@ import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
 import { findReferralCode, recordReferralSale, ReferralCodeInfo } from '../lib/referralService';
 import Footer from '../components/Footer';
+import { TrainerAvatar } from '../components/TrainerAvatar';
 import { 
   Loader2, 
   Calendar, 
@@ -770,11 +771,12 @@ END:VCALENDAR`;
             {/* Formateur / Auteur */}
             {course.trainers?.name && (
               <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-slate-900/90 border border-slate-800 text-xs font-medium text-slate-300">
-                {course.trainers.photo_url ? (
-                  <img src={course.trainers.photo_url} alt={course.trainers.name} className="w-6 h-6 rounded-full object-cover" />
-                ) : (
-                  <User className="w-4 h-4 text-emerald-400" />
-                )}
+                <TrainerAvatar
+                  photoUrl={course.trainers.photo_url}
+                  name={course.trainers.name}
+                  className="w-6 h-6 rounded-full object-cover"
+                  fallbackClassName="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-indigo-400 font-bold text-[10px]"
+                />
                 <span>{isEbook ? "Auteur" : "Formateur"} : <strong className="text-white font-bold">{course.trainers.name}</strong></span>
               </div>
             )}
@@ -1033,13 +1035,12 @@ END:VCALENDAR`;
               </span>
 
               <div className="flex items-center gap-4">
-                {course.trainers.photo_url ? (
-                  <img src={course.trainers.photo_url} alt={course.trainers.name} className="w-14 h-14 rounded-2xl object-cover border border-slate-700 shrink-0" />
-                ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-                    <User className="w-6 h-6 text-indigo-400" />
-                  </div>
-                )}
+                <TrainerAvatar
+                  photoUrl={course.trainers.photo_url}
+                  name={course.trainers.name}
+                  className="w-14 h-14 rounded-2xl object-cover border border-slate-700 shrink-0"
+                  fallbackClassName="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 text-indigo-400 font-bold text-sm"
+                />
                 <div>
                   <h3 className="text-base font-bold text-white">{course.trainers.name}</h3>
                   {course.trainers.description && (

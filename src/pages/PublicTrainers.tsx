@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import ClientNavBar from '../components/ClientNavBar';
 import Footer from '../components/Footer';
+import { TrainerAvatar } from '../components/TrainerAvatar';
 import { 
   Users, 
   Award, 
@@ -304,21 +305,12 @@ export default function PublicTrainers() {
                       <div className="flex items-start gap-4">
                         {/* Trainer Photo */}
                         <div className="relative w-20 h-20 sm:w-22 sm:h-22 rounded-2xl overflow-hidden border-2 border-slate-700/80 bg-slate-800 shrink-0 shadow-md">
-                          {trainer.photo_url ? (
-                            <img
-                              src={trainer.photo_url}
-                              alt={trainer.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              onError={(e) => {
-                                // Fallback icon on error
-                                (e.target as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-indigo-950 text-slate-400">
-                              <User className="w-9 h-9" />
-                            </div>
-                          )}
+                          <TrainerAvatar
+                            photoUrl={trainer.photo_url}
+                            name={trainer.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            fallbackClassName="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-indigo-950 text-indigo-300 font-bold text-lg"
+                          />
                         </div>
 
                         {/* Name & Badge */}
@@ -431,17 +423,12 @@ export default function PublicTrainers() {
               <div className="p-5 sm:p-6 border-b border-slate-800 bg-slate-900/90 flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-800 shrink-0 shadow-lg">
-                    {selectedTrainer.photo_url ? (
-                      <img
-                        src={selectedTrainer.photo_url}
-                        alt={selectedTrainer.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-400">
-                        <User className="w-10 h-10" />
-                      </div>
-                    )}
+                    <TrainerAvatar
+                      photoUrl={selectedTrainer.photo_url}
+                      name={selectedTrainer.name}
+                      className="w-full h-full object-cover"
+                      fallbackClassName="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-indigo-950 text-indigo-300 font-bold text-xl"
+                    />
                   </div>
 
                   <div>
