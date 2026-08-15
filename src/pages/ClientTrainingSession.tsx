@@ -482,50 +482,21 @@ export default function ClientTrainingSession() {
     setShowConfirmModal(false);
     setIsCompletedState(true);
 
-    try {
-      // 1. Submit QCM answers if present
-      const qcmExercises = exercises.filter(ex => ex.exercise_type === 'qcm');
-      if (qcmExercises.length > 0 && session) {
-        const qcmAnswersArray = qcmExercises.map(ex => ({
-          exercise_id: ex.id,
-          selected_option_index: qcmAnswers[ex.id] !== undefined ? qcmAnswers[ex.id] : -1
-        }));
-
-        try {
-          const { data: qcmRes, error: qcmError } = await supabase.rpc('submit_training_qcm_attempt', {
-            p_session_id: session.id,
-            p_answers: qcmAnswersArray,
-            p_time_spent_seconds: timeSpentSeconds
-          });
-
-          if (qcmError) {
-            console.warn("Remarque lors de la soumission du QCM:", qcmError);
-          }
-        } catch (rpcErr) {
-          console.warn("Erreur RPC submit_training_qcm_attempt:", rpcErr);
-        }
-      }
-
-      // 2. Finalize R training attempt if active
-      if (currentAttemptId) {
-        const { error: finishError } = await supabase
+    if (currentAttemptId) {
+      try {
+        await supabase
           .from('training_attempts')
           .update({
             completed_at: new Date().toISOString(),
             time_spent_seconds: timeSpentSeconds
           })
           .eq('id', currentAttemptId);
-
-        if (finishError) {
-          console.warn("Erreur mise à jour completed_at:", finishError);
-        }
+      } catch (err) {
+        console.error("Erreur finalisation tentative:", err);
       }
-
-      toast.success("Vos réponses ont été enregistrées avec succès !");
-    } catch (err: any) {
-      console.error("Erreur finalisation séance :", err);
-      toast.success("Séance terminée !");
     }
+
+    toast.success("Vos réponses ont été enregistrées avec succès !");
   };
 
   // Helper for difficulty badge

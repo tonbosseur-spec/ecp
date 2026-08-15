@@ -313,42 +313,34 @@ class WebREngine {
       });
 
       const executionPromise = (async () => {
-        // Prepare SVG plot capture device in .GlobalEnv
+        // Prepare SVG plot capture device
         try {
-          await this.webRInstance!.evalR(`
-            local({
-              .GlobalEnv$.webr_temp_svg <- tempfile(fileext = ".svg")
-              suppressWarnings(try({ dev.off() }, silent = TRUE))
-              svg(.GlobalEnv$.webr_temp_svg, width = 7, height = 5)
-            })
+          await shelter.evalR(`
+            .webr_svg_file <- tempfile(fileext = ".svg")
+            svg(.webr_svg_file, width = 7, height = 5)
           `);
         } catch {}
 
-        // Execute R code in .GlobalEnv so assignments persist across executions
-        const wrappedUserCode = `eval(parse(text = ${JSON.stringify(code)}), envir = .GlobalEnv)`;
-        const capture = await shelter.captureR(wrappedUserCode, {
+        // Execute R code with stream and condition capture
+        const capture = await shelter.captureR(code, {
           withAutoprint: true,
           captureStreams: true,
           captureConditions: true,
         });
 
-        // Close graphics device and read SVG if generated
+        // Extract graphics SVG if generated
         let capturedSvg: string | undefined = undefined;
         try {
-          const svgEval = await this.webRInstance!.evalR(`
-            local({
-              suppressWarnings(try({ dev.off() }, silent = TRUE))
-              svg_file <- .GlobalEnv$.webr_temp_svg
-              .GlobalEnv$.webr_temp_svg <- NULL
-              if (!is.null(svg_file) && file.exists(svg_file) && file.info(svg_file)$size > 150) {
-                res <- paste(readLines(svg_file), collapse = "\\n")
-                suppressWarnings(try(unlink(svg_file), silent = TRUE))
-                res
-              } else {
-                if (!is.null(svg_file)) suppressWarnings(try(unlink(svg_file), silent = TRUE))
-                ""
-              }
-            })
+          const svgEval = await shelter.evalR(`
+            suppressWarnings(try({ dev.off() }, silent = TRUE))
+            if (file.exists(.webr_svg_file) && file.info(.webr_svg_file)$size > 150) {
+              .svg_str <- paste(readLines(.webr_svg_file), collapse = "\n")
+              unlink(.webr_svg_file)
+              .svg_str
+            } else {
+              suppressWarnings(try(unlink(.webr_svg_file), silent = TRUE))
+              ""
+            }
           `);
           const svgJs = await svgEval.toJs();
           const rawSvg = svgJs?.values ? svgJs.values[0] : (typeof svgJs === 'string' ? svgJs : '');

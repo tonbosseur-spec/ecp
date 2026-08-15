@@ -12,11 +12,7 @@ import {
   Loader2, 
   Sparkles,
   Info,
-  Layers,
-  Box,
-  BarChart2,
-  RefreshCw,
-  Table as TableIcon
+  Layers
 } from 'lucide-react';
 import { 
   initWebR, 
@@ -24,9 +20,7 @@ import {
   subscribeWebRState, 
   getWebRState, 
   WebREngineState, 
-  WebRExecutionResult,
-  webrEngine,
-  RObjectInfo
+  WebRExecutionResult 
 } from '../lib/webrEngine';
 
 export interface REditorConsoleRef {
@@ -188,33 +182,6 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
     }, 0);
   };
 
-  // Output panel state & tabs
-  const [activeOutputTab, setActiveOutputTab] = useState<'console' | 'objects' | 'graphics'>('console');
-  const [rObjects, setRObjects] = useState<RObjectInfo[]>([]);
-  const [loadingObjects, setLoadingObjects] = useState(false);
-  const [lastSvgPlot, setLastSvgPlot] = useState<string | null>(null);
-  const [selectedObject, setSelectedObject] = useState<RObjectInfo | null>(null);
-
-  // Fetch updated R objects from .GlobalEnv
-  const refreshRObjects = useCallback(async () => {
-    setLoadingObjects(true);
-    try {
-      const objs = await webrEngine.getEnvironmentObjects();
-      setRObjects(objs);
-    } catch (err) {
-      console.warn("Erreur chargement objets R:", err);
-    } finally {
-      setLoadingObjects(false);
-    }
-  }, []);
-
-  // Fetch objects when tab changes to 'objects'
-  useEffect(() => {
-    if (activeOutputTab === 'objects' && webrEngine.isReady()) {
-      refreshRObjects();
-    }
-  }, [activeOutputTab, refreshRObjects]);
-
   // Execute R Code
   const handleRunCode = async () => {
     if (engineState.isRunning) return;
@@ -247,14 +214,6 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
       }
 
       setConsoleOutput(outputs);
-
-      if (result.svgGraphic) {
-        setLastSvgPlot(result.svgGraphic);
-        setActiveOutputTab('graphics');
-      }
-
-      // Automatically refresh environment objects after execution
-      refreshRObjects();
 
       if (onExecute) {
         onExecute(result);
@@ -545,265 +504,66 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
         )}
       </div>
 
-      {/* 3. MULTI-TAB OUTPUT SECTION (CONSOLE, OBJETS, GRAPHIQUE) */}
+      {/* 3. CONSOLE OUTPUT SECTION */}
       <div className="bg-slate-900 rounded-2xl md:rounded-3xl border border-slate-800 shadow-sm overflow-hidden flex flex-col">
-        {/* Output Header with Tabs */}
-        <div className="bg-slate-950/90 px-3 sm:px-4 py-2 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
-          {/* Tabs Nav */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveOutputTab('console')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeOutputTab === 'console'
-                  ? 'bg-slate-800 text-sky-400 border border-slate-700 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <Terminal className="w-3.5 h-3.5" />
-              <span>Console</span>
-            </button>
+        {/* Console Header */}
+        <div className="bg-slate-950/80 px-3.5 sm:px-4 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+              <Terminal className="w-4 h-4" />
+            </div>
+            <span className="text-xs sm:text-sm font-bold text-slate-200">
+              Console R
+            </span>
+          </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveOutputTab('objects')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeOutputTab === 'objects'
-                  ? 'bg-slate-800 text-indigo-400 border border-slate-700 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <Box className="w-3.5 h-3.5" />
-              <span>Objets R</span>
-              {rObjects.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  {rObjects.length}
+          {/* Status Badge */}
+          {lastResult && (
+            <div className="flex items-center gap-2">
+              {lastResult.success ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Exécution réussie ({lastResult.executionTimeMs}ms)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                  Erreur R
                 </span>
               )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveOutputTab('graphics')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer relative ${
-                activeOutputTab === 'graphics'
-                  ? 'bg-slate-800 text-emerald-400 border border-slate-700 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-              }`}
-            >
-              <BarChart2 className="w-3.5 h-3.5" />
-              <span>Graphique</span>
-              {lastSvgPlot && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              )}
-            </button>
-          </div>
-
-          {/* Right Status Badge / Actions */}
-          <div className="flex items-center gap-2">
-            {activeOutputTab === 'objects' && (
-              <button
-                type="button"
-                onClick={refreshRObjects}
-                disabled={loadingObjects}
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors"
-                title="Actualiser la liste des objets"
-              >
-                <RefreshCw className={`w-3 h-3 ${loadingObjects ? 'animate-spin text-indigo-400' : ''}`} />
-                <span>Actualiser</span>
-              </button>
-            )}
-
-            {activeOutputTab === 'console' && lastResult && (
-              <div className="flex items-center gap-2">
-                {lastResult.success ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    Réussi ({lastResult.executionTimeMs}ms)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                    Erreur R
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Output Tab Contents */}
-        {/* TAB 1: CONSOLE */}
-        {activeOutputTab === 'console' && (
-          <div className="p-3.5 sm:p-4 bg-slate-950 min-h-[120px] max-h-[280px] overflow-y-auto font-mono text-xs sm:text-sm leading-relaxed text-slate-200 select-text">
-            {consoleOutput.length === 0 ? (
-              <div className="h-full min-h-[90px] flex items-center justify-center text-slate-500 text-xs italic">
-                La sortie de votre code R apparaîtra ici après l'exécution.
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {consoleOutput.map((line, idx) => {
-                  let textStyle = "text-slate-200";
-                  if (line.startsWith('[Erreur R]') || line.startsWith('[Erreur]')) {
-                    textStyle = "text-rose-400 font-semibold";
-                  } else if (line.startsWith('[Avertissement]')) {
-                    textStyle = "text-amber-400 font-medium";
-                  } else if (line.startsWith('[Message R]')) {
-                    textStyle = "text-sky-400";
-                  } else if (line.startsWith('[Info]') || line.startsWith('[Code exécuté')) {
-                    textStyle = "text-slate-400 italic";
-                  }
+        {/* Console Body */}
+        <div className="p-3.5 sm:p-4 bg-slate-950 min-h-[110px] max-h-[260px] overflow-y-auto font-mono text-xs sm:text-sm leading-relaxed text-slate-200 select-text">
+          {consoleOutput.length === 0 ? (
+            <div className="h-full min-h-[80px] flex items-center justify-center text-slate-500 text-xs italic">
+              La sortie de votre code R apparaîtra ici après l'exécution.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {consoleOutput.map((line, idx) => {
+                let textStyle = "text-slate-200";
+                if (line.startsWith('[Erreur R]') || line.startsWith('[Erreur]')) {
+                  textStyle = "text-rose-400 font-semibold";
+                } else if (line.startsWith('[Avertissement]')) {
+                  textStyle = "text-amber-400 font-medium";
+                } else if (line.startsWith('[Message R]')) {
+                  textStyle = "text-sky-400";
+                } else if (line.startsWith('[Info]') || line.startsWith('[Code exécuté')) {
+                  textStyle = "text-slate-400 italic";
+                }
 
-                  return (
-                    <div key={idx} className={`whitespace-pre-wrap break-words ${textStyle}`}>
-                      {line}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 2: OBJETS R */}
-        {activeOutputTab === 'objects' && (
-          <div className="p-3.5 bg-slate-950 min-h-[140px] max-h-[300px] overflow-y-auto font-sans text-xs text-slate-200">
-            {loadingObjects ? (
-              <div className="min-h-[100px] flex items-center justify-center gap-2 text-indigo-400">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Inspection de l'environnement R...</span>
-              </div>
-            ) : rObjects.length === 0 ? (
-              <div className="min-h-[100px] flex flex-col items-center justify-center text-slate-500 space-y-1 text-center p-4">
-                <Box className="w-8 h-8 text-slate-700" />
-                <p className="font-semibold text-slate-400">Aucun objet R dans l'environnement</p>
-                <p className="text-[11px] text-slate-600">
-                  Créez des variables dans votre code (ex: <code className="text-sky-400 font-mono">x &lt;- c(10, 20, 30)</code>) pour les voir apparaître ici.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {rObjects.map((obj) => (
-                    <div
-                      key={obj.name}
-                      onClick={() => setSelectedObject(selectedObject?.name === obj.name ? null : obj)}
-                      className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
-                        selectedObject?.name === obj.name
-                          ? 'bg-indigo-950/60 border-indigo-500/50 ring-1 ring-indigo-500/30'
-                          : 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <code className="font-mono text-xs font-bold text-sky-300 truncate">
-                            {obj.name}
-                          </code>
-                          <span className="px-1.5 py-0.2 text-[10px] rounded font-semibold bg-slate-800 text-indigo-300 border border-slate-700 shrink-0">
-                            {obj.className}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                          {obj.dimensions ? `${obj.dimensions[0]}×${obj.dimensions[1]}` : `n=${obj.length}`}
-                        </span>
-                      </div>
-
-                      {/* Preview string */}
-                      {obj.previewType === 'vector' && Array.isArray(obj.previewData) && (
-                        <div className="mt-1.5 font-mono text-[11px] text-slate-400 truncate bg-slate-950/80 p-1.5 rounded-lg border border-slate-850">
-                          [1] {obj.previewData.join(', ')}
-                        </div>
-                      )}
-
-                      {obj.previewType === 'dataframe' && (
-                        <div className="mt-1.5 text-[11px] text-indigo-300/80 flex items-center gap-1">
-                          <TableIcon className="w-3 h-3 text-indigo-400" />
-                          <span>
-                            {obj.dimensions ? `${obj.dimensions[0]} lignes, ${obj.dimensions[1]} colonnes` : 'data.frame'}
-                          </span>
-                          <span className="text-[10px] text-slate-500 ml-auto">(Cliquer pour afficher)</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Selected DataFrame Preview Table */}
-                {selectedObject && selectedObject.previewType === 'dataframe' && selectedObject.previewData?.columns && (
-                  <div className="mt-3 p-3 bg-slate-900 border border-indigo-500/30 rounded-2xl space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <TableIcon className="w-4 h-4 text-indigo-400" />
-                        <span className="font-mono font-bold text-sky-300 text-xs">
-                          {selectedObject.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          ({selectedObject.previewData.totalRows} lignes × {selectedObject.previewData.totalCols} colonnes)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedObject(null)}
-                        className="text-[10px] font-bold text-slate-400 hover:text-slate-200"
-                      >
-                        Masquer
-                      </button>
-                    </div>
-
-                    <div className="overflow-x-auto max-h-[160px] border border-slate-800 rounded-xl">
-                      <table className="w-full text-left font-mono text-[11px] border-collapse">
-                        <thead>
-                          <tr className="bg-slate-950 text-indigo-300 border-b border-slate-800">
-                            <th className="p-1.5 px-2 border-r border-slate-800 text-slate-600">#</th>
-                            {selectedObject.previewData.columns.map((col: string, i: number) => (
-                              <th key={i} className="p-1.5 px-2.5 font-bold border-r border-slate-800 last:border-r-0 whitespace-nowrap">
-                                {col}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedObject.previewData.rows.map((row: string[], rIdx: number) => (
-                            <tr key={rIdx} className="border-b border-slate-800/60 hover:bg-slate-800/40">
-                              <td className="p-1.5 px-2 border-r border-slate-800 text-slate-600 font-mono text-[10px]">
-                                {rIdx + 1}
-                              </td>
-                              {row.map((cell: string, cIdx: number) => (
-                                <td key={cIdx} className="p-1.5 px-2.5 border-r border-slate-800/60 last:border-r-0 text-slate-200 whitespace-nowrap">
-                                  {cell}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                return (
+                  <div key={idx} className={`whitespace-pre-wrap break-words ${textStyle}`}>
+                    {line}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 3: GRAPHIQUE SVG */}
-        {activeOutputTab === 'graphics' && (
-          <div className="p-3 sm:p-4 bg-slate-950 min-h-[160px] flex items-center justify-center">
-            {lastSvgPlot ? (
-              <div 
-                className="w-full flex items-center justify-center overflow-hidden bg-white p-3 rounded-2xl border border-slate-800 shadow-md"
-                dangerouslySetInnerHTML={{ __html: lastSvgPlot }}
-              />
-            ) : (
-              <div className="text-center p-6 text-slate-500 space-y-2">
-                <BarChart2 className="w-8 h-8 mx-auto text-slate-700" />
-                <p className="font-semibold text-slate-400 text-xs">Aucun graphique généré</p>
-                <p className="text-[11px] text-slate-600">
-                  Utilisez des fonctions graphiques (ex: <code className="text-emerald-400 font-mono">plot(x)</code>, <code className="text-emerald-400 font-mono">hist(x)</code>, <code className="text-emerald-400 font-mono">barplot(x)</code>) pour générer un rendu SVG.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
