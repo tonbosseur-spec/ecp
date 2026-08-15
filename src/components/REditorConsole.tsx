@@ -61,6 +61,7 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
   const [lastResult, setLastResult] = useState<WebRExecutionResult | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +76,22 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
     },
     runCode: handleRunCode
   }));
+
+  // Track loading time for reassuring user progress
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (engineState.status === 'loading') {
+      setLoadingSeconds(0);
+      timer = setInterval(() => {
+        setLoadingSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setLoadingSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [engineState.status]);
 
   // Subscribe to WebR state
   useEffect(() => {
@@ -92,6 +109,12 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
       unsubscribe();
     };
   }, [autoInit]);
+
+  const handleRetryInit = useCallback(() => {
+    initWebR().catch((err) => {
+      console.error("Erreur lors de la tentative de réinitialisation de WebR:", err);
+    });
+  }, []);
 
   // Handle Code changes
   const handleCodeChange = (newCode: string) => {
@@ -345,13 +368,43 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
           />
         </div>
 
+        {/* Loading Progress Info Notice (after 8s) */}
+        {engineState.status === 'loading' && loadingSeconds >= 8 && (
+          <div className="bg-amber-950/60 border-t border-amber-800/50 px-3.5 py-2 flex items-center gap-2 text-xs text-amber-200/90">
+            <Info className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              Téléchargement de l'environnement R en cours ({loadingSeconds}s)... Cela peut prendre jusqu'à une minute lors du premier chargement.
+            </span>
+          </div>
+        )}
+
+        {/* Error Notice with Retry */}
+        {engineState.status === 'error' && (
+          <div className="bg-rose-950/60 border-t border-rose-800/50 px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs text-rose-200/90 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="truncate">
+                {engineState.error || "Impossible d'initialiser l'environnement R."}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRetryInit}
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-lg font-bold text-xs shrink-0 transition-colors shadow-xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Réessayer
+            </button>
+          </div>
+        )}
+
         {/* Bottom Bar of Editor with Engine Status */}
         <div className="bg-slate-950/60 px-3.5 py-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
           <div className="flex items-center gap-2">
             {engineState.status === 'loading' && (
               <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                Initialisation de R...
+                Initialisation de R... ({loadingSeconds}s)
               </span>
             )}
             {engineState.status === 'ready' && (
@@ -369,7 +422,7 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
             {engineState.status === 'error' && (
               <span className="inline-flex items-center gap-1.5 text-rose-400 font-medium">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                Erreur moteur
+                Erreur de chargement
               </span>
             )}
             {engineState.status === 'idle' && (
@@ -387,36 +440,47 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
 
       {/* 2. ACTION BUTTONS (MOBILE-FRIENDLY HEIGHT) */}
       <div className="flex items-center gap-3">
-        {/* Large Touch Run Button */}
-        <button
-          type="button"
-          onClick={handleRunCode}
-          disabled={engineState.isRunning || engineState.status === 'loading'}
-          className={`flex-1 min-h-[48px] sm:min-h-[52px] px-6 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md transition-all duration-200 active:scale-[0.98] ${
-            engineState.isRunning
-              ? 'bg-sky-700 text-white cursor-wait opacity-80'
-              : engineState.status === 'loading'
-              ? 'bg-amber-600 text-white cursor-wait'
-              : 'bg-gradient-to-r from-sky-600 via-indigo-600 to-blue-700 hover:from-sky-700 hover:to-blue-800 text-white shadow-sky-900/20 active:shadow-none'
-          }`}
-        >
-          {engineState.isRunning ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Exécution...</span>
-            </>
-          ) : engineState.status === 'loading' ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Chargement de R...</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-5 h-5 fill-current text-sky-200" />
-              <span>Exécuter le code R</span>
-            </>
-          )}
-        </button>
+        {/* Run or Retry Button */}
+        {engineState.status === 'error' ? (
+          <button
+            type="button"
+            onClick={handleRetryInit}
+            className="flex-1 min-h-[48px] sm:min-h-[52px] px-6 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md bg-gradient-to-r from-rose-600 via-rose-700 to-red-800 hover:from-rose-700 hover:to-red-900 text-white shadow-rose-900/20 active:scale-[0.98] transition-all duration-200"
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>Réessayer le chargement de R</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleRunCode}
+            disabled={engineState.isRunning || engineState.status === 'loading'}
+            className={`flex-1 min-h-[48px] sm:min-h-[52px] px-6 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md transition-all duration-200 active:scale-[0.98] ${
+              engineState.isRunning
+                ? 'bg-sky-700 text-white cursor-wait opacity-80'
+                : engineState.status === 'loading'
+                ? 'bg-amber-600 text-white cursor-wait'
+                : 'bg-gradient-to-r from-sky-600 via-indigo-600 to-blue-700 hover:from-sky-700 hover:to-blue-800 text-white shadow-sky-900/20 active:shadow-none'
+            }`}
+          >
+            {engineState.isRunning ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Exécution...</span>
+              </>
+            ) : engineState.status === 'loading' ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Chargement de R... ({loadingSeconds}s)</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5 fill-current text-sky-200" />
+                <span>Exécuter le code R</span>
+              </>
+            )}
+          </button>
+        )}
 
         {/* Clear Output Button */}
         {consoleOutput.length > 0 && (

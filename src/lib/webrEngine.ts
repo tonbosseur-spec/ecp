@@ -133,6 +133,7 @@ class WebREngine {
   /**
    * Initialize WebR with dynamic lazy loading.
    * Does NOT block the app startup.
+   * Uses self-hosted WebAssembly assets from /webr/ and a 45s timeout.
    */
   public async init(): Promise<void> {
     // If already ready, return immediately
@@ -145,23 +146,42 @@ class WebREngine {
       return this.initPromise;
     }
 
+    const timeoutMs = 45000;
+    let timeoutId: NodeJS.Timeout | null = null;
+
     this.initPromise = (async () => {
       try {
         this.setStatus('loading', "Chargement de l'environnement R...");
 
-        // Dynamic import to guarantee zero bundle overhead on initial page load
-        const { WebR } = await import('@r-wasm/webr');
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error("Le chargement de R prend trop de temps. Vérifiez votre connexion internet puis réessayez."));
+          }, timeoutMs);
+        });
 
-        // Instantiate WebR
-        const webR = new WebR();
-        await webR.init();
+        const loadPromise = (async () => {
+          // Dynamic import to guarantee zero bundle overhead on initial page load
+          const { WebR } = await import('@r-wasm/webr');
+
+          // Instantiate WebR with self-hosted runtime files
+          const webR = new WebR({
+            baseUrl: '/webr/',
+            serviceWorkerUrl: '/webr/',
+          });
+          await webR.init();
+          return webR;
+        })();
+
+        const webR = await Promise.race([loadPromise, timeoutPromise]);
+        if (timeoutId) clearTimeout(timeoutId);
 
         this.webRInstance = webR;
         this.setStatus('ready', 'R est prêt.');
       } catch (err: any) {
+        if (timeoutId) clearTimeout(timeoutId);
         console.error("Échec de l'initialisation de WebR :", err);
         const errMsg = err?.message || "Impossible de charger le moteur R dans ce navigateur.";
-        this.setStatus('error', "Impossible d'initialiser l'environnement R.", errMsg);
+        this.setStatus('error', errMsg, errMsg);
         this.webRInstance = null;
         throw new Error(errMsg);
       } finally {
