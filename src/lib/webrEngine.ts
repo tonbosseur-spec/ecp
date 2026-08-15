@@ -146,7 +146,7 @@ class WebREngine {
       return this.initPromise;
     }
 
-    const timeoutMs = 45000;
+    const timeoutMs = 120000;
     let timeoutId: NodeJS.Timeout | null = null;
 
     this.initPromise = (async () => {

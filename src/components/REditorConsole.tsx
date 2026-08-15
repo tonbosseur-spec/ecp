@@ -369,11 +369,19 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
         </div>
 
         {/* Loading Progress Info Notice (after 8s) */}
-        {engineState.status === 'loading' && loadingSeconds >= 8 && (
+        {engineState.status === 'loading' && loadingSeconds >= 8 && loadingSeconds < 60 && (
           <div className="bg-amber-950/60 border-t border-amber-800/50 px-3.5 py-2 flex items-center gap-2 text-xs text-amber-200/90">
             <Info className="w-4 h-4 text-amber-400 shrink-0" />
             <span>
-              Téléchargement de l'environnement R en cours ({loadingSeconds}s)... Cela peut prendre jusqu'à une minute lors du premier chargement.
+              Téléchargement de l'environnement R en cours ({loadingSeconds}s)... Cela peut prendre jusqu'à deux minutes lors du premier chargement.
+            </span>
+          </div>
+        )}
+        {engineState.status === 'loading' && loadingSeconds >= 60 && (
+          <div className="bg-amber-950/60 border-t border-amber-800/50 px-3.5 py-2 flex items-center gap-2 text-xs text-amber-200/90">
+            <Info className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              Toujours en cours ({loadingSeconds}s)... Le téléchargement continue en arrière-plan, merci de patienter — cela n'ira pas au-delà de 2 minutes.
             </span>
           </div>
         )}
