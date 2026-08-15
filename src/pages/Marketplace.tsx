@@ -75,7 +75,7 @@ export default function Marketplace() {
   });
 
   // Toast Notification State
-  const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({
+  const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' | 'info' }>({
     show: false,
     message: '',
     type: 'success'

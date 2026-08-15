@@ -70,7 +70,7 @@ export default function MobileLandingPage({ session }: MobileLandingPageProps) {
     navigate('/client/login');
   };
 
-  const itemVariants = {
+  const itemVariants: any = {
     hidden: { opacity: 0, y: 16, scale: 0.98 },
     visible: (customDelay: number) => ({
       opacity: 1,

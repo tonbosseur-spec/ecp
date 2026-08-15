@@ -24,7 +24,8 @@ import {
   GraduationCap,
   Activity,
   Smartphone,
-  Mail
+  Mail,
+  Brain
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -239,17 +240,17 @@ export default function Dashboard() {
             <span className="text-xs font-semibold text-gray-500">Sélectionnez une option</span>
           </div>
 
-          {/* Grille : 2 par ligne sur mobile, 4 par ligne sur PC pour tenir sur un seul écran */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5 lg:gap-4">
+          {/* Grille : 2 par ligne sur mobile, 5 par ligne sur grand écran */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 lg:gap-3.5">
 
             {/* TUILE 1: Gestion des formations */}
             <Link
               to="/admin/formations"
-              className="group bg-white p-4 sm:p-6 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
+              className="group bg-white p-4 sm:p-5 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
             >
               <div className="flex items-center justify-between">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
-                  <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 lg:w-5 lg:h-5 xl:w-6 xl:h-6" />
+                <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
+                  <BookOpen className="w-6 h-6 sm:w-6 sm:h-6 lg:w-5 lg:h-5 xl:w-5 xl:h-5" />
                 </div>
                 <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-7 lg:h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                   <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-4 lg:h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -257,11 +258,11 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <h3 className="text-sm sm:text-base lg:text-sm xl:text-base font-extrabold text-gray-900 group-hover:text-indigo-900 transition-colors leading-snug">
-                  Gestion des formations
+                <h3 className="text-sm sm:text-base lg:text-xs xl:text-sm font-extrabold text-gray-900 group-hover:text-indigo-900 transition-colors leading-snug">
+                  Formations
                 </h3>
-                <p className="text-[11px] sm:text-xs lg:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1 sm:line-clamp-2">
-                  Catalogue, cours & lives
+                <p className="text-[11px] sm:text-xs lg:text-[10px] xl:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">
+                  Catalogue & cours
                 </p>
               </div>
             </Link>
@@ -269,11 +270,11 @@ export default function Dashboard() {
             {/* TUILE 2: Gestion des clients */}
             <Link
               to="/admin/clients"
-              className="group bg-white p-4 sm:p-6 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
+              className="group bg-white p-4 sm:p-5 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
             >
               <div className="flex items-center justify-between">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-200 group-hover:scale-105 transition-transform relative">
-                  <Users className="w-6 h-6 sm:w-7 sm:h-7 lg:w-5 lg:h-5 xl:w-6 xl:h-6" />
+                <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-200 group-hover:scale-105 transition-transform relative">
+                  <Users className="w-6 h-6 sm:w-6 sm:h-6 lg:w-5 lg:h-5 xl:w-5 xl:h-5" />
                   {pendingPaymentsCount > 0 && (
                     <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full animate-ping"></span>
                   )}
@@ -285,29 +286,53 @@ export default function Dashboard() {
 
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <h3 className="text-sm sm:text-base lg:text-sm xl:text-base font-extrabold text-gray-900 group-hover:text-emerald-900 transition-colors leading-snug">
-                    Gestion des clients
+                  <h3 className="text-sm sm:text-base lg:text-xs xl:text-sm font-extrabold text-gray-900 group-hover:text-emerald-900 transition-colors leading-snug">
+                    Clients
                   </h3>
                   {pendingPaymentsCount > 0 && (
-                    <span className="px-2 py-0.5 bg-red-500 text-white text-[9px] sm:text-[10px] font-black rounded-full">
+                    <span className="px-1.5 py-0.2 bg-red-500 text-white text-[9px] font-black rounded-full">
                       {pendingPaymentsCount}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] sm:text-xs lg:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1 sm:line-clamp-2">
-                  Paiements & messagerie
+                <p className="text-[11px] sm:text-xs lg:text-[10px] xl:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">
+                  Paiements & suivis
                 </p>
               </div>
             </Link>
 
-            {/* TUILE 3: Espace Hub */}
+            {/* TUILE 3: Centre d'entraînement */}
             <Link
-              to="/admin/hub"
-              className="group bg-white p-4 sm:p-6 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
+              to="/admin/training"
+              className="group bg-white p-4 sm:p-5 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
             >
               <div className="flex items-center justify-between">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-200 group-hover:scale-105 transition-transform">
-                  <Store className="w-6 h-6 sm:w-7 sm:h-7 lg:w-5 lg:h-5 xl:w-6 xl:h-6" />
+                <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-sky-200 group-hover:scale-105 transition-transform">
+                  <Brain className="w-6 h-6 sm:w-6 sm:h-6 lg:w-5 lg:h-5 xl:w-5 xl:h-5" />
+                </div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-7 lg:h-7 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center group-hover:bg-sky-600 group-hover:text-white transition-colors">
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-4 lg:h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm sm:text-base lg:text-xs xl:text-sm font-extrabold text-gray-900 group-hover:text-sky-900 transition-colors leading-snug flex items-center gap-1">
+                  <span>Entraînement</span>
+                </h3>
+                <p className="text-[11px] sm:text-xs lg:text-[10px] xl:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">
+                  Exercices & Quiz
+                </p>
+              </div>
+            </Link>
+
+            {/* TUILE 4: Espace Hub */}
+            <Link
+              to="/admin/hub"
+              className="group bg-white p-4 sm:p-5 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-200 group-hover:scale-105 transition-transform">
+                  <Store className="w-6 h-6 sm:w-6 sm:h-6 lg:w-5 lg:h-5 xl:w-5 xl:h-5" />
                 </div>
                 <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-7 lg:h-7 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
                   <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-4 lg:h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -315,23 +340,23 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <h3 className="text-sm sm:text-base lg:text-sm xl:text-base font-extrabold text-gray-900 group-hover:text-purple-900 transition-colors leading-snug">
+                <h3 className="text-sm sm:text-base lg:text-xs xl:text-sm font-extrabold text-gray-900 group-hover:text-purple-900 transition-colors leading-snug">
                   Espace Hub
                 </h3>
-                <p className="text-[11px] sm:text-xs lg:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1 sm:line-clamp-2">
-                  Marketplace & Quizz
+                <p className="text-[11px] sm:text-xs lg:text-[10px] xl:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">
+                  Marketplace & Quiz
                 </p>
               </div>
             </Link>
 
-            {/* TUILE 4: Ajouter un formateur */}
+            {/* TUILE 5: Ajouter un formateur */}
             <Link
               to="/trainers"
-              className="group bg-white p-4 sm:p-6 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
+              className="group bg-white p-4 sm:p-5 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
             >
               <div className="flex items-center justify-between">
-                <div className="w-11 h-11 sm:w-14 sm:h-14 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-200 group-hover:scale-105 transition-transform">
-                  <UserPlus className="w-6 h-6 sm:w-7 sm:h-7 lg:w-5 lg:h-5 xl:w-6 xl:h-6" />
+                <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-200 group-hover:scale-105 transition-transform">
+                  <UserPlus className="w-6 h-6 sm:w-6 sm:h-6 lg:w-5 lg:h-5 xl:w-5 xl:h-5" />
                 </div>
                 <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-7 lg:h-7 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
                   <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-4 lg:h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -339,10 +364,10 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <h3 className="text-sm sm:text-base lg:text-sm xl:text-base font-extrabold text-gray-900 group-hover:text-amber-900 transition-colors leading-snug">
-                  Ajouter un formateur
+                <h3 className="text-sm sm:text-base lg:text-xs xl:text-sm font-extrabold text-gray-900 group-hover:text-amber-900 transition-colors leading-snug">
+                  Formateurs
                 </h3>
-                <p className="text-[11px] sm:text-xs lg:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1 sm:line-clamp-2">
+                <p className="text-[11px] sm:text-xs lg:text-[10px] xl:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">
                   Équipe pédagogique
                 </p>
               </div>

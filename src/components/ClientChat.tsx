@@ -17,6 +17,7 @@ interface Message {
   content: string;
   course_id?: string;
   registration_id?: string;
+  courses?: { title: string } | null;
   is_read: boolean;
   created_at: string;
 }

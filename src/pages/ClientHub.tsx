@@ -33,10 +33,13 @@ import {
   DollarSign,
   TrendingUp,
   Wallet,
-  LayoutGrid
+  LayoutGrid,
+  FolderDown,
+  Brain
 } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
 import ClientSettings from '../components/ClientSettings';
+import ClientFilesManager from '../components/ClientFilesManager';
 import SplashScreen from '../components/SplashScreen';
 import { dailyTips } from '../data/tips';
 import { getClientReferralCode, getParrainReferralSales, ReferralCodeInfo, ReferralSale } from '../lib/referralService';
@@ -60,7 +63,7 @@ export default function ClientHub() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage' | 'settings' | 'more'>('hub');
+  const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage' | 'settings' | 'more' | 'files'>('hub');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -179,10 +182,10 @@ export default function ClientHub() {
           saveToCache('profile_' + userId, fallbackProfile);
         }
 
-        // Fetch registrations with courses and nested course module IDs for progress tracking
+        // Fetch registrations with courses and nested course modules with module files
         const { data: regData, error: regError } = await supabase
           .from('registrations')
-          .select('*, courses(*, course_modules(id))')
+          .select('*, courses(*, course_modules(*, module_files(*)))')
           .eq('client_id', userId)
           .order('registered_at', { ascending: false });
 
@@ -657,6 +660,52 @@ export default function ClientHub() {
                 </div>
               </button>
 
+              {/* S'exercer */}
+              <Link 
+                to="/client/training"
+                className="col-span-2 md:col-span-2 bg-gradient-to-br from-sky-600 via-indigo-600 to-blue-800 rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-sky-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between min-h-[130px] sm:min-h-[150px] md:min-h-[160px]"
+              >
+                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-15 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
+                  <Brain className="w-24 h-24 md:w-40 md:h-40 text-white" />
+                </div>
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
+                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm shrink-0">
+                    <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1 shrink-0">
+                    <Sparkles className="w-3 h-3 text-sky-200" />
+                    <span>Quiz & Pratique</span>
+                  </span>
+                </div>
+                <div className="relative z-10 mt-3 sm:mt-4">
+                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">S'exercer</h3>
+                  <p className="text-sky-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">Testez vos connaissances et entraînez-vous sur vos formations.</p>
+                </div>
+              </Link>
+
+              {/* Mes fichiers / Bibliothèque */}
+              <button 
+                onClick={() => setActiveSection('files')}
+                className="col-span-2 md:col-span-2 bg-gradient-to-br from-purple-700 via-indigo-700 to-blue-800 rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between min-h-[130px] sm:min-h-[150px] md:min-h-[160px]"
+              >
+                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-15 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
+                  <FolderDown className="w-24 h-24 md:w-40 md:h-40 text-white" />
+                </div>
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
+                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm shrink-0">
+                    <FolderDown className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1 shrink-0">
+                    <FileText className="w-3 h-3" />
+                    <span>Tous vos supports</span>
+                  </span>
+                </div>
+                <div className="relative z-10 mt-3 sm:mt-4">
+                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">Mes fichiers</h3>
+                  <p className="text-purple-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">PDF, Word, Excel & E-books de vos cours</p>
+                </div>
+              </button>
+
               {/* Catalogue */}
               <Link 
                 to="/catalogue"
@@ -744,6 +793,20 @@ export default function ClientHub() {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+              {/* S'exercer */}
+              <Link 
+                to="/client/training"
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-sky-900/5 hover:border-sky-100 active:scale-95 transition-all duration-300 aspect-square"
+              >
+                <div className="bg-sky-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-sky-600 group-hover:bg-sky-100 transition-all w-fit">
+                  <Brain className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">S'exercer</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Quiz & entraînements</p>
+                </div>
+              </Link>
+
               {/* Calendrier */}
               <button 
                 onClick={() => setActiveSection('calendar')}
@@ -762,6 +825,20 @@ export default function ClientHub() {
                 <div>
                   <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Calendrier</h3>
                   <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Prochains rendez-vous</p>
+                </div>
+              </button>
+
+              {/* Mes fichiers */}
+              <button 
+                onClick={() => setActiveSection('files')}
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-purple-900/5 hover:border-purple-100 active:scale-95 transition-all duration-300 aspect-square"
+              >
+                <div className="bg-purple-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-purple-600 group-hover:bg-purple-100 transition-all w-fit">
+                  <FolderDown className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Bibliothèque</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Tous vos fichiers</p>
                 </div>
               </button>
 
@@ -861,6 +938,15 @@ export default function ClientHub() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Bibliothèque / Mes Fichiers Section */}
+        {activeSection === 'files' && (
+          <ClientFilesManager
+            registrations={registrations}
+            userId={profile?.id}
+            onBack={() => setActiveSection('hub')}
+          />
         )}
 
         {/* Section Content */}

@@ -810,20 +810,20 @@ export default function AdminClients() {
           <button
             onClick={() => changeTab('messages')}
             className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 col-span-2 sm:col-span-1 ${
-              activeTab === 'messages'
+              (activeTab as string) === 'messages'
                 ? 'bg-gray-900 text-white border-gray-900 shadow-md'
                 : 'bg-white text-gray-900 border-gray-100 hover:border-gray-300 shadow-sm'
             }`}
           >
             <div className="flex items-center justify-between">
-              <MessageSquare className={`w-5 h-5 ${activeTab === 'messages' ? 'text-white' : 'text-indigo-600'}`} />
+              <MessageSquare className={`w-5 h-5 ${(activeTab as string) === 'messages' ? 'text-white' : 'text-indigo-600'}`} />
               {unreadMessagesCount > 0 && (
                 <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
               )}
             </div>
             <div>
               <h3 className="font-bold text-sm">Messages</h3>
-              <p className={`text-[11px] ${activeTab === 'messages' ? 'text-gray-300' : 'text-gray-500'}`}>
+              <p className={`text-[11px] ${(activeTab as string) === 'messages' ? 'text-gray-300' : 'text-gray-500'}`}>
                 {unreadMessagesCount > 0 ? `${unreadMessagesCount} non lu(s)` : 'Messagerie'}
               </p>
             </div>

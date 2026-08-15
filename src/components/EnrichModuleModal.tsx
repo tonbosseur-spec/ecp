@@ -877,7 +877,7 @@ export function EnrichModuleModal({
                         [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:text-gray-900 [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:tracking-tight
                         [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-gray-900 [&_h3]:mt-3.5 [&_h3]:mb-1.5
                         [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-gray-800 [&_h4]:mt-3 [&_h4]:mb-1 [&_li]:list-none"
-                      placeholder="Rédigez le résumé très long ou le contenu du cours pour ce module..."
+                      data-placeholder="Rédigez le résumé très long ou le contenu du cours pour ce module..."
                     />
                   </div>
                 </div>

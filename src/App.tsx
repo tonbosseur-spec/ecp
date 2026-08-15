@@ -5,7 +5,6 @@
 
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabaseClient';
 import { checkIsAdmin } from './lib/adminAuthService';
 import PageTransition from './components/PageTransition';
@@ -20,6 +19,8 @@ import EditCourse from './pages/EditCourse';
 import ClientRegister from './pages/ClientRegister';
 import ClientLogin from './pages/ClientLogin';
 import ClientHub from './pages/ClientHub';
+import ClientTrainingHub from './pages/ClientTrainingHub';
+import ClientTrainingSession from './pages/ClientTrainingSession';
 import MobileLandingPage from './pages/MobileLandingPage';
 import ClientCourseView from './pages/ClientCourseView';
 import ClientModuleView from './pages/ClientModuleView';
@@ -38,6 +39,8 @@ import AdminFormations from './pages/AdminFormations';
 import AdminClients from './pages/AdminClients';
 import AdminSessionsDashboard from './pages/AdminSessionsDashboard';
 import AdminActivityFeed from './pages/AdminActivityFeed';
+import AdminTrainingList from './pages/AdminTrainingList';
+import AdminTrainingEditor from './pages/AdminTrainingEditor';
 import LiveDashboard from './pages/LiveDashboard';
 import LiveRoom from './pages/LiveRoom';
 import PublicLiveSessionPage from './pages/PublicLiveSessionPage';
@@ -80,23 +83,44 @@ export default function App() {
   useNativeFeatures();
 
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        const session = data?.session || null;
-        setSession(session);
-        if (session?.user?.email) {
-          const authorized = await checkIsAdmin(session.user.email);
-          setIsAdmin(authorized);
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), 2500)
+        );
+
+        const { data } = await Promise.race([
+          supabase.auth.getSession().catch(() => ({ data: { session: null } })),
+          timeoutPromise,
+        ]);
+
+        if (!isMounted) return;
+
+        const currentSession = data?.session || null;
+        setSession(currentSession);
+
+        if (currentSession?.user?.email) {
+          const adminCheckPromise = checkIsAdmin(currentSession.user.email);
+          const adminTimeoutPromise = new Promise<boolean>((resolve) =>
+            setTimeout(() => resolve(false), 2000)
+          );
+          const authorized = await Promise.race([adminCheckPromise, adminTimeoutPromise]);
+          if (isMounted) setIsAdmin(authorized);
         } else {
-          setIsAdmin(false);
+          if (isMounted) setIsAdmin(false);
         }
       } catch (err) {
-        console.warn('Auth init error:', err);
-        setSession(null);
-        setIsAdmin(false);
+        console.warn('Auth init warning:', err);
+        if (isMounted) {
+          setSession(null);
+          setIsAdmin(false);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -105,11 +129,11 @@ export default function App() {
     // Écouter les changements de session (connexion, déconnexion)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       try {
-        setSession(session);
-        if (session?.user?.email) {
-          const authorized = await checkIsAdmin(session.user.email);
+        setSession(newSession);
+        if (newSession?.user?.email) {
+          const authorized = await checkIsAdmin(newSession.user.email);
           setIsAdmin(authorized);
         } else {
           setIsAdmin(false);
@@ -128,6 +152,7 @@ export default function App() {
     window.addEventListener('admin_users_changed', handleAdminsChanged);
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       window.removeEventListener('admin_users_changed', handleAdminsChanged);
     };
@@ -137,71 +162,75 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
+        <p className="text-sm font-medium text-gray-500">Chargement d'Exceller chez Pierre...</p>
       </div>
     );
   }
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location}>
-        <Route path="/" element={<PageTransition><RootRedirector session={session} /></PageTransition>} />
-        <Route 
-          path="/mobile-landing" 
-          element={<PageTransition><MobileLandingPage session={session} /></PageTransition>} 
-        />
-        <Route path="/expertises" element={<PageTransition><ExpertisesPage /></PageTransition>} />
-        <Route path="/formateurs" element={<PageTransition><PublicTrainers /></PageTransition>} />
-        <Route path="/methodology" element={<PageTransition><HowItWorksPage /></PageTransition>} />
-        <Route path="/ressources" element={<PageTransition><HowItWorksPage /></PageTransition>} />
-        <Route path="/mentions-legales" element={<PageTransition><MentionsLegalesPage /></PageTransition>} />
-        <Route path="/confidentialite" element={<PageTransition><ConfidentialitePage /></PageTransition>} />
-        <Route path="/cgu" element={<PageTransition><CGUPage /></PageTransition>} />
-        <Route path="/download" element={<PageTransition><DownloadAppPage /></PageTransition>} />
-        <Route path="/quiz-demo" element={<PageTransition><QuizDemo /></PageTransition>} />
-        <Route path="/course/:id" element={<PageTransition><PublicCoursePage /></PageTransition>} />
-        <Route path="/challenge/:courseId" element={<PageTransition><PublicQuizChallenge /></PageTransition>} />
-        
-        <Route path="/client/register" element={<PageTransition><ClientRegister /></PageTransition>} />
-        <Route 
-          path="/client/login" 
-          element={!session ? <PageTransition><ClientLogin /></PageTransition> : <Navigate to="/client/hub" replace />} 
-        />
-        <Route path="/client/hub" element={<PageTransition><ClientHub /></PageTransition>} />
-        <Route path="/client/course/:courseId" element={<PageTransition><ClientCourseView /></PageTransition>} />
-        <Route path="/client/course/:courseId/module/:moduleId" element={<PageTransition><ClientModuleView /></PageTransition>} />
-        <Route path="/catalogue" element={<PageTransition><Marketplace /></PageTransition>} />
-        
-        {/* Live Visioconference Module Routes */}
-        <Route path="/live" element={<PageTransition><LiveDashboard /></PageTransition>} />
-        <Route path="/live/session/:roomCode" element={<PageTransition><PublicLiveSessionPage /></PageTransition>} />
-        <Route path="/live/public/:roomCode" element={<PageTransition><PublicLiveSessionPage /></PageTransition>} />
-        <Route path="/live/:roomCode" element={<PageTransition><LiveRoom /></PageTransition>} />
-        
-        <Route 
-          path="/login" 
-          element={!isAdmin ? <PageTransition><Login /></PageTransition> : <Navigate to="/dashboard" replace />} 
-        />
-        
-        {isAdmin ? (
-          <Route element={<AdminLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/admin/formations" element={<AdminFormations />} />
-            <Route path="/admin/clients" element={<AdminClients />} />
-            <Route path="/courses/new" element={<CreateCourse />} />
-            <Route path="/edit-course/:id" element={<EditCourse />} />
-            <Route path="/courses/:id" element={<AdminCourseDetails />} />
-            <Route path="/trainers" element={<ManageTrainers />} />
-            <Route path="/admin/hub" element={<AdminHub />} />
-            <Route path="/admin/sessions" element={<AdminSessionsDashboard />} />
-            <Route path="/admin/activity" element={<AdminActivityFeed />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Route>
-        ) : (
-          <Route path="*" element={<Navigate to="/" replace />} />
-        )}
-      </Routes>
-    </AnimatePresence>
+    <Routes location={location}>
+      <Route path="/" element={<PageTransition><RootRedirector session={session} /></PageTransition>} />
+      <Route 
+        path="/mobile-landing" 
+        element={<PageTransition><MobileLandingPage session={session} /></PageTransition>} 
+      />
+      <Route path="/expertises" element={<PageTransition><ExpertisesPage /></PageTransition>} />
+      <Route path="/formateurs" element={<PageTransition><PublicTrainers /></PageTransition>} />
+      <Route path="/methodology" element={<PageTransition><HowItWorksPage /></PageTransition>} />
+      <Route path="/ressources" element={<PageTransition><HowItWorksPage /></PageTransition>} />
+      <Route path="/mentions-legales" element={<PageTransition><MentionsLegalesPage /></PageTransition>} />
+      <Route path="/confidentialite" element={<PageTransition><ConfidentialitePage /></PageTransition>} />
+      <Route path="/cgu" element={<PageTransition><CGUPage /></PageTransition>} />
+      <Route path="/download" element={<PageTransition><DownloadAppPage /></PageTransition>} />
+      <Route path="/quiz-demo" element={<PageTransition><QuizDemo /></PageTransition>} />
+      <Route path="/course/:id" element={<PageTransition><PublicCoursePage /></PageTransition>} />
+      <Route path="/challenge/:courseId" element={<PageTransition><PublicQuizChallenge /></PageTransition>} />
+      
+      <Route path="/client/register" element={<PageTransition><ClientRegister /></PageTransition>} />
+      <Route 
+        path="/client/login" 
+        element={!session ? <PageTransition><ClientLogin /></PageTransition> : <Navigate to="/client/hub" replace />} 
+      />
+      <Route path="/client/hub" element={<PageTransition><ClientHub /></PageTransition>} />
+      <Route path="/client/training" element={<PageTransition><ClientTrainingHub /></PageTransition>} />
+      <Route path="/client/training/:id" element={<PageTransition><ClientTrainingSession /></PageTransition>} />
+      <Route path="/client/course/:courseId" element={<PageTransition><ClientCourseView /></PageTransition>} />
+      <Route path="/client/course/:courseId/module/:moduleId" element={<PageTransition><ClientModuleView /></PageTransition>} />
+      <Route path="/catalogue" element={<PageTransition><Marketplace /></PageTransition>} />
+      
+      {/* Live Visioconference Module Routes */}
+      <Route path="/live" element={<PageTransition><LiveDashboard /></PageTransition>} />
+      <Route path="/live/session/:roomCode" element={<PageTransition><PublicLiveSessionPage /></PageTransition>} />
+      <Route path="/live/public/:roomCode" element={<PageTransition><PublicLiveSessionPage /></PageTransition>} />
+      <Route path="/live/:roomCode" element={<PageTransition><LiveRoom /></PageTransition>} />
+      
+      <Route 
+        path="/login" 
+        element={!isAdmin ? <PageTransition><Login /></PageTransition> : <Navigate to="/dashboard" replace />} 
+      />
+      
+      {isAdmin ? (
+        <Route element={<AdminLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin/formations" element={<AdminFormations />} />
+          <Route path="/admin/clients" element={<AdminClients />} />
+          <Route path="/admin/training" element={<AdminTrainingList />} />
+          <Route path="/admin/training/new" element={<AdminTrainingEditor />} />
+          <Route path="/admin/training/:id" element={<AdminTrainingEditor />} />
+          <Route path="/courses/new" element={<CreateCourse />} />
+          <Route path="/edit-course/:id" element={<EditCourse />} />
+          <Route path="/courses/:id" element={<AdminCourseDetails />} />
+          <Route path="/trainers" element={<ManageTrainers />} />
+          <Route path="/admin/hub" element={<AdminHub />} />
+          <Route path="/admin/sessions" element={<AdminSessionsDashboard />} />
+          <Route path="/admin/activity" element={<AdminActivityFeed />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      ) : (
+        <Route path="*" element={<Navigate to="/" replace />} />
+      )}
+    </Routes>
   );
 }

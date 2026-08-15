@@ -253,7 +253,7 @@ export default function PublicTrainers() {
                 <p className="text-xs sm:text-sm text-slate-300">{error}</p>
               </div>
               <button
-                onClick={fetchData}
+                onClick={() => fetchData()}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold rounded-2xl transition-all shadow-lg shadow-red-950/40 cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4" />
