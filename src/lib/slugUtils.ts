@@ -72,6 +72,75 @@ export async function getUniqueSlug(title: string, currentCourseId?: string): Pr
 }
 
 /**
+ * Génère un slug unique pour un entraînement en interrogeant Supabase.
+ */
+export async function getUniqueTrainingSlug(title: string, currentTrainingId?: string): Promise<string> {
+  const baseSlug = generateSlug(title) || 'entrainement';
+  let candidateSlug = baseSlug;
+  let counter = 1;
+
+  try {
+    while (true) {
+      let query = supabase
+        .from('training_sessions')
+        .select('id, slug')
+        .eq('slug', candidateSlug);
+
+      if (currentTrainingId) {
+        query = query.neq('id', currentTrainingId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.warn('Vérification slug entraînement Supabase (colonne slug peut-être absente):', error.message);
+        return candidateSlug;
+      }
+
+      if (!data || data.length === 0) {
+        return candidateSlug;
+      }
+
+      counter++;
+      candidateSlug = `${baseSlug}-${counter}`;
+    }
+  } catch (err) {
+    console.warn('Erreur lors de la génération du slug unique entraînement:', err);
+    return candidateSlug;
+  }
+}
+
+/**
+ * Migration automatique: génère et enregistre un slug pour tous les entraînements existants qui n'en ont pas.
+ */
+export async function ensureSlugsForExistingTrainings(): Promise<void> {
+  try {
+    const { data: sessions, error } = await supabase
+      .from('training_sessions')
+      .select('*');
+
+    if (error || !sessions) {
+      return;
+    }
+
+    for (const session of sessions) {
+      if (!session.slug && session.title) {
+        const uniqueSlug = await getUniqueTrainingSlug(session.title, session.id);
+        const updateRes = await supabase
+          .from('training_sessions')
+          .update({ slug: uniqueSlug })
+          .eq('id', session.id);
+        if (updateRes.error) {
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Migration des slugs entraînements ignorée ou échouée:', err);
+  }
+}
+
+/**
  * Migration automatique: génère et enregistre un slug pour toutes les formations existantes qui n'en ont pas.
  */
 export async function ensureSlugsForExistingCourses(): Promise<void> {

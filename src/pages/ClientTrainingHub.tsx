@@ -24,7 +24,8 @@ import {
   ArrowLeft,
   Terminal,
   Info,
-  RefreshCw
+  RefreshCw,
+  Share2
 } from 'lucide-react';
 import { TrainingSession, TrainingExercise, TrainingDifficultyLevel, TrainingActivityType } from '../types';
 
@@ -1100,25 +1101,39 @@ export default function ClientTrainingHub() {
                         )}
                       </div>
 
-                      <button
-                        onClick={() => handleStartSession(session)}
-                        className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all active:scale-95 cursor-pointer ${
-                          isRExercise
-                            ? stats?.isPassed
-                              ? 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200'
-                              : 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200'
-                            : stats?.isPassed
-                              ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200'
-                              : 'bg-sky-600 hover:bg-sky-700 text-white shadow-sm shadow-sky-200'
-                        }`}
-                      >
-                        {isRExercise ? (
-                          <Terminal className="w-3.5 h-3.5 text-current" />
-                        ) : (
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                        )}
-                        <span>{stats ? "S'entraîner à nouveau" : "S'entraîner"}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const publicUrl = `${window.location.origin}/training/${session.slug || session.id}`;
+                            navigator.clipboard.writeText(publicUrl);
+                            toast.success('Lien public de la présentation copié !');
+                          }}
+                          className="p-2.5 text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded-2xl border border-gray-200 transition-all cursor-pointer"
+                          title="Partager la page publique de présentation"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleStartSession(session)}
+                          className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all active:scale-95 cursor-pointer ${
+                            isRExercise
+                              ? stats?.isPassed
+                                ? 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200'
+                                : 'bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-200'
+                              : stats?.isPassed
+                                ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200'
+                                : 'bg-sky-600 hover:bg-sky-700 text-white shadow-sm shadow-sky-200'
+                          }`}
+                        >
+                          {isRExercise ? (
+                            <Terminal className="w-3.5 h-3.5 text-current" />
+                          ) : (
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                          )}
+                          <span>{stats ? "S'entraîner à nouveau" : "S'entraîner"}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

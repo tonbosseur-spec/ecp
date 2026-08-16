@@ -14,6 +14,7 @@ import CreateCourse from './pages/CreateCourse';
 import ManageTrainers from './pages/ManageTrainers';
 import PublicCoursePage from './pages/PublicCoursePage';
 import PublicQuizChallenge from './pages/PublicQuizChallenge';
+import PublicTrainingPage from './pages/PublicTrainingPage';
 import AdminCourseDetails from './pages/AdminCourseDetails';
 import EditCourse from './pages/EditCourse';
 import ClientRegister from './pages/ClientRegister';
@@ -191,6 +192,7 @@ export default function App() {
       <Route path="/quiz-demo" element={<PageTransition><QuizDemo /></PageTransition>} />
       <Route path="/course/:id" element={<PageTransition><PublicCoursePage /></PageTransition>} />
       <Route path="/challenge/:courseId" element={<PageTransition><PublicQuizChallenge /></PageTransition>} />
+      <Route path="/training/:slug" element={<PageTransition><PublicTrainingPage /></PageTransition>} />
       
       <Route path="/client/register" element={<PageTransition><ClientRegister /></PageTransition>} />
       <Route 

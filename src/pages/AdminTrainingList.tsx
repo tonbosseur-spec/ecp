@@ -20,7 +20,9 @@ import {
   Clock, 
   Code2, 
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { TrainingSession } from '../types';
 
@@ -484,7 +486,32 @@ export default function AdminTrainingList() {
                   </div>
 
                   {/* Actions Buttons */}
-                  <div className="flex items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0">
+                    {/* Copy Public Link Button */}
+                    <button
+                      onClick={() => {
+                        const link = `${window.location.origin}/training/${session.slug || session.id}`;
+                        navigator.clipboard.writeText(link);
+                        toast.success('Lien public copié dans le presse-papier !');
+                      }}
+                      className="p-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
+                      title="Copier le lien public de la présentation"
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span className="hidden sm:inline">Copier le lien</span>
+                    </button>
+
+                    {/* Open Public Page */}
+                    <a
+                      href={`/training/${session.slug || session.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
+                      title="Ouvrir la page publique"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+
                     {/* Toggle Publish */}
                     <button
                       onClick={() => handleTogglePublish(session)}

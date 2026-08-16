@@ -26,9 +26,14 @@ import {
   Check,
   Plus,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  Globe,
+  RefreshCw,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { TrainingActivityType, TrainingDifficultyLevel } from '../types';
+import { generateSlug, getUniqueTrainingSlug } from '../lib/slugUtils';
 
 export interface TestCaseItem {
   description: string;
@@ -70,6 +75,8 @@ export default function AdminTrainingEditor() {
 
   // Training Session Fields
   const [title, setTitle] = useState('');
+  const [slug, setSlug] = useState('');
+  const [isSlugCustomized, setIsSlugCustomized] = useState(false);
   const [description, setDescription] = useState('');
   const [courseId, setCourseId] = useState<string>('');
   const [activityType, setActivityType] = useState<TrainingActivityType>('quiz_qcm');
@@ -131,6 +138,10 @@ export default function AdminTrainingEditor() {
       if (!sessionData) throw new Error('Entraînement introuvable.');
 
       setTitle(sessionData.title || '');
+      setSlug(sessionData.slug || generateSlug(sessionData.title || ''));
+      if (sessionData.slug) {
+        setIsSlugCustomized(true);
+      }
       setDescription(sessionData.description || '');
       setCourseId(sessionData.course_id || '');
       setActivityType(sessionData.activity_type || 'quiz_qcm');
@@ -507,8 +518,11 @@ export default function AdminTrainingEditor() {
 
     setSaving(true);
     try {
-      const sessionPayload = {
+      const computedSlug = slug.trim() ? generateSlug(slug) : await getUniqueTrainingSlug(title.trim(), id);
+
+      const sessionPayload: any = {
         title: title.trim(),
+        slug: computedSlug,
         description: description.trim() || null,
         course_id: courseId.trim() ? courseId : null,
         activity_type: activityType,
@@ -522,22 +536,42 @@ export default function AdminTrainingEditor() {
 
       if (isEditing && currentSessionId) {
         // 1. Update session
-        const { error: sessionUpdateError } = await supabase
+        let { error: sessionUpdateError } = await supabase
           .from('training_sessions')
           .update(sessionPayload)
           .eq('id', currentSessionId);
 
+        if (sessionUpdateError && sessionUpdateError.message?.includes('slug')) {
+          delete sessionPayload.slug;
+          const retry = await supabase
+            .from('training_sessions')
+            .update(sessionPayload)
+            .eq('id', currentSessionId);
+          sessionUpdateError = retry.error;
+        }
+
         if (sessionUpdateError) throw sessionUpdateError;
       } else {
         // 1. Insert session
-        const { data: newSession, error: sessionInsertError } = await supabase
+        let { data: newSession, error: sessionInsertError } = await supabase
           .from('training_sessions')
           .insert([sessionPayload])
           .select('id')
           .single();
 
+        if (sessionInsertError && sessionInsertError.message?.includes('slug')) {
+          delete sessionPayload.slug;
+          const retry = await supabase
+            .from('training_sessions')
+            .insert([sessionPayload])
+            .select('id')
+            .single();
+          newSession = retry.data;
+          sessionInsertError = retry.error;
+        }
+
         if (sessionInsertError) throw sessionInsertError;
-        currentSessionId = newSession.id;
+        if (newSession) currentSessionId = newSession.id;
       }
 
       if (currentSessionId) {
@@ -725,10 +759,78 @@ export default function AdminTrainingEditor() {
               <input
                 type="text"
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={e => {
+                  const newTitle = e.target.value;
+                  setTitle(newTitle);
+                  if (!isSlugCustomized) {
+                    setSlug(generateSlug(newTitle));
+                  }
+                }}
                 placeholder="Ex: Les bases de la manipulation de données avec R"
                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm font-medium transition-all"
               />
+            </div>
+
+            {/* Slug / Public URL */}
+            <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                  Slug personnalisé (URL publique)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSlug(generateSlug(title));
+                    setIsSlugCustomized(false);
+                  }}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                  title="Régénérer automatiquement à partir du titre"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Générer depuis le titre
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-medium text-gray-500 hidden sm:inline select-none">
+                  /training/
+                </span>
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={e => {
+                    setSlug(generateSlug(e.target.value));
+                    setIsSlugCustomized(true);
+                  }}
+                  placeholder="mon-entrainement-slug"
+                  className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs font-mono font-semibold text-gray-800"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const publicUrl = `${window.location.origin}/training/${slug || generateSlug(title) || id}`;
+                    navigator.clipboard.writeText(publicUrl);
+                    useToast().toast ? null : null; // notification via standard clipboard
+                  }}
+                  className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                  title="Copier le lien public"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Copier le lien</span>
+                </button>
+                <a
+                  href={`/training/${slug || generateSlug(title) || id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold transition-all"
+                  title="Aperçu de la page publique"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+              <p className="text-[11px] text-gray-500 font-medium">
+                L'URL publique sera : <span className="font-mono text-indigo-700 font-bold">{`${window.location.origin}/training/${slug || generateSlug(title) || 'slug-de-l-entrainement'}`}</span>
+              </p>
             </div>
 
             {/* Description */}

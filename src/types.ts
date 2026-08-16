@@ -30,6 +30,7 @@ export type TrainingExerciseType = 'qcm' | 'r_code';
 export interface TrainingSession {
   id: string;
   course_id?: string | null;
+  slug?: string | null;
   title: string;
   description?: string | null;
   activity_type: TrainingActivityType;

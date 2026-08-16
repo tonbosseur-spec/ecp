@@ -213,7 +213,7 @@ export default function LandingPage() {
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1);
-        data = fallbackRes.data;
+        data = fallbackRes.data as any;
         error = fallbackRes.error;
       }
 
