@@ -422,9 +422,16 @@ class WebREngine {
           description: `Résultat attendu : "${expOutStr}"`,
           code: `tryCatch({
             .res_val <- tryCatch(eval(parse(text = ${JSON.stringify(code)})), error = function(e) NULL)
-            .res_str <- paste(as.character(.res_val), collapse = " ")
-            .exp_str <- "${escapedExp}"
-            isTRUE(.res_str == .exp_str || trimws(.res_str) == trimws(.exp_str) || grepl(.exp_str, .res_str, fixed = TRUE))
+            .exp_raw <- gsub(",", ".", "${escapedExp}", fixed = TRUE)
+            .exp_num <- suppressWarnings(as.numeric(.exp_raw))
+            .res_num <- suppressWarnings(as.numeric(.res_val))
+            if (!is.na(.exp_num) && !is.na(.res_num) && length(.res_num) == 1) {
+              isTRUE(abs(.res_num - .exp_num) < 0.01)
+            } else {
+              .res_str <- trimws(paste(as.character(.res_val), collapse = " "))
+              .exp_str <- trimws(.exp_raw)
+              isTRUE(.res_str == .exp_str)
+            }
           }, error = function(e) FALSE)`
         });
       }
