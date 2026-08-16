@@ -101,3 +101,4 @@ USING (
     SELECT 1 FROM public.admin_users WHERE admin_users.email = (auth.jwt() ->> 'email')
   )
 );
+

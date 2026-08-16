@@ -35,7 +35,8 @@ import {
   Wallet,
   LayoutGrid,
   FolderDown,
-  Brain
+  Brain,
+  CreditCard
 } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
 import ClientSettings from '../components/ClientSettings';
@@ -44,6 +45,7 @@ import SplashScreen from '../components/SplashScreen';
 import { dailyTips } from '../data/tips';
 import { getClientReferralCode, getParrainReferralSales, ReferralCodeInfo, ReferralSale } from '../lib/referralService';
 import { loadFromCache, saveToCache } from '../lib/offlineSync';
+import { initiateFapshiPayment } from '../lib/paymentService';
 
 const stripHtml = (html: string) => {
   if (!html) return '';
@@ -90,6 +92,40 @@ export default function ClientHub() {
   const [loadingContent, setLoadingContent] = useState(false);
   const [togglingProgressId, setTogglingProgressId] = useState<string | null>(null);
   const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
+  const [processingPaymentKey, setProcessingPaymentKey] = useState<string | null>(null);
+  const [fapshiError, setFapshiError] = useState<string | null>(null);
+
+  const handlePayWithFapshi = async (options: {
+    registrationId?: string;
+    courseId?: string;
+    amount: number;
+    courseTitle?: string;
+    paymentType?: 'full' | 'installment';
+    trancheNumber?: number;
+    keyId: string;
+  }) => {
+    setProcessingPaymentKey(options.keyId);
+    setFapshiError(null);
+    try {
+      const res = await initiateFapshiPayment({
+        registrationId: options.registrationId,
+        courseId: options.courseId,
+        amount: options.amount,
+        courseTitle: options.courseTitle,
+        paymentType: options.paymentType,
+        trancheNumber: options.trancheNumber
+      });
+      if (res.success && res.link) {
+        window.location.href = res.link;
+      } else {
+        setFapshiError(res.message || 'Impossible d\'initialiser le paiement Mobile Money.');
+        setProcessingPaymentKey(null);
+      }
+    } catch (err: any) {
+      setFapshiError('Erreur de connexion au service de paiement.');
+      setProcessingPaymentKey(null);
+    }
+  };
 
   useEffect(() => {
     // Handle online/offline events
@@ -1006,7 +1042,7 @@ export default function ClientHub() {
                     </div>
                     <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2">
                       <p className="text-lg font-black text-gray-900">{payment.amount.toLocaleString('fr-FR')} FCFA</p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                           payment.status === 'paid' 
                             ? 'bg-green-100 text-green-700' 
@@ -1015,15 +1051,38 @@ export default function ClientHub() {
                           {payment.status === 'paid' ? 'Payé' : 'À régler'}
                         </span>
                         {payment.status === 'pending' && (
-                          <a 
-                            href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour ! Je suis ${profile?.first_name || ''} ${profile?.last_name || ''} (${profile?.email || ''}). Je souhaite régler la tranche ${payment.tranche_number} (${payment.amount.toLocaleString('fr-FR')} FCFA) pour la formation "${payment.registrations?.courses?.title || 'Formation'}". Merci de m'indiquer la marche à suivre.`)}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="p-1.5 bg-[#25D366] text-white rounded-lg hover:opacity-90 transition-all"
-                            title="Régler via WhatsApp"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                          </a>
+                          <>
+                            <button
+                              onClick={() => handlePayWithFapshi({
+                                registrationId: payment.registration_id,
+                                courseId: payment.course_id,
+                                amount: payment.amount,
+                                courseTitle: payment.registrations?.courses?.title,
+                                paymentType: payment.payment_type,
+                                trancheNumber: payment.tranche_number,
+                                keyId: `pay-${payment.id}`
+                              })}
+                              disabled={processingPaymentKey === `pay-${payment.id}`}
+                              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                              title="Payer directement par Mobile Money ou Orange Money"
+                            >
+                              {processingPaymentKey === `pay-${payment.id}` ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CreditCard className="w-3.5 h-3.5" />
+                              )}
+                              <span>Payer en ligne</span>
+                            </button>
+                            <a 
+                              href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour ! Je suis ${profile?.first_name || ''} ${profile?.last_name || ''} (${profile?.email || ''}). Je souhaite régler la tranche ${payment.tranche_number} (${payment.amount.toLocaleString('fr-FR')} FCFA) pour la formation "${payment.registrations?.courses?.title || 'Formation'}". Merci de m'indiquer la marche à suivre.`)}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="p-1.5 bg-[#25D366] text-white rounded-lg hover:opacity-90 transition-all"
+                              title="Régler via WhatsApp"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1532,8 +1591,28 @@ export default function ClientHub() {
                       ) : (
                         <div className="flex flex-col gap-2">
                           <div className="text-center py-3 px-4 bg-amber-50 text-amber-800 text-xs rounded-xl font-medium border border-amber-100">
-                            🔒 Les ressources seront débloquées immédiatement après validation de votre reçu de paiement.
+                            🔒 Les ressources seront débloquées automatiquement dès réception de votre paiement.
                           </div>
+                          
+                          <button
+                            onClick={() => handlePayWithFapshi({
+                              registrationId: reg.id,
+                              courseId: course.id,
+                              amount: course.price || 1000,
+                              courseTitle: course.title,
+                              keyId: `reg-${reg.id}`
+                            })}
+                            disabled={processingPaymentKey === `reg-${reg.id}`}
+                            className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold transition-all text-xs shadow-md active:scale-[0.99] cursor-pointer"
+                          >
+                            {processingPaymentKey === `reg-${reg.id}` ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <CreditCard className="w-4 h-4" />
+                            )}
+                            <span>Régler par Mobile Money (Orange / MTN)</span>
+                          </button>
+
                           <button
                             onClick={() => {
                               setChatContext({ courseId: course.id, registrationId: reg.id });

@@ -4,6 +4,8 @@ import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import fapshiInitiateHandler from './api/payments/initiate';
+import fapshiWebhookHandler from './api/payments/webhook';
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -121,7 +123,8 @@ app.post('/api/gemini', async (req, res) => {
         }
       }
     });
-    const MODEL_NAME = 'gemini-3.7-flash';
+    // Modèle léger et économique en tokens (flash-lite) avec limitation de tokens
+    const LIGHTWEIGHT_MODELS = ['gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
     
     let systemInstructions = `Tu es un tuteur pédagogique bienveillant pour l'apprentissage du langage R.
 RÈGLE ABSOLUE N°1 : Tu as l'INTERDICTION FORMELLE de fournir la solution finale, d'écrire le code complet corrigé, ou de faire le travail à la place de l'étudiant.
@@ -157,16 +160,47 @@ Maximum 70 mots.`;
       prompt += `\n[CODE ÉTUDIANT ACTUEL] : \n${student_code || 'Aucun code'}\n[MESSAGE D'ERREUR WEBR] : \n${error_message || 'Aucune erreur claire fournie.'}\nL'étudiant ne comprend pas son erreur. Explique-lui ce qui bloque et donne une petite piste.`;
     }
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        systemInstruction: systemInstructions,
-        temperature: 0.2,
+    let aiText = "Désolé, je n'ai pas pu formuler de réponse.";
+    let generated = false;
+    
+    for (const modelName of LIGHTWEIGHT_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            systemInstruction: systemInstructions,
+            temperature: 0.2,
+            maxOutputTokens: 250,
+          }
+        });
+        if (response.text) {
+          aiText = response.text;
+          generated = true;
+          break;
+        }
+      } catch (callErr: any) {
+        console.warn(`Tentative avec le modèle ${modelName} échouée, essai du suivant...`, callErr?.message || callErr);
       }
-    });
+    }
 
-    const aiText = response.text || "Désolé, je n'ai pas pu formuler de réponse.";
+    if (!generated) {
+      // Fallback final sur gemini-3.7-flash si les modèles lite sont indisponibles
+      try {
+        const fallbackRes = await ai.models.generateContent({
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            systemInstruction: systemInstructions,
+            temperature: 0.2,
+            maxOutputTokens: 250,
+          }
+        });
+        aiText = fallbackRes.text || aiText;
+      } catch (fbErr) {
+        console.error('Erreur finale Gemini fallback:', fbErr);
+      }
+    }
     
     return res.status(200).json({
       success: true,
@@ -180,7 +214,18 @@ Maximum 70 mots.`;
 });
 
 // ==========================================
-// 2. MIDDLEWARE VITE (Front-end)
+// 2. ROUTES PAIEMENT FAPSHI (Mobile Money / Orange Money)
+// ==========================================
+app.post('/api/payments/initiate', async (req, res) => {
+  await fapshiInitiateHandler(req as any, res as any);
+});
+
+app.post('/api/payments/webhook', async (req, res) => {
+  await fapshiWebhookHandler(req as any, res as any);
+});
+
+// ==========================================
+// 3. MIDDLEWARE VITE (Front-end)
 // ==========================================
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

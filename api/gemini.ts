@@ -123,8 +123,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
     
-    // Use official fast and responsive model
-    const MODEL_NAME = 'gemini-3.7-flash';
+    // Modèle léger et économique en tokens (flash-lite) avec limitation de tokens
+    const LIGHTWEIGHT_MODELS = ['gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
 
     let systemInstructions = `Tu es un tuteur pédagogique bienveillant pour l'apprentissage du langage R.
 RÈGLE ABSOLUE N°1 : Tu as l'INTERDICTION FORMELLE de fournir la solution finale, d'écrire le code complet corrigé, ou de faire le travail à la place de l'étudiant.
@@ -167,16 +167,46 @@ Maximum 70 mots.`;
 \nL'étudiant ne comprend pas son erreur. Explique-lui ce qui bloque et donne une petite piste.`;
     }
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config: {
-        systemInstruction: systemInstructions,
-        temperature: 0.2, // Low temperature for consistent, pedagogical responses
+    let aiText = "Désolé, je n'ai pas pu formuler de réponse.";
+    let generated = false;
+    
+    for (const modelName of LIGHTWEIGHT_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            systemInstruction: systemInstructions,
+            temperature: 0.2, // Low temperature for consistent, pedagogical responses
+            maxOutputTokens: 250,
+          }
+        });
+        if (response.text) {
+          aiText = response.text;
+          generated = true;
+          break;
+        }
+      } catch (callErr: any) {
+        console.warn(`Tentative avec le modèle ${modelName} échouée, essai du suivant...`, callErr?.message || callErr);
       }
-    });
+    }
 
-    const aiText = response.text || "Désolé, je n'ai pas pu formuler de réponse.";
+    if (!generated) {
+      try {
+        const fallbackRes = await ai.models.generateContent({
+          model: 'gemini-3.7-flash',
+          contents: prompt,
+          config: {
+            systemInstruction: systemInstructions,
+            temperature: 0.2,
+            maxOutputTokens: 250,
+          }
+        });
+        aiText = fallbackRes.text || aiText;
+      } catch (fbErr) {
+        console.error('Erreur finale Gemini fallback:', fbErr);
+      }
+    }
 
     return res.status(200).json({
       success: true,
