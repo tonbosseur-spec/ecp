@@ -412,33 +412,11 @@ class WebREngine {
       (tc) => tc && typeof tc.code === 'string' && tc.code.trim().length > 0
     )];
 
-    // If expectedOutput is provided, append an automatic expected output check test case if not already present
     const expOutStr = options.expectedOutput ? options.expectedOutput.trim() : '';
-    if (expOutStr) {
-      const alreadyHasExpTest = validTestCases.some(tc => tc.code.includes(expOutStr));
-      if (!alreadyHasExpTest) {
-        const escapedExp = expOutStr.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        validTestCases.push({
-          description: `Résultat attendu : "${expOutStr}"`,
-          code: `tryCatch({
-            .res_val <- tryCatch(eval(parse(text = ${JSON.stringify(code)})), error = function(e) NULL)
-            .exp_raw <- gsub(",", ".", "${escapedExp}", fixed = TRUE)
-            .exp_num <- suppressWarnings(as.numeric(.exp_raw))
-            .res_num <- suppressWarnings(as.numeric(.res_val))
-            if (!is.na(.exp_num) && !is.na(.res_num) && length(.res_num) == 1) {
-              isTRUE(abs(.res_num - .exp_num) < 0.01)
-            } else {
-              .res_str <- trimws(paste(as.character(.res_val), collapse = " "))
-              .exp_str <- trimws(.exp_raw)
-              isTRUE(.res_str == .exp_str)
-            }
-          }, error = function(e) FALSE)`
-        });
-      }
-    }
+    const totalTestsCount = validTestCases.length + (expOutStr ? 1 : 0);
 
     // If no test cases defined and no expected output, reject validation
-    if (validTestCases.length === 0) {
+    if (totalTestsCount === 0) {
       return {
         success: false,
         passed: 0,
@@ -481,9 +459,9 @@ class WebREngine {
         // Ensure global environment is clean before evaluating student code
         await shelter.evalR("rm(list = ls(envir = .GlobalEnv, all.names = TRUE), envir = .GlobalEnv)");
 
-        // Step 1: Execute student code with stream & condition capture
+        // Step 1: Execute student code with stream & condition capture ONCE
         const studentCapture = await shelter.captureR(code, {
-          withAutoprint: false,
+          withAutoprint: true, // Crucial for expected_output logic when user just types a value
           captureStreams: true,
           captureConditions: true,
         });
@@ -499,30 +477,78 @@ class WebREngine {
           });
         }
 
-        // If code fails to execute cleanly, all tests are marked failed without leaking internals
+        // If code fails to execute cleanly, all tests are marked failed
         if (studentErrors.length > 0) {
           await shelter.purge();
           const endTime = performance.now();
+          
+          const failedTests: RTestResultDetail[] = [];
+          if (expOutStr) {
+            failedTests.push({ description: `Résultat attendu : "${expOutStr}"`, passed: false });
+          }
+          validTestCases.forEach((tc) => {
+            failedTests.push({ description: tc.description || 'Critère de validation', passed: false });
+          });
+
           return {
             success: false,
             passed: 0,
-            total: validTestCases.length,
-            tests: validTestCases.map((tc) => ({
-              description: tc.description || 'Critère de validation',
-              passed: false,
-            })),
+            total: totalTestsCount,
+            tests: failedTests,
             error: studentErrors[0] || "Erreur lors de l'exécution du code R.",
             executionTimeMs: Math.round(endTime - startTime),
           };
         }
 
-        // Step 2: Evaluate each test case in the same environment
+        // Step 2: Check expected output if defined (using output captured from the single execution)
         const testResults: RTestResultDetail[] = [];
         let passedCount = 0;
 
+        if (expOutStr) {
+          const actOutputTexts = studentCapture.output || [];
+          
+          // Helper to normalize strings
+          const cleanText = (t: string) => t.replace(/\[\d+\]/g, '').replace(/\s+/g, ' ').trim();
+          
+          const actualTexts = actOutputTexts
+            .filter((o: any) => o.type === 'stdout' || o.type === 'message')
+            .map((o: any) => String(o.data || ''))
+            .join('\n');
+          
+          const actClean = cleanText(actualTexts);
+          const expClean = cleanText(expOutStr);
+          
+          let expectedPassed = actClean === expClean;
+          
+          if (!expectedPassed) {
+            // Numeric fallback with small tolerance
+            const expNumStr = expOutStr.replace(/,/g, '.').trim();
+            const actNumStr = actualTexts.replace(/\[\d+\]/g, '').replace(/,/g, '.').trim();
+            const expNum = Number(expNumStr);
+            const actNum = Number(actNumStr);
+            if (!isNaN(expNum) && !isNaN(actNum) && expNumStr !== '' && actNumStr !== '') {
+              expectedPassed = Math.abs(expNum - actNum) < 0.01;
+            }
+          }
+          
+          if (expectedPassed) {
+            passedCount++;
+          }
+          
+          testResults.push({
+            description: `Résultat attendu : "${expOutStr}"`,
+            passed: expectedPassed
+          });
+        }
+
+        // Step 3: Evaluate each admin test case in the same environment
         for (const tc of validTestCases) {
-          // Wrapped safely in tryCatch: evaluates truthiness and returns integer 1L (passed) or 0L (failed)
-          const sanitizedTestRCode = `tryCatch({ .t_res <- { ${tc.code} }; as.integer(isTRUE(as.logical(.t_res)[1])) }, error = function(e) paste0("ERR:", conditionMessage(e)), warning = function(w) 0L)`;
+          // Wrapped safely in tryCatch: evaluates truthiness strictly (all true, no NAs)
+          const sanitizedTestRCode = `tryCatch({ 
+  .t_res <- suppressWarnings({ ${tc.code} })
+  .ok <- is.logical(.t_res) && length(.t_res) > 0 && all(!is.na(.t_res)) && all(.t_res)
+  as.integer(isTRUE(.ok))
+}, error = function(e) paste0("ERR:", conditionMessage(e)))`;
 
           let isPassed = false;
           try {
@@ -554,12 +580,12 @@ class WebREngine {
         await shelter.purge();
 
         const endTime = performance.now();
-        const allPassed = passedCount === validTestCases.length;
+        const allPassed = passedCount === totalTestsCount;
 
         return {
           success: allPassed,
           passed: passedCount,
-          total: validTestCases.length,
+          total: totalTestsCount,
           tests: testResults,
           executionTimeMs: Math.round(endTime - startTime),
         };
@@ -579,14 +605,19 @@ class WebREngine {
 
       this.setStatus('ready', 'R est prêt.');
 
+      const failedTests: RTestResultDetail[] = [];
+      if (expOutStr) {
+        failedTests.push({ description: `Résultat attendu : "${expOutStr}"`, passed: false });
+      }
+      validTestCases.forEach((tc) => {
+        failedTests.push({ description: tc.description || 'Critère de validation', passed: false });
+      });
+
       return {
         success: false,
         passed: 0,
-        total: validTestCases.length,
-        tests: validTestCases.map((tc) => ({
-          description: tc.description || 'Critère de validation',
-          passed: false,
-        })),
+        total: totalTestsCount,
+        tests: failedTests,
         error: errorMessage,
         executionTimeMs,
       };
