@@ -269,12 +269,8 @@ export default function AdminTrainingEditor() {
               expected_output: '14',
               test_cases: [
                 {
-                  description: 'Le vecteur notes existe',
-                  code: 'exists("notes")'
-                },
-                {
-                  description: 'La moyenne calculée est correcte',
-                  code: 'mean(notes) == 14'
+                  description: 'Le calcul de la moyenne avec mean() est présent',
+                  code: 'mean(notes)'
                 }
               ],
               orderIndex: 0,
@@ -342,8 +338,8 @@ export default function AdminTrainingEditor() {
         expected_output: '',
         test_cases: [
           {
-            description: '',
-            code: ''
+            description: 'La variable nom est créée',
+            code: 'nom <- "Paul"'
           }
         ],
         orderIndex: prev.length,
@@ -483,7 +479,7 @@ export default function AdminTrainingEditor() {
           return false;
         }
 
-        // Validate test cases if any
+        // Validate test cases (code fragments) if any
         for (let t = 0; t < ex.test_cases.length; t++) {
           const test = ex.test_cases[t];
           const hasDesc = test.description.trim().length > 0;
@@ -491,11 +487,11 @@ export default function AdminTrainingEditor() {
 
           // If one is filled and other is empty
           if (hasDesc && !hasCode) {
-            toast.error(`Dans l'exercice R #${i + 1}, le test #${t + 1} (« ${test.description} ») doit avoir un code de validation.`);
+            toast.error(`Dans l'exercice R #${i + 1}, la ligne #${t + 1} (« ${test.description} ») doit comporter le code exact à retrouver.`);
             return false;
           }
           if (!hasDesc && hasCode) {
-            toast.error(`Dans l'exercice R #${i + 1}, le test #${t + 1} doit avoir une description pour l'étudiant.`);
+            toast.error(`Dans l'exercice R #${i + 1}, la ligne #${t + 1} doit comporter une description pour l'étudiant.`);
             return false;
           }
         }
@@ -1183,7 +1179,7 @@ export default function AdminTrainingEditor() {
                                 👁 Aperçu étudiant en direct
                               </span>
                               <span className="text-[11px] text-slate-400 bg-slate-800 px-2.5 py-1 rounded-lg">
-                                Les tests de validation sont masqués pour l'étudiant
+                                Les critères et fragments requis sont masqués pour l'étudiant
                               </span>
                             </div>
 
@@ -1343,7 +1339,7 @@ export default function AdminTrainingEditor() {
                                 <div className="flex items-center justify-between mb-1.5">
                                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
                                     <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                    Sortie attendue (valeur/résultat)
+                                    Sortie attendue (valeur / résultat)
                                   </label>
                                   <span className="text-[11px] text-gray-400 font-medium">Optionnel</span>
                                 </div>
@@ -1351,34 +1347,37 @@ export default function AdminTrainingEditor() {
                                   type="text"
                                   value={ex.expected_output}
                                   onChange={e => handleUpdateExercise(exIndex, 'expected_output', e.target.value)}
-                                  placeholder="Ex: 14"
+                                  placeholder='Ex: 14 ou "Paul"'
                                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-xs sm:text-sm font-medium transition-all"
                                 />
+                                <p className="text-[11px] text-gray-500 mt-1">
+                                  Laisse vide si l'exercice est une simple assignation sans affichage.
+                                </p>
                               </div>
                             </div>
 
                             {/* =================================================== */}
-                            {/* SECTION TESTS DE VALIDATION AUTOMATIQUES            */}
+                            {/* SECTION LIGNES DE CODE À VÉRIFIER                   */}
                             {/* =================================================== */}
                             <div className="pt-3 border-t border-gray-100 space-y-3">
                               <div className="flex items-center justify-between">
                                 <div>
                                   <label className="text-xs font-extrabold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                    <span>✓ Tests de validation ({ex.test_cases.length})</span>
+                                    <Code2 className="w-4 h-4 text-blue-600" />
+                                    <span>Lignes de code à vérifier ({ex.test_cases.length})</span>
                                   </label>
                                   <p className="text-[11px] text-gray-500 mt-0.5">
-                                    Critères évalués automatiquement. Le code des tests est confidentiel et masqué pour l'étudiant.
+                                    Chaque fragment doit apparaître dans le code de l'étudiant (espaces, retours et <code className="text-blue-600 font-mono">&lt;-</code> / <code className="text-blue-600 font-mono">=</code> normalisés). Ces fragments sont masqués pour l'étudiant.
                                   </p>
                                 </div>
 
                                 <button
                                   type="button"
                                   onClick={() => handleAddTestCase(exIndex)}
-                                  className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl transition-all shadow-xs active:scale-95 min-h-[38px] cursor-pointer"
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold rounded-xl transition-all shadow-xs active:scale-95 min-h-[38px] cursor-pointer"
                                 >
                                   <Plus className="w-3.5 h-3.5" />
-                                  <span>+ Ajouter un test</span>
+                                  <span>+ Ajouter une ligne</span>
                                 </button>
                               </div>
 
@@ -1387,10 +1386,12 @@ export default function AdminTrainingEditor() {
                                 <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl text-center space-y-2">
                                   <p className="text-xs text-amber-800 font-bold flex items-center justify-center gap-1.5">
                                     <AlertTriangle className="w-4 h-4 text-amber-600" />
-                                    <span>Aucun critère de validation configuré</span>
+                                    <span>Aucune ligne de code configurée</span>
                                   </p>
                                   <p className="text-[11px] text-amber-700 max-w-md mx-auto">
-                                    Sans test de validation unitaire ou résultat attendu, l'exercice ne pourra pas être validé automatiquement par l'étudiant.
+                                    {ex.expected_output.trim()
+                                      ? "La validation reposera uniquement sur la sortie attendue."
+                                      : "Sans sortie attendue ni ligne de code à vérifier, l'exercice ne pourra pas être validé."}
                                   </p>
                                   <button
                                     type="button"
@@ -1398,7 +1399,7 @@ export default function AdminTrainingEditor() {
                                     className="mt-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs active:scale-95 inline-flex items-center gap-1 cursor-pointer"
                                   >
                                     <Plus className="w-3.5 h-3.5" />
-                                    <span>+ Ajouter un premier critère de validation</span>
+                                    <span>+ Ajouter une première ligne de code</span>
                                   </button>
                                 </div>
                               ) : (
@@ -1409,14 +1410,14 @@ export default function AdminTrainingEditor() {
                                       className="p-3.5 sm:p-4 bg-gray-50 rounded-2xl border border-gray-200 space-y-3"
                                     >
                                       <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-extrabold uppercase text-gray-500 bg-white px-2 py-0.5 rounded-md border border-gray-200">
-                                          Test #{tcIndex + 1}
+                                        <span className="text-[11px] font-extrabold uppercase text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                                          Ligne / Fragment requis #{tcIndex + 1}
                                         </span>
                                         <button
                                           type="button"
                                           onClick={() => handleRemoveTestCase(exIndex, tcIndex)}
                                           className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center cursor-pointer"
-                                          title="Supprimer ce test"
+                                          title="Supprimer cette ligne"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" />
                                         </button>
@@ -1432,21 +1433,21 @@ export default function AdminTrainingEditor() {
                                             type="text"
                                             value={tc.description}
                                             onChange={e => handleUpdateTestCase(exIndex, tcIndex, 'description', e.target.value)}
-                                            placeholder='Ex: Le vecteur notes existe'
+                                            placeholder='Ex: La variable nom est bien créée'
                                             className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium text-gray-800"
                                           />
                                         </div>
 
-                                        {/* Validation code */}
+                                        {/* Validation code fragment */}
                                         <div>
                                           <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                                            Code R du test (assertion) <span className="text-rose-500">*</span>
+                                            Code exact à retrouver <span className="text-rose-500">*</span>
                                           </label>
                                           <input
                                             type="text"
                                             value={tc.code}
                                             onChange={e => handleUpdateTestCase(exIndex, tcIndex, 'code', e.target.value)}
-                                            placeholder='Ex: exists("notes") ou mean(notes) == 14'
+                                            placeholder='nom <- "Paul"'
                                             className="w-full px-3 py-2 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 border border-slate-700"
                                             spellCheck={false}
                                           />

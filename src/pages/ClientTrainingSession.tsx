@@ -293,7 +293,13 @@ export default function ClientTrainingSession() {
       ? rCodes[exercise.id] 
       : (exercise.starter_code || '');
 
-    if (!code.trim()) {
+    const executableCode = code
+      .split('\n')
+      .map((line) => line.replace(/#.*$/, ''))
+      .join('')
+      .trim();
+
+    if (!executableCode) {
       toast.error("Veuillez d'abord saisir votre code R avant de valider.");
       return;
     }

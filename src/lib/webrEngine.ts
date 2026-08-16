@@ -12,6 +12,53 @@
  * - Clean teardown and timeout support.
  */
 
+/**
+ * Normalizes R code for deterministic fragment comparison:
+ * 1. Strips comments (# to end of line).
+ * 2. Normalizes smart quotes into standard quotes.
+ * 3. Normalizes single quotes to double quotes.
+ * 4. Normalizes assignment operators (treats '<-' and '=' as equivalent '=').
+ * 5. Strips extra whitespace around syntax delimiters (=, ,, (, ), [, ], {, }, +, -, *, /, :, ;, <, >, !, &, |).
+ * 6. Collapses multiple whitespace into a single space.
+ */
+export function normalizeRFragment(code: string): string {
+  if (!code) return '';
+  return code
+    .split('\n')
+    .map(line => line.replace(/#.*$/, ''))
+    .join(' ')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/'/g, '"')
+    .replace(/<-\s*/g, '=')
+    .replace(/\s*([=,()\[\]{}+*/:;<>!&|])\s*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Checks if student code contains the required code fragment after normalization.
+ * Respects boundary tokens so that e.g. x <- 5 does not falsely match x <- 50.
+ */
+export function doesCodeContainFragment(studentCode: string, fragment: string): boolean {
+  const normStudent = normalizeRFragment(studentCode);
+  const normFragment = normalizeRFragment(fragment);
+  
+  if (!normFragment) return true;
+  if (!normStudent) return false;
+
+  // Escape special regex characters in normFragment
+  const escaped = normFragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  // Boundary check: if starts with word character, ensure word boundary before
+  const prefix = /^[a-zA-Z0-9_]/.test(normFragment) ? '(?:^|[^a-zA-Z0-9_.])' : '';
+  // Boundary check: if ends with word character, ensure word boundary after
+  const suffix = /[a-zA-Z0-9_]$/.test(normFragment) ? '(?![a-zA-Z0-9_.])' : '';
+
+  const regex = new RegExp(prefix + escaped + suffix);
+  return regex.test(normStudent);
+}
+
 export type WebRStatus = 'idle' | 'loading' | 'ready' | 'running' | 'error';
 
 export interface RObjectDataFramePreview {
@@ -387,7 +434,7 @@ class WebREngine {
    * - Traps all R conditions/errors to prevent leaking internal test structures.
    * 
    * @param code The student's R code to test
-   * @param testCases Array of test objects { code, description } or serialized JSON string
+   * @param testCases Array of test objects { code, description }, string array, or serialized JSON string
    * @param options Configuration options such as execution timeout
    */
   public async validateCode(
@@ -395,25 +442,74 @@ class WebREngine {
     testCases: RTestCase[] | string | any,
     options: ValidateCodeOptions = {}
   ): Promise<RValidationResult> {
-    // Parse test cases safely if string was provided
-    let parsedTestCases: RTestCase[] = [];
+    // Parse and normalize test cases safely
+    let rawTestCases: any[] = [];
     if (typeof testCases === 'string') {
       try {
-        parsedTestCases = JSON.parse(testCases);
+        const parsed = JSON.parse(testCases);
+        if (Array.isArray(parsed)) {
+          rawTestCases = parsed;
+        } else if (parsed && typeof parsed === 'object') {
+          rawTestCases = Array.isArray(parsed.test_cases) ? parsed.test_cases : (Array.isArray(parsed.tests) ? parsed.tests : []);
+        }
       } catch {
-        parsedTestCases = [];
+        rawTestCases = [];
       }
     } else if (Array.isArray(testCases)) {
-      parsedTestCases = testCases;
+      rawTestCases = testCases;
+    } else if (testCases && typeof testCases === 'object') {
+      rawTestCases = Array.isArray(testCases.test_cases) ? testCases.test_cases : (Array.isArray(testCases.tests) ? testCases.tests : []);
     }
 
-    // Filter out invalid items
-    const validTestCases = [...parsedTestCases.filter(
-      (tc) => tc && typeof tc.code === 'string' && tc.code.trim().length > 0
-    )];
+    // Normalize each test item
+    const validTestCases: RTestCase[] = [];
+    rawTestCases.forEach((tc) => {
+      if (!tc) return;
+      if (typeof tc === 'string' && tc.trim().length > 0) {
+        validTestCases.push({
+          code: tc.trim(),
+          description: tc.trim()
+        });
+      } else if (typeof tc === 'object') {
+        const testCode = tc.code || tc.test || tc.expression || tc.test_code || tc.r_code || '';
+        const desc = tc.description || tc.name || tc.title || tc.label || testCode || 'Critère de validation';
+        if (typeof testCode === 'string' && testCode.trim().length > 0) {
+          validTestCases.push({
+            code: testCode.trim(),
+            description: desc
+          });
+        }
+      }
+    });
 
     const expOutStr = options.expectedOutput ? options.expectedOutput.trim() : '';
     const totalTestsCount = validTestCases.length + (expOutStr ? 1 : 0);
+
+    // Filter out comments from student code to ensure actual R statements were typed
+    const executableCode = (code || '')
+      .split('\n')
+      .map((line) => line.replace(/#.*$/, ''))
+      .join('')
+      .trim();
+
+    if (!executableCode) {
+      const emptyTests: RTestResultDetail[] = [];
+      if (expOutStr) {
+        emptyTests.push({ description: `Résultat attendu : "${expOutStr}"`, passed: false });
+      }
+      validTestCases.forEach((tc) => {
+        emptyTests.push({ description: tc.description || 'Critère de validation', passed: false });
+      });
+
+      return {
+        success: false,
+        passed: 0,
+        total: Math.max(totalTestsCount, 1),
+        tests: emptyTests.length > 0 ? emptyTests : [{ description: 'Saisie de code R', passed: false }],
+        error: "Veuillez d'abord saisir votre code R avant de valider l'exercice.",
+        executionTimeMs: 0,
+      };
+    }
 
     // If no test cases defined and no expected output, reject validation
     if (totalTestsCount === 0) {
@@ -460,21 +556,25 @@ class WebREngine {
         await shelter.evalR("rm(list = ls(envir = .GlobalEnv, all.names = TRUE), envir = .GlobalEnv)");
 
         // Step 1: Execute student code with stream & condition capture ONCE
-        const studentCapture = await shelter.captureR(code, {
-          withAutoprint: true, // Crucial for expected_output logic when user just types a value
-          captureStreams: true,
-          captureConditions: true,
-        });
-
-        // Check if student code resulted in an execution error
-        const studentErrors: string[] = [];
-        if (studentCapture.output && Array.isArray(studentCapture.output)) {
-          studentCapture.output.forEach((outObj: any) => {
-            if (outObj.type === 'error') {
-              const text = outObj.data?.message || String(outObj.data || '');
-              studentErrors.push(text);
-            }
+        let studentCapture: any = null;
+        let studentErrors: string[] = [];
+        try {
+          studentCapture = await shelter.captureR(code, {
+            withAutoprint: true,
+            captureStreams: true,
+            captureConditions: true,
           });
+
+          if (studentCapture.output && Array.isArray(studentCapture.output)) {
+            studentCapture.output.forEach((outObj: any) => {
+              if (outObj.type === 'error') {
+                const text = outObj.data?.message || String(outObj.data || '');
+                studentErrors.push(text);
+              }
+            });
+          }
+        } catch (captureErr: any) {
+          studentErrors.push(captureErr?.message || "Erreur d'exécution dans votre code R.");
         }
 
         // If code fails to execute cleanly, all tests are marked failed
@@ -500,35 +600,151 @@ class WebREngine {
           };
         }
 
-        // Step 2: Check expected output if defined (using output captured from the single execution)
+        // Define validator function in R inside this shelter
+        const rValidatorSetup = `
+          .webr_validate_target <- function(target_raw, stdout_raw) {
+            tryCatch({
+              target_str <- trimws(target_raw)
+              if (nchar(target_str) == 0) return(0L)
+              
+              strip_fmt <- function(s) {
+                s <- gsub("\\\\[\\\\d+\\\\]", "", s)
+                s <- gsub("[\\\\r\\\\n\\\\t]+", " ", s)
+                trimws(s)
+              }
+              
+              strip_quotes <- function(s) {
+                gsub('^["\\\']|["\\\']$', '', s)
+              }
+              
+              strip_all_quotes <- function(s) {
+                gsub('["\\\']', '', s)
+              }
+              
+              clean_target <- strip_fmt(target_str)
+              if (nchar(clean_target) == 0) return(0L)
+              
+              unquoted_target <- strip_quotes(clean_target)
+              all_unquoted_target <- strip_all_quotes(clean_target)
+              
+              clean_stdout <- strip_fmt(stdout_raw)
+              unquoted_stdout <- strip_quotes(clean_stdout)
+              all_unquoted_stdout <- strip_all_quotes(clean_stdout)
+              
+              # 1. Direct stdout comparison (only when stdout is non-empty)
+              if (nchar(clean_stdout) > 0) {
+                if (clean_stdout == clean_target || unquoted_stdout == unquoted_target || all_unquoted_stdout == all_unquoted_target) {
+                  return(1L)
+                }
+              }
+              
+              # 2. Gather user created objects in .GlobalEnv
+              vars <- ls(envir = .GlobalEnv, all.names = FALSE)
+              user_objs <- list()
+              for (v in vars) {
+                if (!grepl("^\\\\.", v)) {
+                  user_objs[[v]] <- get(v, envir = .GlobalEnv)
+                }
+              }
+              
+              if (length(user_objs) == 0 && nchar(clean_stdout) == 0) {
+                return(0L)
+              }
+              
+              # 3. Parse target as R expression (e.g. c(10, 12, 14, 16, 18), "Paul", 14, etc.)
+              target_obj <- tryCatch(eval(parse(text = target_str)), error = function(e) {
+                tryCatch(eval(parse(text = paste0('"', gsub('"', '\\\\"', target_str), '"'))), error = function(e2) NULL)
+              })
+              
+              if (!is.null(target_obj)) {
+                for (obj in user_objs) {
+                  if (isTRUE(all.equal(obj, target_obj, check.attributes = FALSE)) || identical(obj, target_obj)) {
+                    return(1L)
+                  }
+                }
+              }
+              
+              # 4. Check user objects against multiple representations
+              for (obj in user_objs) {
+                if (is.atomic(obj)) {
+                  s_space <- trimws(paste(as.character(obj), collapse = " "))
+                  s_comma <- trimws(paste(as.character(obj), collapse = ", "))
+                  s_comma_tight <- trimws(paste(as.character(obj), collapse = ","))
+                  s_deparse <- trimws(paste(deparse(obj), collapse = ""))
+                  
+                  if (s_space == clean_target || s_space == unquoted_target || s_space == all_unquoted_target ||
+                      s_comma == clean_target || s_comma == unquoted_target ||
+                      s_comma_tight == clean_target || s_comma_tight == unquoted_target ||
+                      s_deparse == clean_target || s_deparse == unquoted_target) {
+                    return(1L)
+                  }
+                  
+                  # Numeric scalar tolerance
+                  if (is.numeric(obj) && length(obj) == 1) {
+                    t_num <- suppressWarnings(as.numeric(gsub(",", ".", unquoted_target)))
+                    if (!is.na(t_num) && abs(obj - t_num) < 0.001) {
+                      return(1L)
+                    }
+                  }
+                  
+                  # Numeric vector tolerance
+                  if (is.numeric(obj) && length(obj) > 1) {
+                    num_tokens <- suppressWarnings(as.numeric(unlist(strsplit(gsub(",", " ", unquoted_target), "\\\\s+"))))
+                    num_tokens <- num_tokens[!is.na(num_tokens)]
+                    if (length(num_tokens) == length(obj)) {
+                      if (isTRUE(all.equal(as.numeric(obj), num_tokens, tolerance = 0.001))) {
+                        return(1L)
+                      }
+                    }
+                  }
+                  
+                  # Character vector tolerance
+                  if (is.character(obj) && length(obj) > 1) {
+                    char_tokens <- unlist(strsplit(gsub(",", " ", all_unquoted_target), "\\\\s+"))
+                    char_tokens <- char_tokens[nchar(char_tokens) > 0]
+                    if (length(char_tokens) == length(obj)) {
+                      if (all(obj == char_tokens)) {
+                        return(1L)
+                      }
+                    }
+                  }
+                }
+              }
+              
+              return(0L)
+            }, error = function(e) 0L)
+          }
+        `;
+        await shelter.evalR(rValidatorSetup);
+
+        // Step 2: Check expected output if defined
         const testResults: RTestResultDetail[] = [];
         let passedCount = 0;
 
         if (expOutStr) {
-          const actOutputTexts = studentCapture.output || [];
-          
-          // Helper to normalize strings
-          const cleanText = (t: string) => t.replace(/\[\d+\]/g, '').replace(/\s+/g, ' ').trim();
+          const actOutputTexts = studentCapture?.output || [];
           
           const actualTexts = actOutputTexts
             .filter((o: any) => o.type === 'stdout' || o.type === 'message')
             .map((o: any) => String(o.data || ''))
             .join('\n');
-          
-          const actClean = cleanText(actualTexts);
-          const expClean = cleanText(expOutStr);
-          
-          let expectedPassed = actClean === expClean;
-          
-          if (!expectedPassed) {
-            // Numeric fallback with small tolerance
-            const expNumStr = expOutStr.replace(/,/g, '.').trim();
-            const actNumStr = actualTexts.replace(/\[\d+\]/g, '').replace(/,/g, '.').trim();
-            const expNum = Number(expNumStr);
-            const actNum = Number(actNumStr);
-            if (!isNaN(expNum) && !isNaN(actNum) && expNumStr !== '' && actNumStr !== '') {
-              expectedPassed = Math.abs(expNum - actNum) < 0.01;
-            }
+
+          const checkExpectedCode = `
+            .webr_validate_target(
+              ${JSON.stringify(expOutStr)},
+              ${JSON.stringify(actualTexts)}
+            )
+          `;
+
+          let expectedPassed = false;
+          try {
+            const expCheckRes = await shelter.evalR(checkExpectedCode);
+            const jsExpVal = await expCheckRes.toJs();
+            const rawVal = jsExpVal?.values ? jsExpVal.values[0] : jsExpVal;
+            expectedPassed = rawVal === 1 || rawVal === true;
+          } catch (e) {
+            console.warn("Erreur lors de la validation du résultat attendu:", e);
+            expectedPassed = false;
           }
           
           if (expectedPassed) {
@@ -541,39 +757,15 @@ class WebREngine {
           });
         }
 
-        // Step 3: Evaluate each admin test case in the same environment
+        // Step 3: Pure textual verification for required code fragments (NO R-side eval)
         for (const tc of validTestCases) {
-          // Wrapped safely in tryCatch: evaluates truthiness strictly (all true, no NAs)
-          const sanitizedTestRCode = `tryCatch({ 
-  .t_res <- suppressWarnings({
-    ${tc.code}
-  })
-  .ok <- is.logical(.t_res) && length(.t_res) > 0 && all(!is.na(.t_res)) && all(.t_res)
-  as.integer(isTRUE(.ok))
-}, error = function(e) paste0("ERR:", conditionMessage(e)))`;
-
-          let isPassed = false;
-          try {
-            const evalResult = await shelter.evalR(sanitizedTestRCode);
-            const jsVal = await evalResult.toJs();
-            const raw = jsVal?.values ? jsVal.values[0] : jsVal;
-            if (typeof raw === 'string' && raw.startsWith('ERR:')) {
-              console.warn(`Erreur d'évaluation du critère "${tc.description || 'Critère'}":`, raw.replace('ERR:', ''));
-              isPassed = false;
-            } else {
-              isPassed = raw === 1 || raw === true;
-            }
-          } catch (e) {
-            console.warn(`Erreur JS lors de l'évaluation du critère "${tc.description || 'Critère'}":`, e);
-            isPassed = false;
-          }
-
+          const isPassed = doesCodeContainFragment(code, tc.code);
           if (isPassed) {
             passedCount++;
           }
 
           testResults.push({
-            description: tc.description || 'Critère de validation',
+            description: tc.description || 'Ligne de code requise',
             passed: isPassed,
           });
         }

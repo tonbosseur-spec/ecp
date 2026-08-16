@@ -1,94 +1,95 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import express from 'express';
+import path from 'path';
+import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
+import dotenv from 'dotenv';
+
+// Charger les variables d'environnement
+dotenv.config();
+
+const app = express();
+const PORT = 3000;
+
+app.use(express.json());
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-const geminiApiKey = process.env.GEMINI_API_KEY || '';
 
-// Basic in-memory rate limiting (Note: in serverless this is per-instance and resets on cold boot, 
-// but it fulfills the "au minimum une protection en mémoire" requirement for now).
+// Protection de base (Rate Limiting en mémoire)
 interface RateLimitInfo {
   count: number;
   resetAt: number;
 }
 const rateLimits = new Map<string, RateLimitInfo>();
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // 1. Only allow POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'METHOD_NOT_ALLOWED' });
-  }
+// Servir les assets statiques WebR (R.wasm, vfs, etc.)
+const webrDistPath = path.join(process.cwd(), 'node_modules', 'webr', 'dist');
+app.use('/webr', express.static(webrDistPath));
 
+// ==========================================
+// 1. ROUTE D'API (Gemini)
+// ==========================================
+app.post('/api/gemini', async (req, res) => {
   try {
-    // 2. Validate input format
     const { exercise_id, request_type, hint_level, student_code, error_message } = req.body || {};
-
+    
+    // Validation des données entrantes
     if (!exercise_id || typeof exercise_id !== 'string') {
       return res.status(400).json({ success: false, error: 'BAD_REQUEST_INVALID_EXERCISE' });
     }
-
     if (!['hint', 'understand', 'error'].includes(request_type)) {
       return res.status(400).json({ success: false, error: 'BAD_REQUEST_INVALID_TYPE' });
     }
-
     if (request_type === 'hint' && ![1, 2, 3].includes(hint_level)) {
       return res.status(400).json({ success: false, error: 'BAD_REQUEST_INVALID_HINT_LEVEL' });
     }
-
     if (student_code && student_code.length > 3000) {
       return res.status(400).json({ success: false, error: 'BAD_REQUEST_CODE_TOO_LONG' });
     }
-
     if (error_message && error_message.length > 2000) {
       return res.status(400).json({ success: false, error: 'BAD_REQUEST_ERROR_TOO_LONG' });
     }
 
-    // 3. Supabase Auth Check
+    // Validation du Token JWT
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
     }
-
     const token = authHeader.split(' ')[1];
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Supabase credentials missing in env');
+      console.error('Erreur: Variables Supabase manquantes côté serveur');
       return res.status(500).json({ success: false, error: 'SERVER_CONFIGURATION_ERROR' });
     }
 
-    // Create a Supabase client that uses the user's JWT token
+    // Instanciation de Supabase avec le token de l'étudiant
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
+      global: { headers: { Authorization: `Bearer ${token}` } }
     });
 
-    // Verify token validity and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return res.status(401).json({ success: false, error: 'UNAUTHORIZED' });
     }
 
-    // 4. Rate Limiting Check
+    // Contrôle Rate Limiting (20 requêtes / heure max par utilisateur)
     const now = Date.now();
     const limitInfo = rateLimits.get(user.id);
     if (limitInfo) {
       if (now < limitInfo.resetAt) {
-        if (limitInfo.count >= 20) { // Max 20 requests per hour
+        if (limitInfo.count >= 20) {
           return res.status(429).json({ success: false, error: 'TOO_MANY_REQUESTS' });
         }
         limitInfo.count++;
       } else {
-        rateLimits.set(user.id, { count: 1, resetAt: now + 3600 * 1000 }); // 1 hour window
+        rateLimits.set(user.id, { count: 1, resetAt: now + 3600 * 1000 });
       }
     } else {
       rateLimits.set(user.id, { count: 1, resetAt: now + 3600 * 1000 });
     }
 
-    // 5. Fetch Exercise Data (This intrinsically checks RLS access thanks to the authenticated client)
+    // Récupération de l'exercice (RLS actif)
     const { data: exercise, error: exerciseError } = await supabase
       .from('training_exercises')
       .select('id, title, instructions, exercise_type, starter_code, hint, ai_assistance_enabled, training_session_id')
@@ -96,21 +97,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     if (exerciseError || !exercise) {
-      // If RLS blocked it, it behaves as if it doesn't exist
       return res.status(403).json({ success: false, error: 'FORBIDDEN_OR_NOT_FOUND' });
     }
-
     if (exercise.ai_assistance_enabled === false) {
       return res.status(403).json({ success: false, error: 'AI_ASSISTANCE_DISABLED' });
     }
-
     if (exercise.exercise_type !== 'r_code') {
       return res.status(400).json({ success: false, error: 'UNSUPPORTED_EXERCISE_TYPE' });
     }
 
-    // 6. Gemini Generation
+    // Génération Gemini
+    const geminiApiKey = process.env.GEMINI_API_KEY || '';
     if (!geminiApiKey) {
-      console.error('Gemini API key missing in env');
+      console.error('Erreur: Clé API Gemini manquante côté serveur');
       return res.status(500).json({ success: false, error: 'SERVER_CONFIGURATION_ERROR' });
     }
 
@@ -122,10 +121,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
     });
-    
-    // Use official fast and responsive model
     const MODEL_NAME = 'gemini-3.7-flash';
-
+    
     let systemInstructions = `Tu es un tuteur pédagogique bienveillant pour l'apprentissage du langage R.
 RÈGLE ABSOLUE N°1 : Tu as l'INTERDICTION FORMELLE de fournir la solution finale, d'écrire le code complet corrigé, ou de faire le travail à la place de l'étudiant.
 RÈGLE ABSOLUE N°2 : Ne révèle jamais les tests internes ou la réponse attendue.
@@ -135,8 +132,7 @@ RÈGLE ABSOLUE N°4 : Sois très concis, réponds en français simple, et utilis
     let prompt = `Voici le contexte de l'exercice :
 [TITRE] : ${exercise.title}
 [CONSIGNES] : ${exercise.instructions}
-${exercise.hint ? `[NOTE PÉDAGOGIQUE HISTORIQUE] : ${exercise.hint}` : ''}
-`;
+${exercise.hint ? `[NOTE PÉDAGOGIQUE HISTORIQUE] : ${exercise.hint}` : ''}`;
 
     if (request_type === 'hint') {
       systemInstructions += `\nTon rôle actuel : Donner un indice de niveau ${hint_level} (sur 3).
@@ -144,27 +140,21 @@ Niveau 1 : Orientation très générale.
 Niveau 2 : Indice sur la fonction R ou la logique à utiliser.
 Niveau 3 : Indication très précise mais sans donner le code R final.
 Maximum 50 mots.`;
-
       if (student_code) {
         prompt += `\n[CODE ÉTUDIANT ACTUEL] : \n${student_code}\n\nL'étudiant demande un indice de niveau ${hint_level}.`;
       } else {
         prompt += `\nL'étudiant n'a pas encore écrit de code et demande un indice de niveau ${hint_level}.`;
       }
-
     } else if (request_type === 'understand') {
       systemInstructions += `\nTon rôle actuel : Expliquer simplement ce que demande l'exercice et la logique attendue, sans donner la solution.
 Maximum 70 mots.`;
       prompt += `\nL'étudiant demande à comprendre l'exercice. Explique-le lui simplement.`;
-
     } else if (request_type === 'error') {
       systemInstructions += `\nTon rôle actuel : Expliquer pourquoi le code de l'étudiant échoue, en se basant sur le message d'erreur fourni.
 S'il n'y a pas de message d'erreur clair, dis-le sans l'inventer.
 Explique l'erreur et donne une piste, mais ne donne PAS le code corrigé.
 Maximum 70 mots.`;
-
-      prompt += `\n[CODE ÉTUDIANT ACTUEL] : \n${student_code || 'Aucun code'}
-\n[MESSAGE D'ERREUR WEBR] : \n${error_message || 'Aucune erreur claire fournie.'}
-\nL'étudiant ne comprend pas son erreur. Explique-lui ce qui bloque et donne une petite piste.`;
+      prompt += `\n[CODE ÉTUDIANT ACTUEL] : \n${student_code || 'Aucun code'}\n[MESSAGE D'ERREUR WEBR] : \n${error_message || 'Aucune erreur claire fournie.'}\nL'étudiant ne comprend pas son erreur. Explique-lui ce qui bloque et donne une petite piste.`;
     }
 
     const response = await ai.models.generateContent({
@@ -172,12 +162,12 @@ Maximum 70 mots.`;
       contents: prompt,
       config: {
         systemInstruction: systemInstructions,
-        temperature: 0.2, // Low temperature for consistent, pedagogical responses
+        temperature: 0.2,
       }
     });
 
     const aiText = response.text || "Désolé, je n'ai pas pu formuler de réponse.";
-
+    
     return res.status(200).json({
       success: true,
       response: aiText
@@ -187,4 +177,31 @@ Maximum 70 mots.`;
     console.error('Gemini API Error:', err);
     return res.status(500).json({ success: false, error: 'AI_UNAVAILABLE' });
   }
+});
+
+// ==========================================
+// 2. MIDDLEWARE VITE (Front-end)
+// ==========================================
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    // Mode développement : Vite gère la compilation à la volée et le rechargement
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    // Mode production : Express sert directement les fichiers statiques de dist/
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Serveur prêt sur http://localhost:${PORT}`);
+  });
 }
+
+startServer();
