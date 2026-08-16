@@ -22,7 +22,10 @@ import {
   AlertTriangle,
   RotateCcw,
   Edit3,
-  Loader2
+  Loader2,
+  X,
+  FileText,
+  Maximize2
 } from 'lucide-react';
 import { TrainingSession, TrainingExercise } from '../types';
 import REditorConsole, { REditorConsoleRef } from '../components/REditorConsole';
@@ -62,6 +65,7 @@ export default function ClientTrainingSession() {
 
   // Modal confirmation state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [isCompletedState, setIsCompletedState] = useState(false);
 
   // Timer counter
@@ -797,10 +801,21 @@ export default function ClientTrainingSession() {
               {/* 3. Énoncé / instructions */}
               {currentExercise.instructions && (
                 <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100 text-xs sm:text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-                  <p className="font-bold text-gray-900 text-xs uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                    Consigne :
-                  </p>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="font-bold text-gray-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                      Consigne :
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowInstructionModal(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors cursor-pointer"
+                      title="Agrandir l'énoncé dans une fenêtre"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Voir énoncé</span>
+                    </button>
+                  </div>
                   {currentExercise.instructions}
                 </div>
               )}
@@ -1085,6 +1100,21 @@ export default function ClientTrainingSession() {
 
               {currentExercise.instructions && (
                 <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 text-xs sm:text-sm text-gray-700 whitespace-pre-line leading-relaxed mt-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="font-bold text-gray-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-sky-600" />
+                      Consigne :
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowInstructionModal(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-200 transition-colors cursor-pointer"
+                      title="Agrandir l'énoncé dans une fenêtre"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>Voir énoncé</span>
+                    </button>
+                  </div>
                   {currentExercise.instructions}
                 </div>
               )}
@@ -1233,6 +1263,93 @@ export default function ClientTrainingSession() {
                 className="w-full py-3 px-4 rounded-2xl font-black text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 transition-all active:scale-95"
               >
                 Terminer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Instruction Modal - Énoncé de l'exercice */}
+      {showInstructionModal && currentExercise && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setShowInstructionModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-indigo-100/80 relative space-y-5 max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Brain Icon Watermark Background (Filigrane) */}
+            <div className="absolute -right-8 -bottom-10 pointer-events-none select-none text-indigo-600/[0.07] transform -rotate-12 z-0">
+              <Brain className="w-80 h-80 stroke-[1.25]" />
+            </div>
+
+            {/* Subtle Top Ambient Gradient Glow */}
+            <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-indigo-50/80 via-indigo-50/20 to-transparent pointer-events-none z-0" />
+
+            {/* Header with Title and X Button */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-gray-100/80 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-md shadow-indigo-200">
+                  <Brain className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                      Exercice {currentIndex + 1} / {totalQuestions}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-extrabold text-gray-900 mt-0.5">Énoncé de l'exercice</h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowInstructionModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-all cursor-pointer active:scale-95"
+                title="Fermer la fenêtre"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Exercise Title and Type Badge */}
+            <div className="space-y-2 relative z-10">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <h4 className="text-base sm:text-lg font-black text-gray-900 tracking-tight leading-snug">
+                  {currentExercise.title}
+                </h4>
+                {isCurrentRExercise ? (
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs">
+                    <Code2 className="w-3.5 h-3.5 text-emerald-600" /> Code R
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs">
+                    <Brain className="w-3.5 h-3.5 text-blue-600" /> Question QCM
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Full Instructions Content */}
+            <div className="overflow-y-auto space-y-3 flex-1 pr-1.5 my-1 relative z-10 custom-scrollbar">
+              <div className="flex items-center gap-1.5 text-xs font-extrabold text-indigo-900 uppercase tracking-wider">
+                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Consigne officielle :</span>
+              </div>
+              <div className="p-4 sm:p-5 bg-gradient-to-b from-gray-50/90 to-slate-50/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 text-xs sm:text-sm text-gray-800 leading-relaxed whitespace-pre-line font-medium shadow-2xs">
+                {currentExercise.instructions || "Aucun énoncé spécifique fourni pour cet exercice."}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3.5 border-t border-gray-100 flex items-center justify-end relative z-10">
+              <button
+                type="button"
+                onClick={() => setShowInstructionModal(false)}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-indigo-200 hover:shadow-indigo-300 cursor-pointer active:scale-98"
+              >
+                Fermer
               </button>
             </div>
           </div>

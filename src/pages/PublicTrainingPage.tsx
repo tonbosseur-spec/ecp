@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { isUuid } from '../lib/slugUtils';
+import { isUuid, generateSlug } from '../lib/slugUtils';
 import Footer from '../components/Footer';
 import { TrainerAvatar } from '../components/TrainerAvatar';
 import { 
@@ -28,7 +28,10 @@ import {
   GraduationCap, 
   AlertCircle,
   Layers,
-  ArrowLeft
+  ArrowLeft,
+  X,
+  FileText,
+  Eye
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -40,32 +43,7 @@ interface TrainingExerciseSummary {
   order_index: number;
 }
 
-const testimonials = [
-  {
-    id: 1,
-    name: "Jean-Claude Tchakounté",
-    role: "Étudiant en Master",
-    text: "Les entraînements pratiques m'ont permis d'assimiler directement la syntaxe R et la logique d'analyse. La correction instantanée est d'une efficacité redoutable !",
-    initials: "JC",
-    rating: 5
-  },
-  {
-    id: 2,
-    name: "Marie-Claire Ndom",
-    role: "Analyste de Données",
-    text: "J'adore le système d'exercices interactifs. On teste son code en direct sans rien installer sur son ordinateur. Un vrai gain de temps.",
-    initials: "MC",
-    rating: 5
-  },
-  {
-    id: 3,
-    name: "Amadou Bouba",
-    role: "Doctorant en Économie",
-    text: "Grâce aux quiz et exercices progressifs, j'ai pu valider la partie traitement de données de ma recherche en toute autonomie.",
-    initials: "AB",
-    rating: 5
-  }
-];
+
 
 export default function PublicTrainingPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -78,6 +56,7 @@ export default function PublicTrainingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [selectedModalExercise, setSelectedModalExercise] = useState<TrainingExerciseSummary | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -96,31 +75,55 @@ export default function PublicTrainingPage() {
       setLoading(true);
       setError(null);
 
-      let trainingData = null;
+      let trainingData: any = null;
 
+      // 1. Try direct ID query if UUID
       if (isUuid(slug)) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: idErr } = await supabase
           .from('training_sessions')
-          .select('*, courses (id, title, slug, thumbnail_url, category)')
+          .select('*')
           .eq('id', slug)
-          .single();
+          .maybeSingle();
 
-        if (fetchErr && fetchErr.code !== 'PGRST116') throw fetchErr;
-        trainingData = data;
-      } else {
-        // Query by slug
-        let query = supabase
+        if (data) {
+          trainingData = data;
+        }
+      }
+
+      // 2. Try direct slug query if not found yet
+      if (!trainingData && slug) {
+        try {
+          const { data: slugData } = await supabase
+            .from('training_sessions')
+            .select('*')
+            .eq('slug', slug);
+
+          if (slugData && slugData.length > 0) {
+            trainingData = slugData[0];
+          }
+        } catch (e) {
+          console.warn('Query by slug failed, falling back to full scan:', e);
+        }
+      }
+
+      // 3. Fallback: Fetch all sessions and match by generated slug or ID
+      if (!trainingData) {
+        const { data: allSessions, error: allErr } = await supabase
           .from('training_sessions')
-          .select('*, courses (id, title, slug, thumbnail_url, category)')
-          .eq('slug', slug);
+          .select('*');
 
-        const { data, error: fetchErr } = await query;
-
-        if (fetchErr) {
-          // If slug column fails or does not exist, attempt UUID or error
-          console.warn('Erreur lors de la recherche par slug:', fetchErr.message);
-        } else if (data && data.length > 0) {
-          trainingData = data[0];
+        if (allErr) {
+          console.error('Erreur chargement training_sessions:', allErr);
+        } else if (allSessions) {
+          const matched = allSessions.find(
+            s =>
+              s.id === slug ||
+              (s.slug && s.slug === slug) ||
+              generateSlug(s.title || '') === slug
+          );
+          if (matched) {
+            trainingData = matched;
+          }
         }
       }
 
@@ -129,8 +132,22 @@ export default function PublicTrainingPage() {
       }
 
       setTraining(trainingData);
-      if (trainingData.courses) {
-        setCourseInfo(trainingData.courses);
+
+      // Fetch course info separately if course_id exists
+      if (trainingData.course_id) {
+        try {
+          const { data: cData } = await supabase
+            .from('courses')
+            .select('id, title, slug, thumbnail_url, category')
+            .eq('id', trainingData.course_id)
+            .maybeSingle();
+
+          if (cData) {
+            setCourseInfo(cData);
+          }
+        } catch (cErr) {
+          console.warn('Impossible de charger la formation liée:', cErr);
+        }
       }
 
       // Fetch exercise summaries (no solutions or correct answers exposed)
@@ -448,34 +465,44 @@ export default function PublicTrainingPage() {
               {exercises.map((ex, idx) => (
                 <div
                   key={ex.id || idx}
-                  className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/80 hover:border-indigo-200 hover:bg-white transition-all flex items-start gap-4"
+                  className="p-4 rounded-2xl bg-gray-50/80 border border-gray-200/80 hover:border-indigo-200 hover:bg-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
-                  <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-extrabold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="text-sm font-extrabold text-gray-900 tracking-tight">
-                        {ex.title || `Exercice ${idx + 1}`}
-                      </h3>
-                      {ex.exercise_type === 'r_code' ? (
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md flex items-center gap-1">
-                          <Code2 className="w-3 h-3" /> Code R
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-md flex items-center gap-1">
-                          <HelpCircle className="w-3 h-3" /> Question QCM
-                        </span>
+                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-extrabold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-sm font-extrabold text-gray-900 tracking-tight">
+                          {ex.title || `Exercice ${idx + 1}`}
+                        </h3>
+                        {ex.exercise_type === 'r_code' ? (
+                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md flex items-center gap-1">
+                            <Code2 className="w-3 h-3" /> Code R
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-md flex items-center gap-1">
+                            <HelpCircle className="w-3 h-3" /> Question QCM
+                          </span>
+                        )}
+                      </div>
+                      {ex.instructions && (
+                        <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+                          {ex.instructions}
+                        </p>
                       )}
                     </div>
-                    {ex.instructions && (
-                      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
-                        {ex.instructions}
-                      </p>
-                    )}
                   </div>
-                  <div className="shrink-0 text-gray-400">
-                    <CheckCircle2 className="w-5 h-5 text-gray-300" />
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedModalExercise(ex)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:border-indigo-300 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Voir énoncé</span>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -551,36 +578,7 @@ export default function PublicTrainingPage() {
           </div>
         </section>
 
-        {/* Testimonials */}
-        <section className="space-y-6">
-          <div className="text-center">
-            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-              Ce qu'en pensent nos apprenants
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
-              Des centaines d'étudiants et professionnels s'entraînent quotidiennement sur nos outils.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map(item => (
-              <div key={item.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4 flex flex-col justify-between">
-                <p className="text-xs text-gray-600 leading-relaxed italic">
-                  "{item.text}"
-                </p>
-                <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-                  <div className="w-9 h-9 bg-indigo-100 text-indigo-700 rounded-full font-bold text-xs flex items-center justify-center">
-                    {item.initials}
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-gray-900">{item.name}</div>
-                    <div className="text-[11px] text-gray-500">{item.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* Bottom CTA Banner */}
         <section className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-8 sm:p-12 rounded-3xl text-center space-y-6 shadow-xl shadow-indigo-200">
@@ -607,6 +605,104 @@ export default function PublicTrainingPage() {
         </section>
 
       </main>
+
+      {/* Modal - Énoncé de l'exercice */}
+      {selectedModalExercise && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-950/60 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSelectedModalExercise(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-indigo-100/80 relative space-y-5 max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Brain Icon Watermark Background (Filigrane) */}
+            <div className="absolute -right-8 -bottom-10 pointer-events-none select-none text-indigo-600/[0.07] transform -rotate-12 z-0">
+              <Brain className="w-80 h-80 stroke-[1.25]" />
+            </div>
+
+            {/* Subtle Top Ambient Gradient Glow */}
+            <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-indigo-50/80 via-indigo-50/20 to-transparent pointer-events-none z-0" />
+
+            {/* Header with Title and X Button */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-gray-100/80 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-md shadow-indigo-200">
+                  <Brain className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                      Exercice #{selectedModalExercise.order_index + 1}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-extrabold text-gray-900 mt-0.5">Énoncé de l'exercice</h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedModalExercise(null)}
+                className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-all cursor-pointer active:scale-95"
+                title="Fermer la fenêtre"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Exercise Title and Type Badge */}
+            <div className="space-y-2 relative z-10">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <h4 className="text-base sm:text-lg font-black text-gray-900 tracking-tight leading-snug">
+                  {selectedModalExercise.title}
+                </h4>
+                {selectedModalExercise.exercise_type === 'r_code' ? (
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs">
+                    <Code2 className="w-3.5 h-3.5 text-emerald-600" /> Code R
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs">
+                    <HelpCircle className="w-3.5 h-3.5 text-blue-600" /> Question QCM
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Full Instructions Content */}
+            <div className="overflow-y-auto space-y-3 flex-1 pr-1.5 my-1 relative z-10 custom-scrollbar">
+              <div className="flex items-center gap-1.5 text-xs font-extrabold text-indigo-900 uppercase tracking-wider">
+                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Consigne officielle :</span>
+              </div>
+              <div className="p-4 sm:p-5 bg-gradient-to-b from-gray-50/90 to-slate-50/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 text-xs sm:text-sm text-gray-800 leading-relaxed whitespace-pre-line font-medium shadow-2xs">
+                {selectedModalExercise.instructions || "Aucun énoncé spécifique fourni pour cet exercice."}
+              </div>
+            </div>
+
+            {/* Modal Footer with Actions */}
+            <div className="pt-3.5 border-t border-gray-100 flex items-center justify-between gap-3 relative z-10">
+              <button
+                type="button"
+                onClick={() => setSelectedModalExercise(null)}
+                className="px-4.5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Fermer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedModalExercise(null);
+                  handleStartTraining();
+                }}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-indigo-200 hover:shadow-indigo-300 flex items-center gap-2 cursor-pointer active:scale-98"
+              >
+                <span>S'entraîner maintenant</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <Footer />
