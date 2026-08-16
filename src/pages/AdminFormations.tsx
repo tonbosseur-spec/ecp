@@ -2,6 +2,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useToast } from '../components/Toast';
+import { generateSlug } from '../lib/slugUtils';
+import SupabaseSlugMigrationBanner from '../components/SupabaseSlugMigrationBanner';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -40,6 +42,7 @@ interface ModuleData {
 
 interface Course {
   id: string;
+  slug?: string;
   title: string;
   date_time: string;
   price_fcfa: number;
@@ -154,19 +157,36 @@ export default function AdminFormations() {
         
       if (fetchError) throw fetchError;
       
-      const { id, created_at, course_modules, registrations, ...courseDataToDuplicate } = originalCourse;
-      const newCourseData = {
+      const { id, created_at, course_modules, registrations, slug, ...courseDataToDuplicate } = originalCourse;
+      const newTitle = `${originalCourse.title} - Copie`;
+      const baseSlug = originalCourse.slug ? originalCourse.slug : generateSlug(originalCourse.title);
+      const newSlug = `${baseSlug}-copie-${Date.now().toString().slice(-4)}`;
+
+      let newCourseData: any = {
         ...courseDataToDuplicate,
-        title: `${originalCourse.title} - Copie`
+        title: newTitle,
+        slug: newSlug
       };
       
-      const { data: newCourse, error: insertError } = await supabase
+      let newCourse: any = null;
+      let insertRes = await supabase
         .from('courses')
         .insert([newCourseData])
         .select()
         .single();
         
-      if (insertError) throw insertError;
+      if (insertRes.error && insertRes.error.message?.includes('slug')) {
+        // Fallback if slug column missing
+        delete newCourseData.slug;
+        insertRes = await supabase
+          .from('courses')
+          .insert([newCourseData])
+          .select()
+          .single();
+      }
+
+      if (insertRes.error) throw insertRes.error;
+      newCourse = insertRes.data;
       
       if (course_modules && course_modules.length > 0) {
         const modulesToDuplicate = course_modules.map((mod: any) => {
@@ -283,7 +303,7 @@ export default function AdminFormations() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/admin/dashboard')}
               className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all flex items-center justify-center shrink-0"
               title="Retour à l'accueil admin"
             >
@@ -301,13 +321,16 @@ export default function AdminFormations() {
           </div>
 
           <Link
-            to="/courses/new"
+            to="/admin/formations/new"
             className="flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl transition-all shadow-md shadow-indigo-100 shrink-0"
           >
             <PlusCircle className="w-5 h-5" />
             <span>Nouvelle formation</span>
           </Link>
         </div>
+
+        {/* Supabase Slug Banner */}
+        <SupabaseSlugMigrationBanner />
 
         {/* Action Hub Navigation Tuiles */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -336,7 +359,7 @@ export default function AdminFormations() {
           </button>
 
           <Link
-            to="/courses/new"
+            to="/admin/formations/new"
             className="p-5 bg-white hover:border-indigo-200 rounded-2xl border border-gray-100 text-gray-900 transition-all flex flex-col justify-between gap-4 shadow-sm group"
           >
             <div className="flex items-center justify-between w-full">
@@ -642,7 +665,7 @@ export default function AdminFormations() {
                           <Trash2 className="w-4 h-4" />
                         </button>
                         <Link
-                          to={`/courses/${course.id}`}
+                          to={`/admin/formations/${course.id}`}
                           className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-colors ml-1"
                         >
                           Détails & Modules

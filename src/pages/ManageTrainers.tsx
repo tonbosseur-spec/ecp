@@ -164,7 +164,7 @@ export default function ManageTrainers() {
         
         <div className="flex items-center gap-5 z-10">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/admin/dashboard')}
             className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl backdrop-blur-md transition-all flex items-center justify-center shrink-0 border border-white/10 group"
             title="Retour au tableau de bord"
           >

@@ -5,6 +5,7 @@ import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
 import { findReferralCode, recordReferralSale, ReferralCodeInfo } from '../lib/referralService';
 import { initiateFapshiPayment } from '../lib/paymentService';
+import { isUuid } from '../lib/slugUtils';
 import Footer from '../components/Footer';
 import { TrainerAvatar } from '../components/TrainerAvatar';
 import { 
@@ -375,19 +376,66 @@ END:VCALENDAR`;
     try {
       setLoading(true);
       
-      const { data: courseData, error: courseError } = await supabase
-        .from('courses')
-        .select(`
-          *,
-          trainers (*),
-          templates (*),
-          course_modules (*),
-          registrations (count)
-        `)
-        .eq('id', id)
-        .single();
+      const selectQuery = `
+        *,
+        trainers (*),
+        templates (*),
+        course_modules (*),
+        registrations (count)
+      `;
 
-      if (courseError) throw courseError;
+      let courseData: any = null;
+      let courseError: any = null;
+
+      if (isUuid(id)) {
+        // Recherche prioritaire par ID
+        const res = await supabase
+          .from('courses')
+          .select(selectQuery)
+          .eq('id', id)
+          .maybeSingle();
+        courseData = res.data;
+        courseError = res.error;
+      } else {
+        // Recherche par Slug
+        let res: any = null;
+        try {
+          res = await supabase
+            .from('courses')
+            .select(selectQuery)
+            .eq('slug', id)
+            .maybeSingle();
+        } catch (e) {
+          res = { data: null, error: e };
+        }
+
+        if (res && res.data) {
+          courseData = res.data;
+          courseError = null;
+        } else {
+          // Fallback par ID si recherche par slug n'a rien donné ou si la colonne slug est absente
+          const fallbackRes = await supabase
+            .from('courses')
+            .select(selectQuery)
+            .eq('id', id)
+            .maybeSingle();
+          if (fallbackRes.data) {
+            courseData = fallbackRes.data;
+            courseError = null;
+          } else {
+            courseError = fallbackRes?.error || res?.error;
+          }
+        }
+      }
+
+      if (courseError || !courseData) {
+        throw courseError || new Error("Course not found");
+      }
+
+      // Redirection canonique si appelé via UUID mais possédant un slug propre
+      if (isUuid(id) && courseData.slug) {
+        navigate(`/course/${courseData.slug}${window.location.search}`, { replace: true });
+      }
       
       if (courseData.is_active === false || courseData.is_archived === true) {
         setCourse(courseData);
@@ -631,7 +679,7 @@ END:VCALENDAR`;
             Ce produit n'est actuellement plus disponible à l'inscription. Merci de consulter {course?.product_type === 'ebook' ? 'nos ressources' : 'notre catalogue'}.
           </p>
           <div className="pt-2">
-            <Link to={course?.product_type === 'ebook' ? '/methodology' : '/catalogue'} className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-100 transition-colors text-sm">
+            <Link to={course?.product_type === 'ebook' ? '/ressources' : '/catalogue'} className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-slate-100 transition-colors text-sm">
               <ArrowLeft className="w-4 h-4" />
               <span>Voir {course?.product_type === 'ebook' ? 'les ressources' : 'le catalogue'}</span>
             </Link>
@@ -697,7 +745,7 @@ END:VCALENDAR`;
       }`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <Link 
-            to={isEbook ? "/methodology" : "/catalogue"} 
+            to={isEbook ? "/ressources" : "/catalogue"} 
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 text-xs font-bold transition-all backdrop-blur-md"
           >
             <ArrowLeft className="w-3.5 h-3.5" />

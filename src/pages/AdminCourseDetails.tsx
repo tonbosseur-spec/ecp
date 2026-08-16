@@ -10,6 +10,7 @@ import VerifiedBadge from '../components/VerifiedBadge';
 
 interface Course {
   id: string;
+  slug?: string;
   title: string;
   initials: string;
   price_fcfa: number;
@@ -59,7 +60,7 @@ export default function AdminCourseDetails() {
       setLoading(true);
       
       const [courseResponse, registrationsResponse, modulesResponse] = await Promise.all([
-        supabase.from('courses').select('id, title, initials, price_fcfa, date_time, is_active, product_type, is_archived').eq('id', id).single(),
+        supabase.from('courses').select('*').eq('id', id).single(),
         supabase.from('registrations').select('id, client_id, participant_name, participant_email, participant_phone, payment_status, registered_at').eq('course_id', id).order('registered_at', { ascending: false }),
         supabase.from('course_modules').select('id, title, description, long_summary, youtube_url, download_files, scheduled_date, order_index').eq('course_id', id).order('order_index', { ascending: true })
       ]);
@@ -182,7 +183,7 @@ export default function AdminCourseDetails() {
         throw new Error("Impossible de supprimer la formation. Vérifiez vos permissions administrateur (RLS) ou si la formation existe encore.");
       }
       
-      navigate('/dashboard');
+      navigate('/admin/formations');
     } catch (err: any) {
       toast.error("Erreur lors de la suppression : " + err.message);
     }
@@ -382,6 +383,7 @@ export default function AdminCourseDetails() {
         {/* Share Button */}
         <ShareCourseButton 
           courseId={course.id} 
+          courseSlug={course.slug}
           courseTitle={course.title} 
           className="text-xs font-bold text-white bg-blue-600 border border-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-sm shrink-0 p-2 sm:px-3 sm:py-2" 
           mobileIconOnly={true}
@@ -403,7 +405,7 @@ export default function AdminCourseDetails() {
 
         {/* Edit Button */}
         <button
-          onClick={() => navigate(`/edit-course/${course.id}`)}
+          onClick={() => navigate(`/admin/formations/${course.id}/edit`)}
           className="flex items-center justify-center gap-1.5 p-2 sm:px-3 sm:py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-sm shrink-0"
           title="Formulaire de modification"
         >

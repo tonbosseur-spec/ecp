@@ -215,7 +215,7 @@ export default function AdminHub() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/admin/dashboard')}
               className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all flex items-center justify-center shrink-0"
               title="Retour à l'accueil admin"
             >
@@ -520,7 +520,7 @@ export default function AdminHub() {
                       
                       <div className="shrink-0 flex items-center gap-2">
                         <Link 
-                          to={`/messages?client=${lead.client_id}`}
+                          to={`/admin/clients?tab=messages&client=${lead.client_id}`}
                           className="px-4 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
                         >
                           <MessageSquare className="w-4 h-4" />

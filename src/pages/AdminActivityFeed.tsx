@@ -40,13 +40,13 @@ const ENTITY_CONFIG: Record<
     icon: <CheckCircle2 className="w-5 h-5 text-purple-600" />,
     bgColor: 'bg-purple-100',
     defaultTitle: 'Quiz de cours validé',
-    defaultLink: '/admin/courses',
+    defaultLink: '/admin/formations',
   },
   module_progress: {
     icon: <CheckCircle2 className="w-5 h-5 text-purple-600" />,
     bgColor: 'bg-purple-100',
     defaultTitle: 'Quiz de cours validé',
-    defaultLink: '/admin/courses',
+    defaultLink: '/admin/formations',
   },
   public_quiz: {
     icon: <Activity className="w-5 h-5 text-blue-600" />,
@@ -117,7 +117,7 @@ export default function AdminActivityFeed() {
       {/* Back Button */}
       <div>
         <Link
-          to="/dashboard"
+          to="/admin/dashboard"
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-2xl text-sm font-bold shadow-xs transition-colors"
         >
           <ArrowLeft className="w-4 h-4 text-gray-500" />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import VerifiedBadge from '../components/VerifiedBadge';
 import { 
@@ -70,6 +70,20 @@ export default function ClientHub() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const sectionParam = searchParams.get('section');
+    if (sectionParam) {
+      if (sectionParam === 'messages') {
+        setActiveSection('messages');
+      } else if (sectionParam === 'formations' || sectionParam === 'inscriptions') {
+        setActiveSection('inscriptions');
+      } else if (['hub', 'interests', 'proposals', 'calendar', 'payments', 'parrainage', 'settings', 'more', 'files'].includes(sectionParam)) {
+        setActiveSection(sectionParam as any);
+      }
+    }
+  }, [searchParams]);
 
   // Referral / Parrainage state
   const [referralCode, setReferralCode] = useState<ReferralCodeInfo | null>(null);

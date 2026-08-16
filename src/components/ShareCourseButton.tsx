@@ -3,16 +3,18 @@ import { Share2, Check, Copy } from 'lucide-react';
 
 interface ShareCourseButtonProps {
   courseId: string;
+  courseSlug?: string;
   courseTitle: string;
   className?: string;
   mobileIconOnly?: boolean;
 }
 
-export default function ShareCourseButton({ courseId, courseTitle, className = '', mobileIconOnly = false }: ShareCourseButtonProps) {
+export default function ShareCourseButton({ courseId, courseSlug, courseTitle, className = '', mobileIconOnly = false }: ShareCourseButtonProps) {
   const [copied, setCopied] = useState(false);
   
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/course/${courseId}`;
+    const slugOrId = courseSlug || courseId;
+    const shareUrl = `${window.location.origin}/course/${slugOrId}`;
     
     if (navigator.share) {
       try {

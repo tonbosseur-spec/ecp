@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import fapshiInitiateHandler from './api/payments/initiate';
 import fapshiWebhookHandler from './api/payments/webhook';
+import publicStatsHandler from './api/public-stats';
 
 // Charger les variables d'environnement
 dotenv.config();
@@ -222,6 +223,13 @@ app.post('/api/payments/initiate', async (req, res) => {
 
 app.post('/api/payments/webhook', async (req, res) => {
   await fapshiWebhookHandler(req as any, res as any);
+});
+
+// ==========================================
+// 3. STATISTIQUES RÉELLES DE LA PLATEFORME
+// ==========================================
+app.get('/api/public-stats', async (req, res) => {
+  await publicStatsHandler(req as any, res as any);
 });
 
 // ==========================================

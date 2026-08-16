@@ -351,7 +351,7 @@ export default function Dashboard() {
 
             {/* TUILE 5: Ajouter un formateur */}
             <Link
-              to="/trainers"
+              to="/admin/trainers"
               className="group bg-white p-4 sm:p-5 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-black/5 active:scale-95 lg:hover:-translate-y-1"
             >
               <div className="flex items-center justify-between">

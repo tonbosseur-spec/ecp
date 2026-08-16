@@ -82,12 +82,12 @@ export default function LandingPage() {
   const { toast } = useToast();
   const adminWhatsAppPhone = "237698389030"; // Pierre's phone number
 
-  const stats = [
-    { target: 1200, suffix: "+", label: "Étudiants accompagnés" },
-    { target: 150, suffix: "+", label: "Mémoires soutenus" },
-    { target: 45, suffix: "", label: "Formations & E-books" },
+  const [stats, setStats] = useState([
+    { target: 36, suffix: "+", label: "Étudiants & Apprenants" },
+    { target: 9, suffix: "+", label: "Projets & Accompagnements" },
+    { target: 5, suffix: "", label: "Formations & E-books" },
     { target: 98, suffix: "%", label: "Taux de satisfaction" }
-  ];
+  ]);
 
   const [dbTestimonials, setDbTestimonials] = useState<any[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
@@ -113,10 +113,55 @@ export default function LandingPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setCurrentSession(session);
     });
+    fetchRealStats();
     fetchTestimonials();
     fetchLatestCourse();
     fetchFeaturedEbooks();
   }, []);
+
+  const fetchRealStats = async () => {
+    try {
+      const res = await fetch('/api/public-stats');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.stats) {
+          const s = json.stats;
+          setStats([
+            { target: s.students.count, suffix: s.students.suffix, label: s.students.label },
+            { target: s.projects.count, suffix: s.projects.suffix, label: s.projects.label },
+            { target: s.courses.count, suffix: s.courses.suffix, label: s.courses.label },
+            { target: s.satisfaction.count, suffix: s.satisfaction.suffix, label: s.satisfaction.label }
+          ]);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Échec récupération stats API, fallback Supabase direct:", err);
+    }
+
+    try {
+      const [coursesRes, testimonialsRes] = await Promise.all([
+        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('is_active', true).eq('is_archived', false),
+        supabase.from('testimonials').select('rating')
+      ]);
+
+      const coursesCount = coursesRes.count || 5;
+      let satisfaction = 98;
+      if (testimonialsRes.data && testimonialsRes.data.length > 0) {
+        const total = testimonialsRes.data.reduce((acc: number, t: any) => acc + (t.rating || 5), 0);
+        satisfaction = Math.min(100, Math.max(80, Math.round((total / (testimonialsRes.data.length * 5)) * 100)));
+      }
+
+      setStats([
+        { target: 36, suffix: "+", label: "Étudiants & Apprenants" },
+        { target: 9, suffix: "+", label: "Projets & Accompagnements" },
+        { target: coursesCount, suffix: "", label: "Formations & E-books" },
+        { target: satisfaction, suffix: "%", label: "Taux de satisfaction" }
+      ]);
+    } catch (e) {
+      console.error("Erreur stats fallback:", e);
+    }
+  };
 
   const fetchFeaturedEbooks = async () => {
     try {
@@ -151,31 +196,28 @@ export default function LandingPage() {
 
   const fetchLatestCourse = async () => {
     try {
-      // First attempt with is_archived filter
-      const { data, error } = await supabase
+      // First try with slug (if column exists)
+      let { data, error } = await supabase
         .from('courses')
-        .select('id, title')
+        .select('id, slug, title')
         .eq('is_active', true)
         .eq('is_archived', false)
         .order('created_at', { ascending: false })
         .limit(1);
-      
+
       if (error) {
-        // If it fails, likely due to missing is_archived column, try without it
-        console.warn("Retrying latest course query without is_archived filter...");
-        const { data: fallbackData, error: fallbackError } = await supabase
+        // Fallback without slug or without is_archived
+        const fallbackRes = await supabase
           .from('courses')
           .select('id, title')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1);
-          
-        if (fallbackError) throw fallbackError;
-        if (fallbackData && fallbackData.length > 0) {
-          setLatestCourse(fallbackData[0]);
-        }
-        return;
+        data = fallbackRes.data;
+        error = fallbackRes.error;
       }
+
+      if (error) throw error;
 
       if (data && data.length > 0) {
         setLatestCourse(data[0]);
@@ -294,7 +336,7 @@ export default function LandingPage() {
       {/* Top Notification Bar */}
       {latestCourse && (
         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white text-xs sm:text-sm font-semibold py-2.5 px-4 shadow-sm relative overflow-hidden transition-all text-center">
-          <Link to={`/course/${latestCourse.id}`} className="hover:underline flex items-center justify-center gap-2 flex-wrap mx-auto max-w-2xl">
+          <Link to={`/course/${latestCourse.slug || latestCourse.id}`} className="hover:underline flex items-center justify-center gap-2 flex-wrap mx-auto max-w-2xl">
             <span className="bg-white/20 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 mx-auto sm:mx-0">
               Du nouveau
             </span>
@@ -540,7 +582,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <Link
-                to="/methodology"
+                to="/ressources"
                 className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 hover:text-emerald-800 transition-colors pt-3 border-t border-emerald-100"
               >
                 <span>Voir les e-books</span>
@@ -567,7 +609,7 @@ export default function LandingPage() {
               </p>
             </div>
             <Link
-              to="/methodology"
+              to="/ressources"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-2xl transition-all shadow-md shrink-0 active:scale-95"
             >
               <BookOpen className="w-4 h-4" />
@@ -642,7 +684,7 @@ export default function LandingPage() {
               <BookOpen className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
               <h3 className="font-bold text-gray-900 text-base mb-1">Bibliothèque en cours d'enrichissement</h3>
               <p className="text-xs text-gray-500 mb-4">De nouveaux e-books seront très prochainement disponibles.</p>
-              <Link to="/methodology" className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:underline">
+              <Link to="/ressources" className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:underline">
                 Accéder à la section Ressources <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -872,7 +914,7 @@ export default function LandingPage() {
 
                 <div className="pt-4 flex flex-col sm:flex-row gap-3">
                   <Link
-                    to="/methodology"
+                    to="/ressources"
                     className="flex-1 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-4 h-4" />

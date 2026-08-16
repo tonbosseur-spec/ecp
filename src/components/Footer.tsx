@@ -140,7 +140,7 @@ export default function Footer({ adminWhatsAppPhone = "237698389030" }: FooterPr
                 </Link>
               </li>
               <li>
-                <Link to="/methodology" className="hover:text-white transition-colors flex items-center gap-2">
+                <Link to="/ressources" className="hover:text-white transition-colors flex items-center gap-2">
                   <FileText className="w-3.5 h-3.5 text-slate-500" />
                   <span>Ressources</span>
                 </Link>

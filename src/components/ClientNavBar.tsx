@@ -16,7 +16,7 @@ export default function ClientNavBar({ currentSession }: ClientNavBarProps) {
     { path: '/catalogue', label: 'Formations' },
     { path: '/formateurs', label: 'Formateurs' },
     { path: '/expertises', label: 'Services' },
-    { path: '/methodology', label: 'Ressources' },
+    { path: '/ressources', label: 'Ressources' },
   ];
 
   const isActive = (path: string) => {

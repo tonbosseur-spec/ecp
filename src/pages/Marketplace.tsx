@@ -524,7 +524,7 @@ export default function Marketplace() {
                         </button>
                       ) : (
                         <Link 
-                          to={`/course/${course.id}`}
+                          to={`/course/${course.slug || course.id}`}
                           className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors shadow-sm text-sm"
                         >
                           <span>{(course.is_date_tbd || !course.date_time) ? "Se pré-inscrire" : "S'inscrire"}</span>

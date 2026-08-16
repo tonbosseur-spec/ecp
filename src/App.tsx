@@ -180,8 +180,10 @@ export default function App() {
       />
       <Route path="/expertises" element={<PageTransition><ExpertisesPage /></PageTransition>} />
       <Route path="/formateurs" element={<PageTransition><PublicTrainers /></PageTransition>} />
-      <Route path="/methodology" element={<PageTransition><HowItWorksPage /></PageTransition>} />
+      {/* Canonical Resources URL + Compatibility Redirect */}
       <Route path="/ressources" element={<PageTransition><HowItWorksPage /></PageTransition>} />
+      <Route path="/methodology" element={<Navigate to="/ressources" replace />} />
+      
       <Route path="/mentions-legales" element={<PageTransition><MentionsLegalesPage /></PageTransition>} />
       <Route path="/confidentialite" element={<PageTransition><ConfidentialitePage /></PageTransition>} />
       <Route path="/cgu" element={<PageTransition><CGUPage /></PageTransition>} />
@@ -204,33 +206,42 @@ export default function App() {
       <Route path="/client/course/:courseId/module/:moduleId" element={<PageTransition><ClientModuleView /></PageTransition>} />
       <Route path="/catalogue" element={<PageTransition><Marketplace /></PageTransition>} />
       
-      {/* Live Visioconference Module Routes */}
+      {/* Live Visioconference Module Routes + Compatibility Redirect */}
       <Route path="/live" element={<PageTransition><LiveDashboard /></PageTransition>} />
       <Route path="/live/session/:roomCode" element={<PageTransition><PublicLiveSessionPage /></PageTransition>} />
-      <Route path="/live/public/:roomCode" element={<PageTransition><PublicLiveSessionPage /></PageTransition>} />
+      <Route path="/live/public/:roomCode" element={<Navigate to="/live/session/:roomCode" replace />} />
       <Route path="/live/:roomCode" element={<PageTransition><LiveRoom /></PageTransition>} />
       
       <Route 
         path="/login" 
-        element={!isAdmin ? <PageTransition><Login /></PageTransition> : <Navigate to="/dashboard" replace />} 
+        element={!isAdmin ? <PageTransition><Login /></PageTransition> : <Navigate to="/admin/dashboard" replace />} 
       />
       
       {isAdmin ? (
         <Route element={<AdminLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* Canonical Admin Routes */}
+          <Route path="/admin/dashboard" element={<Dashboard />} />
           <Route path="/admin/formations" element={<AdminFormations />} />
+          <Route path="/admin/formations/new" element={<CreateCourse />} />
+          <Route path="/admin/formations/:id" element={<AdminCourseDetails />} />
+          <Route path="/admin/formations/:id/edit" element={<EditCourse />} />
+          <Route path="/admin/trainers" element={<ManageTrainers />} />
           <Route path="/admin/clients" element={<AdminClients />} />
           <Route path="/admin/training" element={<AdminTrainingList />} />
           <Route path="/admin/training/new" element={<AdminTrainingEditor />} />
           <Route path="/admin/training/:id" element={<AdminTrainingEditor />} />
-          <Route path="/courses/new" element={<CreateCourse />} />
-          <Route path="/edit-course/:id" element={<EditCourse />} />
-          <Route path="/courses/:id" element={<AdminCourseDetails />} />
-          <Route path="/trainers" element={<ManageTrainers />} />
-          <Route path="/admin/hub" element={<AdminHub />} />
           <Route path="/admin/sessions" element={<AdminSessionsDashboard />} />
+          <Route path="/admin/hub" element={<AdminHub />} />
           <Route path="/admin/activity" element={<AdminActivityFeed />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          
+          {/* Backward-Compatibility Redirects */}
+          <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="/courses/new" element={<Navigate to="/admin/formations/new" replace />} />
+          <Route path="/courses/:id" element={<Navigate to="/admin/formations/:id" replace />} />
+          <Route path="/edit-course/:id" element={<Navigate to="/admin/formations/:id/edit" replace />} />
+          <Route path="/trainers" element={<Navigate to="/admin/trainers" replace />} />
+          
+          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
       ) : (
         <Route path="*" element={<Navigate to="/" replace />} />

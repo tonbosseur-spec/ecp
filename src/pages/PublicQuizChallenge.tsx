@@ -94,7 +94,7 @@ export default function PublicQuizChallenge() {
       setLoading(true);
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .select('title, description, guide_text, trainer_id, trainers (*)')
+        .select('*, trainers (*)')
         .eq('id', courseId)
         .single();
         
@@ -1012,7 +1012,7 @@ export default function PublicQuizChallenge() {
                 </div>
 
                 <Link
-                  to={`/course/${courseId}?promo=${unlockedPromo.code}`}
+                  to={`/course/${course?.slug || courseId}?promo=${unlockedPromo.code}`}
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl text-lg font-bold transition-all shadow-xl shadow-indigo-600/20 group cursor-pointer"
                 >
                   Profiter de ma réduction (-{unlockedPromo.discount_value}{unlockedPromo.discount_type === 'fixed' ? ' FCFA' : '%'}) & Inscrire

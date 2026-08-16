@@ -9,6 +9,8 @@ import { NativeImageUploader } from '../components/NativeImageUploader';
 import { RichTextEditorModal } from '../components/RichTextEditorModal';
 import { EnrichModuleModal } from '../components/EnrichModuleModal';
 import { CourseQuizExcelImporter } from '../components/CourseQuizExcelImporter';
+import { generateSlug, getUniqueSlug } from '../lib/slugUtils';
+import SupabaseSlugMigrationBanner from '../components/SupabaseSlugMigrationBanner';
 
 interface Trainer {
   id: string;
@@ -45,6 +47,8 @@ export default function EditCourse() {
   
   // Form States
   const [title, setTitle] = useState('');
+  const [customSlug, setCustomSlug] = useState('');
+  const [isSlugUserModified, setIsSlugUserModified] = useState(false);
   const [initials, setInitials] = useState('');
   const [description, setDescription] = useState('');
   const [priceFcfa, setPriceFcfa] = useState('');
@@ -115,6 +119,7 @@ export default function EditCourse() {
         if (courseError) throw courseError;
         
         setTitle(courseData.title);
+        setCustomSlug(courseData.slug || generateSlug(courseData.title));
         setInitials(courseData.initials || '');
         setDescription(courseData.description || '');
         setPriceFcfa(courseData.price_fcfa.toString());
@@ -292,10 +297,22 @@ export default function EditCourse() {
         updateData.download_file_url = null;
       }
 
-      const { error: courseError } = await supabase
+      const finalSlug = await getUniqueSlug(customSlug || title, id);
+      updateData.slug = finalSlug;
+
+      let { error: courseError } = await supabase
         .from('courses')
         .update(updateData)
         .eq('id', id);
+
+      if (courseError && (courseError.message?.includes('slug') || courseError.code === 'PGRST204')) {
+        delete updateData.slug;
+        const retryRes = await supabase
+          .from('courses')
+          .update(updateData)
+          .eq('id', id);
+        courseError = retryRes.error;
+      }
 
       if (courseError) throw courseError;
 
@@ -433,7 +450,7 @@ export default function EditCourse() {
       setSuccess(true);
       setHasUnsavedChanges(false);
       setTimeout(() => {
-        navigate(`/courses/${id}`);
+        navigate(`/admin/formations/${id}`);
       }, 1500);
 
     } catch (err: any) {
@@ -464,7 +481,7 @@ export default function EditCourse() {
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => navigate(`/courses/${id}`)}
+            onClick={() => navigate(`/admin/formations/${id}`)}
             className="w-full sm:w-auto px-4 py-2.5 text-xs font-black text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 hover:border-slate-300 hover:text-slate-900"
           >
             <ArrowLeft className="w-4 h-4 text-slate-500 transition-transform group-hover:-translate-x-0.5" />
@@ -513,10 +530,59 @@ export default function EditCourse() {
                 required
                 type="text"
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setTitle(val);
+                  if (!isSlugUserModified) {
+                    setCustomSlug(generateSlug(val));
+                  }
+                }}
                 className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm"
                 placeholder={productType === 'ebook' ? "Ex: Le Guide Ultime de l'E-commerce" : "Ex: Maîtriser React en 2024"}
               />
+            </div>
+
+            <SupabaseSlugMigrationBanner />
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-gray-700">
+                  Slug d'URL publique (personnalisable)
+                </label>
+                {title && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomSlug(generateSlug(title));
+                      setIsSlugUserModified(false);
+                    }}
+                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                  >
+                    Synchroniser avec le titre
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-mono bg-gray-100 px-3 py-2.5 border border-gray-200 rounded-xl shrink-0">
+                  /course/
+                </span>
+                <input
+                  type="text"
+                  value={customSlug}
+                  onChange={e => {
+                    setIsSlugUserModified(true);
+                    setCustomSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+                  }}
+                  className="block w-full px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-shadow text-sm font-mono"
+                  placeholder="ex: excel-debutant"
+                />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
+                <span>URL publique finale :</span>
+                <code className="text-indigo-600 font-bold font-mono bg-indigo-50 px-1.5 py-0.5 rounded">
+                  /course/{customSlug || 'mon-slug'}
+                </code>
+              </p>
             </div>
 
             {productType !== 'ebook' && (

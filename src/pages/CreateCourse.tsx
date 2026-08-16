@@ -9,6 +9,8 @@ import { EnrichModuleModal } from '../components/EnrichModuleModal';
 import PromoCodeManager from '../components/PromoCodeManager';
 import { PromoCode, getDefaultPromoCodesForCourse } from '../lib/promoUtils';
 import { encodeCourseQuizSettings } from '../lib/quizUtils';
+import { generateSlug, getUniqueSlug } from '../lib/slugUtils';
+import SupabaseSlugMigrationBanner from '../components/SupabaseSlugMigrationBanner';
 
 interface Trainer {
   id: string;
@@ -44,6 +46,8 @@ export default function CreateCourse() {
   
   // Form States
   const [title, setTitle] = useState('');
+  const [customSlug, setCustomSlug] = useState('');
+  const [isSlugUserModified, setIsSlugUserModified] = useState(false);
   const [initials, setInitials] = useState('');
   const [description, setDescription] = useState('');
   const [priceFcfa, setPriceFcfa] = useState('');
@@ -224,14 +228,26 @@ export default function CreateCourse() {
         product_type: productType,
         download_file_url: uploadedFileUrl,
         template_id: templateId || null,
-        promo_codes: promoCodes
+        promo_codes: promoCodes,
+        slug: await getUniqueSlug(customSlug || title)
       };
 
-      const { data: courseData, error: courseError } = await supabase
+      let { data: courseData, error: courseError } = await supabase
         .from('courses')
         .insert([courseInsertPayload])
         .select()
         .single();
+
+      if (courseError && (courseError.message?.includes('slug') || courseError.code === 'PGRST204')) {
+        delete courseInsertPayload.slug;
+        const retryRes = await supabase
+          .from('courses')
+          .insert([courseInsertPayload])
+          .select()
+          .single();
+        courseData = retryRes.data;
+        courseError = retryRes.error;
+      }
 
       if (courseError) throw courseError;
       const newCourseId = courseData.id;
@@ -330,9 +346,9 @@ export default function CreateCourse() {
         <div className="flex items-center gap-4 z-10">
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/admin/formations')}
             className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl backdrop-blur-md transition-all flex items-center justify-center shrink-0 border border-white/10 group"
-            title="Retour au tableau de bord"
+            title="Retour aux formations"
           >
             <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
           </button>
@@ -354,7 +370,7 @@ export default function CreateCourse() {
         <div className="flex items-center gap-3 shrink-0 z-10">
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/admin/formations')}
             className="px-4 py-3 text-xs font-bold text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 rounded-2xl transition-all"
           >
             Annuler
@@ -410,11 +426,11 @@ export default function CreateCourse() {
               />
             )}
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/admin/formations')}
               className="w-full flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-bold text-slate-700 bg-slate-100 border border-slate-200 rounded-2xl hover:bg-slate-200 transition-colors shadow-xs"
             >
               <ArrowLeft className="w-4 h-4" />
-              Retour au tableau de bord
+              Retour aux formations
             </button>
           </div>
         </div>
@@ -494,10 +510,59 @@ export default function CreateCourse() {
                     required
                     type="text"
                     value={title}
-                    onChange={e => setTitle(e.target.value)}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setTitle(val);
+                      if (!isSlugUserModified) {
+                        setCustomSlug(generateSlug(val));
+                      }
+                    }}
                     className="block w-full px-4 py-3 border border-slate-200 rounded-2xl text-slate-900 focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm font-medium shadow-xs"
                     placeholder={productType === 'ebook' ? "Ex: Guide Ultime de l'Entrepreneuriat" : "Ex: Maîtriser le Marketing Digital"}
                   />
+                </div>
+
+                <SupabaseSlugMigrationBanner />
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Slug d'URL publique (personnalisable)
+                    </label>
+                    {title && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomSlug(generateSlug(title));
+                          setIsSlugUserModified(false);
+                        }}
+                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                      >
+                        Synchroniser avec le titre
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-mono bg-slate-100 px-3 py-3 border border-slate-200 rounded-2xl shrink-0">
+                      /course/
+                    </span>
+                    <input
+                      type="text"
+                      value={customSlug}
+                      onChange={e => {
+                        setIsSlugUserModified(true);
+                        setCustomSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+                      }}
+                      className="block w-full px-4 py-3 border border-slate-200 rounded-2xl text-slate-900 focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm font-mono shadow-xs"
+                      placeholder="ex: excel-debutant"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1">
+                    <span>URL publique finale :</span>
+                    <code className="text-indigo-600 font-bold font-mono bg-indigo-50 px-1.5 py-0.5 rounded">
+                      /course/{customSlug || 'votre-slug'}
+                    </code>
+                  </p>
                 </div>
 
                 <div>
