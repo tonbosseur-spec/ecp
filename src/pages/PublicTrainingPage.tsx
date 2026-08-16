@@ -311,6 +311,11 @@ export default function PublicTrainingPage() {
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-3xl -ml-40 -mb-40 pointer-events-none"></div>
 
+        {/* Brain Icon Watermark (Filigrane Cerveau) */}
+        <div className="absolute -right-10 top-1/2 -translate-y-1/2 pointer-events-none select-none text-indigo-400/[0.09] transform rotate-12 z-0">
+          <Brain className="w-[420px] h-[420px] sm:w-[520px] sm:h-[520px] stroke-[1.1]" />
+        </div>
+
         <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10">
           {/* Breadcrumb / Back */}
           <div className="mb-6">
@@ -433,7 +438,11 @@ export default function PublicTrainingPage() {
         </section>
 
         {/* Sommaire / Programme des exercices */}
-        <section className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+        <section className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6 relative overflow-hidden">
+          {/* Brain Watermark Filigrane */}
+          <div className="absolute -right-12 -bottom-12 pointer-events-none select-none text-indigo-600/[0.04] transform -rotate-12 z-0">
+            <Brain className="w-80 h-80 stroke-[1.2]" />
+          </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
             <div>
               <h2 className="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">

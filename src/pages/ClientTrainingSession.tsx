@@ -1331,15 +1331,77 @@ export default function ClientTrainingSession() {
               </div>
             </div>
 
-            {/* Full Instructions Content */}
-            <div className="overflow-y-auto space-y-3 flex-1 pr-1.5 my-1 relative z-10 custom-scrollbar">
-              <div className="flex items-center gap-1.5 text-xs font-extrabold text-indigo-900 uppercase tracking-wider">
-                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Consigne officielle :</span>
+            {/* Full Instructions & Description Content */}
+            <div className="overflow-y-auto space-y-4 flex-1 pr-1.5 my-1 relative z-10 custom-scrollbar">
+              
+              {/* Session / Exercise Description if available */}
+              {session?.description && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-indigo-900 uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Contexte & Description de l'entraînement :</span>
+                  </div>
+                  <div className="p-3.5 bg-indigo-50/70 rounded-2xl border border-indigo-100/90 text-xs text-gray-700 leading-relaxed font-normal">
+                    {session.description}
+                  </div>
+                </div>
+              )}
+
+              {/* Énoncé de départ / Consigne officielle */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-extrabold text-indigo-900 uppercase tracking-wider">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Énoncé & Consigne de l'exercice :</span>
+                </div>
+                <div className="p-4 sm:p-5 bg-gradient-to-b from-gray-50/90 to-slate-50/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 text-xs sm:text-sm text-gray-800 leading-relaxed whitespace-pre-line font-medium shadow-2xs">
+                  {currentExercise.instructions || "Aucun énoncé spécifique fourni pour cet exercice."}
+                </div>
               </div>
-              <div className="p-4 sm:p-5 bg-gradient-to-b from-gray-50/90 to-slate-50/90 backdrop-blur-xs rounded-2xl border border-gray-200/80 text-xs sm:text-sm text-gray-800 leading-relaxed whitespace-pre-line font-medium shadow-2xs">
-                {currentExercise.instructions || "Aucun énoncé spécifique fourni pour cet exercice."}
-              </div>
+
+              {/* Starter Code if Code R exercise */}
+              {currentExercise.starter_code && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-gray-700 uppercase tracking-wider">
+                    <Code2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Code R de départ fourni :</span>
+                  </div>
+                  <div className="p-3.5 bg-gray-900 text-emerald-400 font-mono text-xs rounded-2xl border border-gray-800 overflow-x-auto whitespace-pre-wrap leading-relaxed shadow-2xs">
+                    <code>{currentExercise.starter_code}</code>
+                  </div>
+                </div>
+              )}
+
+              {/* QCM Options if available */}
+              {currentExercise.options && currentExercise.options.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-gray-700 uppercase tracking-wider">
+                    <Brain className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Options de réponse :</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {currentExercise.options.map((opt, i) => (
+                      <div key={i} className="p-3 bg-blue-50/40 rounded-xl border border-blue-100/80 text-xs text-gray-800 flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-lg bg-blue-100 text-blue-800 font-extrabold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                          {String.fromCharCode(65 + i)}
+                        </span>
+                        <span className="leading-snug">{opt}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Hint if present */}
+              {currentExercise.hint && (
+                <div className="p-3.5 bg-amber-50/80 rounded-2xl border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2.5">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-extrabold block mb-0.5 uppercase tracking-wider text-[10px]">Indice pédagogique :</span>
+                    <span className="leading-relaxed">{currentExercise.hint}</span>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {/* Modal Footer */}
