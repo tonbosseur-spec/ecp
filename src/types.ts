@@ -53,6 +53,7 @@ export interface TrainingExercise {
   explanation?: string | null;
   starter_code?: string | null;
   hint?: string | null;
+  ai_assistance_enabled?: boolean;
   expected_output?: string | null;
   test_cases?: any;
   created_at?: string;

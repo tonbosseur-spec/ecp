@@ -545,7 +545,9 @@ class WebREngine {
         for (const tc of validTestCases) {
           // Wrapped safely in tryCatch: evaluates truthiness strictly (all true, no NAs)
           const sanitizedTestRCode = `tryCatch({ 
-  .t_res <- suppressWarnings({ ${tc.code} })
+  .t_res <- suppressWarnings({
+    ${tc.code}
+  })
   .ok <- is.logical(.t_res) && length(.t_res) > 0 && all(!is.na(.t_res)) && all(.t_res)
   as.integer(isTRUE(.ok))
 }, error = function(e) paste0("ERR:", conditionMessage(e)))`;

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { TrainingSession, TrainingExercise } from '../types';
 import REditorConsole, { REditorConsoleRef } from '../components/REditorConsole';
+import GeminiAssistant from '../components/GeminiAssistant';
 import { validateCode, resetREnvironment, RValidationResult } from '../lib/webrEngine';
 
 export default function ClientTrainingSession() {
@@ -156,6 +157,7 @@ export default function ClientTrainingSession() {
           starter_code,
           expected_output,
           hint,
+          ai_assistance_enabled,
           test_cases,
           created_at
         `)
@@ -795,6 +797,17 @@ export default function ClientTrainingSession() {
                   </p>
                   {currentExercise.instructions}
                 </div>
+              )}
+
+              {/* Gemini Assistant (Only shows if enabled and not fully passed) */}
+              {(!currentValResult?.success && !isAlreadyPassedPrior) && (
+                <GeminiAssistant
+                  exerciseId={currentExercise.id}
+                  studentCode={rCodes[currentExercise.id] || ''}
+                  errorMessage={currentValResult?.error}
+                  isFailedAttempt={currentValResult?.success === false}
+                  aiAssistanceEnabled={currentExercise.ai_assistance_enabled ?? true}
+                />
               )}
             </div>
 

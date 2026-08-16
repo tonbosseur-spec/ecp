@@ -25,7 +25,8 @@ import {
   Play,
   Check,
   Plus,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 import { TrainingActivityType, TrainingDifficultyLevel } from '../types';
 
@@ -47,6 +48,7 @@ export interface ExerciseFormItem {
   // R code specific fields
   starter_code: string;
   hint: string;
+  ai_assistance_enabled?: boolean;
   expected_output: string;
   test_cases: TestCaseItem[];
   // UI preview state
@@ -195,6 +197,7 @@ export default function AdminTrainingEditor() {
               explanation: '',
               starter_code: ex.starter_code || '',
               hint: ex.hint || '',
+              ai_assistance_enabled: ex.ai_assistance_enabled ?? true,
               expected_output: ex.expected_output || '',
               test_cases: parsedTests.length > 0 ? parsedTests : [{ description: '', code: '' }],
               orderIndex: ex.order_index ?? index,
@@ -221,6 +224,7 @@ export default function AdminTrainingEditor() {
               explanation: ex.explanation || '',
               starter_code: '',
               hint: '',
+              ai_assistance_enabled: true,
               expected_output: '',
               test_cases: [],
               orderIndex: ex.order_index ?? index,
@@ -261,6 +265,7 @@ export default function AdminTrainingEditor() {
               explanation: '',
               starter_code: 'notes <- c(10, 12, 14, 16, 18)\n\n# Calculez la moyenne de notes\n',
               hint: 'Utilisez la fonction mean().',
+              ai_assistance_enabled: true,
               expected_output: '14',
               test_cases: [
                 {
@@ -287,6 +292,7 @@ export default function AdminTrainingEditor() {
               explanation: '',
               starter_code: '',
               hint: '',
+              ai_assistance_enabled: true,
               expected_output: '',
               test_cases: [],
               orderIndex: 0,
@@ -311,6 +317,7 @@ export default function AdminTrainingEditor() {
         explanation: '',
         starter_code: '',
         hint: '',
+        ai_assistance_enabled: true,
         expected_output: '',
         test_cases: [],
         orderIndex: prev.length,
@@ -331,6 +338,7 @@ export default function AdminTrainingEditor() {
         explanation: '',
         starter_code: '# Votre code R ici\n',
         hint: '',
+        ai_assistance_enabled: true,
         expected_output: '',
         test_cases: [
           {
@@ -568,6 +576,7 @@ export default function AdminTrainingEditor() {
               explanation: null,
               starter_code: ex.starter_code.trim() || null,
               hint: ex.hint.trim() || null,
+              ai_assistance_enabled: ex.ai_assistance_enabled ?? true,
               expected_output: ex.expected_output.trim() || null,
               test_cases: validTestCases.length > 0 ? validTestCases : null
             };
@@ -583,6 +592,7 @@ export default function AdminTrainingEditor() {
               explanation: ex.explanation.trim() || null,
               starter_code: null,
               hint: null,
+              ai_assistance_enabled: ex.ai_assistance_enabled ?? true,
               expected_output: null,
               test_cases: null
             };
@@ -1300,22 +1310,32 @@ export default function AdminTrainingEditor() {
 
                             {/* Hint & Expected Output Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              {/* Hint */}
+                              {/* Assistance Gemini */}
                               <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                   <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                                    Indice pédagogique
+                                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                    Assistance Gemini
                                   </label>
-                                  <span className="text-[11px] text-gray-400 font-medium">Optionnel</span>
                                 </div>
-                                <input
-                                  type="text"
-                                  value={ex.hint}
-                                  onChange={e => handleUpdateExercise(exIndex, 'hint', e.target.value)}
-                                  placeholder="Ex: Utilisez la fonction mean()."
-                                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-xs sm:text-sm font-medium transition-all"
-                                />
+                                <label className="flex items-start gap-3 p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl cursor-pointer hover:bg-indigo-50 transition-colors h-[42px] sm:h-auto items-center sm:items-start overflow-hidden">
+                                  <div className="flex-shrink-0 sm:mt-0.5">
+                                    <input
+                                      type="checkbox"
+                                      checked={ex.ai_assistance_enabled ?? true}
+                                      onChange={e => handleUpdateExercise(exIndex, 'ai_assistance_enabled', e.target.checked)}
+                                      className="w-4 h-4 text-indigo-600 rounded border-indigo-300 focus:ring-indigo-500 cursor-pointer"
+                                    />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[13px] sm:text-sm font-semibold text-indigo-900 leading-tight">
+                                      Autoriser Gemini à aider l'étudiant
+                                    </span>
+                                    <span className="hidden sm:block text-[11px] text-indigo-700/80 mt-0.5 leading-snug">
+                                      Gemini pourra fournir des indices et expliquer les erreurs sans donner directement la solution.
+                                    </span>
+                                  </div>
+                                </label>
                               </div>
 
                               {/* Expected Output */}
