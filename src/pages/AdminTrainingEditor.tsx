@@ -575,87 +575,98 @@ export default function AdminTrainingEditor() {
       }
 
       if (currentSessionId) {
-        // 2. If editing, clean old exercises (cascade handles training_qcm_answers)
-        if (isEditing) {
-          const { error: deleteOldError } = await supabase
-            .from('training_exercises')
-            .delete()
-            .eq('training_session_id', currentSessionId);
+        // 2. Fetch existing active exercises in DB for this session
+        const { data: existingDbExercises, error: fetchDbError } = await supabase
+          .from('training_exercises')
+          .select('id')
+          .eq('training_session_id', currentSessionId)
+          .or('is_active.eq.true,is_active.is.null');
 
-          if (deleteOldError) throw deleteOldError;
+        if (fetchDbError) throw fetchDbError;
+
+        const dbExerciseIds = new Set((existingDbExercises || []).map(e => e.id));
+        const formExerciseIds = new Set(exercises.map(e => e.id).filter(Boolean));
+
+        // 3. Deactivate/archive removed exercises (never physically delete to preserve attempts history)
+        const removedExerciseIds = Array.from(dbExerciseIds).filter(id => !formExerciseIds.has(id));
+        if (removedExerciseIds.length > 0) {
+          const { error: archiveError } = await supabase
+            .from('training_exercises')
+            .update({ 
+              is_active: false, 
+              updated_at: new Date().toISOString() 
+            })
+            .in('id', removedExerciseIds);
+
+          if (archiveError) throw archiveError;
         }
 
-        // 3. Prepare exercises to insert
-        const exercisesToInsert = exercises.map((ex, idx) => {
-          if (ex.exercise_type === 'r_code') {
-            // Clean valid test cases
-            const validTestCases = ex.test_cases
+        // 4. Save/update exercises one by one preserving exercise_id
+        for (let idx = 0; idx < exercises.length; idx++) {
+          const ex = exercises[idx];
+
+          let validTestCases: any = null;
+          if (ex.exercise_type === 'r_code' && Array.isArray(ex.test_cases)) {
+            const filtered = ex.test_cases
               .filter(t => t.description.trim() && t.code.trim())
               .map(t => ({
                 description: t.description.trim(),
                 code: t.code.trim()
               }));
-
-            return {
-              training_session_id: currentSessionId,
-              exercise_type: 'r_code',
-              title: ex.title.trim() || `Exercice R ${idx + 1}`,
-              instructions: ex.instructions.trim(),
-              order_index: idx,
-              options: null,
-              explanation: null,
-              starter_code: ex.starter_code.trim() || null,
-              hint: ex.hint.trim() || null,
-              ai_assistance_enabled: ex.ai_assistance_enabled ?? true,
-              expected_output: ex.expected_output.trim() || null,
-              test_cases: validTestCases.length > 0 ? validTestCases : null
-            };
-          } else {
-            // QCM
-            return {
-              training_session_id: currentSessionId,
-              exercise_type: 'qcm',
-              title: ex.title.trim() || `Question ${idx + 1}`,
-              instructions: ex.instructions.trim(),
-              order_index: idx,
-              options: ex.options.map(o => o.trim()),
-              explanation: ex.explanation.trim() || null,
-              starter_code: null,
-              hint: null,
-              ai_assistance_enabled: ex.ai_assistance_enabled ?? true,
-              expected_output: null,
-              test_cases: null
-            };
+            validTestCases = filtered.length > 0 ? filtered : null;
           }
-        });
 
-        const { data: insertedExercises, error: exercisesInsertError } = await supabase
-          .from('training_exercises')
-          .insert(exercisesToInsert)
-          .select('id, order_index, exercise_type');
+          const payload: any = {
+            training_session_id: currentSessionId,
+            exercise_type: ex.exercise_type,
+            title: ex.title.trim() || (ex.exercise_type === 'r_code' ? `Exercice R ${idx + 1}` : `Question ${idx + 1}`),
+            instructions: ex.instructions.trim(),
+            order_index: idx,
+            options: ex.exercise_type === 'qcm' ? ex.options.map(o => o.trim()) : null,
+            explanation: ex.explanation ? ex.explanation.trim() : null,
+            starter_code: ex.exercise_type === 'r_code' ? (ex.starter_code.trim() || null) : null,
+            hint: ex.hint ? ex.hint.trim() : null,
+            ai_assistance_enabled: ex.ai_assistance_enabled ?? true,
+            expected_output: ex.exercise_type === 'r_code' ? (ex.expected_output.trim() || null) : null,
+            test_cases: validTestCases,
+            is_active: true,
+            updated_at: new Date().toISOString()
+          };
 
-        if (exercisesInsertError) throw exercisesInsertError;
+          let targetExerciseId = ex.id;
 
-        // 4. Insert correct answers for QCM exercises ONLY
-        if (insertedExercises && insertedExercises.length > 0) {
-          const qcmInserted = insertedExercises.filter(ex => ex.exercise_type === 'qcm');
-          
-          if (qcmInserted.length > 0) {
-            const answersToInsert = qcmInserted.map(ex => {
-              const originalExercise = exercises[ex.order_index];
-              return {
-                exercise_id: ex.id,
-                correct_option_index: originalExercise && originalExercise.exercise_type === 'qcm' 
-                  ? originalExercise.correctOptionIndex 
-                  : 0
-              };
-            });
+          if (targetExerciseId && dbExerciseIds.has(targetExerciseId)) {
+            // Existing exercise: UPDATE in place
+            const { error: updateErr } = await supabase
+              .from('training_exercises')
+              .update(payload)
+              .eq('id', targetExerciseId);
 
-            const { error: answersInsertError } = await supabase
+            if (updateErr) throw updateErr;
+          } else {
+            // New exercise: INSERT
+            const { data: newEx, error: insertErr } = await supabase
+              .from('training_exercises')
+              .insert([payload])
+              .select('id')
+              .single();
+
+            if (insertErr) throw insertErr;
+            if (newEx) {
+              targetExerciseId = newEx.id;
+            }
+          }
+
+          // 5. Update or insert correct answer for QCM in training_qcm_answers
+          if (ex.exercise_type === 'qcm' && targetExerciseId) {
+            const { error: answerErr } = await supabase
               .from('training_qcm_answers')
-              .insert(answersToInsert);
+              .upsert({
+                exercise_id: targetExerciseId,
+                correct_option_index: Number(ex.correctOptionIndex) || 0
+              }, { onConflict: 'exercise_id' });
 
-            if (answersInsertError) throw answersInsertError;
+            if (answerErr) throw answerErr;
           }
         }
       }

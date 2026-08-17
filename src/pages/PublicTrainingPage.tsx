@@ -155,6 +155,7 @@ export default function PublicTrainingPage() {
         .from('training_exercises')
         .select('id, title, exercise_type, instructions, order_index')
         .eq('training_session_id', trainingData.id)
+        .or('is_active.eq.true,is_active.is.null')
         .order('order_index', { ascending: true });
 
       if (!exErr && exercisesData) {

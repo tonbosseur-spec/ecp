@@ -152,7 +152,7 @@ export default function ClientTrainingHub() {
           created_at,
           updated_at,
           courses (id, title),
-          training_exercises (id, exercise_type)
+          training_exercises (id, exercise_type, is_active)
         `)
         .order('order_index', { ascending: true })
         .order('created_at', { ascending: false });
@@ -161,7 +161,7 @@ export default function ClientTrainingHub() {
 
       const formattedSessions: TrainingSession[] = (sessionsData || []).map((s: any) => ({
         ...s,
-        training_exercises: s.training_exercises || []
+        training_exercises: (s.training_exercises || []).filter((ex: any) => ex.is_active !== false)
       }));
 
       setSessions(formattedSessions);

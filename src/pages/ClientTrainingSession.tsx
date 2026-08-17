@@ -67,6 +67,14 @@ export default function ClientTrainingSession() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showInstructionModal, setShowInstructionModal] = useState(false);
   const [isCompletedState, setIsCompletedState] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [qcmFeedbackResults, setQcmFeedbackResults] = useState<any[]>([]);
+  const [finalScoreSummary, setFinalScoreSummary] = useState<{
+    scorePercentage: number;
+    isPassed: boolean;
+    totalExercises: number;
+    correctCount: number;
+  } | null>(null);
 
   // Timer counter
   useEffect(() => {
@@ -166,6 +174,7 @@ export default function ClientTrainingSession() {
           created_at
         `)
         .eq('training_session_id', sessionId)
+        .or('is_active.eq.true,is_active.is.null')
         .order('order_index', { ascending: true })
         .order('created_at', { ascending: true });
 
@@ -288,6 +297,8 @@ export default function ClientTrainingSession() {
     setCurrentIndex(0);
     setIsCompletedState(false);
     setQcmAnswers({});
+    setQcmFeedbackResults([]);
+    setFinalScoreSummary(null);
     toast.success("Nouvelle tentative commencée !");
   };
 
@@ -347,11 +358,11 @@ export default function ClientTrainingSession() {
       }
 
       // 3. Persist progress into Supabase tables: training_attempts and training_exercise_attempts
-      // Strictly store minimal metadata in answer_data (NO raw student code)
       const answerDataPayload = {
         type: 'r_code',
         passed_tests: passedTests,
-        total_tests: totalTests
+        total_tests: totalTests,
+        student_code: code
       };
 
       // Verify connected user
@@ -497,26 +508,225 @@ export default function ClientTrainingSession() {
     }
   };
 
-  // Final confirmation action
+  // Final confirmation action with complete atomic QCM + R submission
   const handleConfirmFinish = async () => {
-    setShowConfirmModal(false);
-    setIsCompletedState(true);
+    if (isSubmitting) return;
 
-    if (currentAttemptId) {
-      try {
-        await supabase
-          .from('training_attempts')
-          .update({
-            completed_at: new Date().toISOString(),
-            time_spent_seconds: timeSpentSeconds
-          })
-          .eq('id', currentAttemptId);
-      } catch (err) {
-        console.error("Erreur finalisation tentative:", err);
+    try {
+      setIsSubmitting(true);
+
+      // 1. Verify user authentication
+      let userId = currentUserId;
+      if (!userId) {
+        const { data: authData } = await supabase.auth.getUser();
+        userId = authData?.user?.id || null;
       }
-    }
 
-    toast.success("Vos réponses ont été enregistrées avec succès !");
+      if (!userId) {
+        toast.error("Vous devez être connecté pour enregistrer vos résultats d'entraînement.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!session || exercises.length === 0) {
+        toast.error("Aucune donnée d'exercice disponible.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const qcmExercises = exercises.filter(ex => ex.exercise_type === 'qcm');
+      const rExercises = exercises.filter(ex => ex.exercise_type === 'r_code');
+
+      let attemptId: string | null = null;
+      let qcmResultsFromRpc: any[] = [];
+
+      // 2. Submit QCM exercises via secure RPC submit_training_qcm_attempt
+      if (qcmExercises.length > 0) {
+        const answersPayload = qcmExercises.map(ex => ({
+          exercise_id: ex.id,
+          selected_option_index: qcmAnswers[ex.id] !== undefined ? qcmAnswers[ex.id] : null
+        }));
+
+        const { data: rpcData, error: rpcError } = await supabase.rpc('submit_training_qcm_attempt', {
+          p_session_id: session.id,
+          p_answers: answersPayload,
+          p_time_spent_seconds: timeSpentSeconds
+        });
+
+        if (rpcError) {
+          console.error("Erreur RPC submit_training_qcm_attempt:", rpcError);
+          throw new Error("Erreur de sauvegarde des QCM : " + rpcError.message);
+        }
+
+        if (!rpcData || !rpcData.attempt_id) {
+          throw new Error("Erreur serveur : la tentative QCM n'a pas pu être enregistrée.");
+        }
+
+        attemptId = rpcData.attempt_id;
+        qcmResultsFromRpc = rpcData.results || [];
+      } else {
+        // R-only session: create a new training_attempts record directly
+        const { data: newAttempt, error: attemptError } = await supabase
+          .from('training_attempts')
+          .insert({
+            training_session_id: session.id,
+            client_id: userId,
+            score_percentage: 0,
+            is_passed: false,
+            time_spent_seconds: timeSpentSeconds,
+            completed_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+
+        if (attemptError || !newAttempt) {
+          console.error("Erreur création tentative R:", attemptError);
+          throw new Error("Erreur d'initialisation de la tentative : " + (attemptError?.message || 'Erreur réseau'));
+        }
+
+        attemptId = newAttempt.id;
+      }
+
+      // 3. Process and record R exercises in training_exercise_attempts for attemptId
+      for (const ex of rExercises) {
+        const result = validationResults[ex.id];
+        const code = rCodes[ex.id] !== undefined ? rCodes[ex.id] : (ex.starter_code || '');
+
+        const totalTests = result?.total || (Array.isArray(ex.test_cases) ? ex.test_cases.length : 0);
+        const passedTests = result?.passed || 0;
+        const isCorrect = Boolean(result?.success && totalTests > 0);
+
+        let rScore = 0;
+        if (isCorrect) {
+          rScore = 100;
+        } else if (totalTests > 0) {
+          rScore = Math.round((passedTests / totalTests) * 100);
+        } else {
+          rScore = 0;
+        }
+
+        const rAnswerPayload = {
+          type: 'r_code',
+          passed_tests: passedTests,
+          total_tests: totalTests,
+          student_code: code
+        };
+
+        const rSnapshotPayload = {
+          exercise_type: 'r_code',
+          title: ex.title,
+          instructions: ex.instructions,
+          starter_code: ex.starter_code || null,
+          hint: ex.hint || null,
+          expected_output: ex.expected_output || null,
+          test_cases: ex.test_cases || null,
+          order_index: ex.order_index ?? 0,
+          student_code: code,
+          passed_tests: passedTests,
+          total_tests: totalTests,
+          is_correct: isCorrect,
+          score: rScore
+        };
+
+        const { error: rInsertError } = await supabase
+          .from('training_exercise_attempts')
+          .insert({
+            attempt_id: attemptId,
+            exercise_id: ex.id,
+            answer_data: rAnswerPayload,
+            snapshot_data: rSnapshotPayload,
+            is_correct: isCorrect,
+            score: rScore
+          });
+
+        if (rInsertError) {
+          console.error("Erreur insertion exercice R dans la tentative:", rInsertError);
+          throw new Error("Erreur d'enregistrement de l'exercice R (" + ex.title + ") : " + rInsertError.message);
+        }
+      }
+
+      // 4. Calculate Unified Final Score across ALL exercises in the session
+      const exerciseScoresList: { exercise_id: string; score: number; is_correct: boolean }[] = [];
+
+      exercises.forEach(ex => {
+        if (ex.exercise_type === 'qcm') {
+          const qRes = qcmResultsFromRpc.find((r: any) => r.exercise_id === ex.id);
+          const isCorr = qRes ? Boolean(qRes.is_correct) : false;
+          exerciseScoresList.push({
+            exercise_id: ex.id,
+            score: isCorr ? 100 : 0,
+            is_correct: isCorr
+          });
+        } else if (ex.exercise_type === 'r_code') {
+          const result = validationResults[ex.id];
+          const totalTests = result?.total || (Array.isArray(ex.test_cases) ? ex.test_cases.length : 0);
+          const passedTests = result?.passed || 0;
+          const isCorrect = Boolean(result?.success && totalTests > 0);
+
+          let rScore = 0;
+          if (isCorrect) {
+            rScore = 100;
+          } else if (totalTests > 0) {
+            rScore = Math.round((passedTests / totalTests) * 100);
+          } else {
+            rScore = 0;
+          }
+
+          exerciseScoresList.push({
+            exercise_id: ex.id,
+            score: rScore,
+            is_correct: isCorrect
+          });
+        }
+      });
+
+      const totalExerciseCount = exercises.length || 1;
+      const sumScores = exerciseScoresList.reduce((acc, curr) => acc + curr.score, 0);
+      const finalGlobalScore = Math.round(sumScores / totalExerciseCount);
+      const correctCount = exerciseScoresList.filter(s => s.is_correct).length;
+      const finalIsPassed = finalGlobalScore >= 70;
+
+      // 5. Update training_attempts with final unified score and completion status
+      const { error: updateAttemptError } = await supabase
+        .from('training_attempts')
+        .update({
+          score_percentage: finalGlobalScore,
+          is_passed: finalIsPassed,
+          time_spent_seconds: timeSpentSeconds,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', attemptId);
+
+      if (updateAttemptError) {
+        console.error("Erreur mise à jour finale tentative:", updateAttemptError);
+        throw new Error("Erreur de finalisation de la tentative : " + updateAttemptError.message);
+      }
+
+      // Update local state for UI display
+      setCurrentAttemptId(attemptId);
+      setQcmFeedbackResults(qcmResultsFromRpc);
+      setFinalScoreSummary({
+        scorePercentage: finalGlobalScore,
+        isPassed: finalIsPassed,
+        totalExercises: totalExerciseCount,
+        correctCount
+      });
+
+      // Show completion view ONLY after successful persistence
+      setIsCompletedState(true);
+      setShowConfirmModal(false);
+
+      if (finalIsPassed) {
+        toast.success(`Félicitations ! Entraînement réussi (${finalGlobalScore} %) !`);
+      } else {
+        toast.info(`Entraînement terminé. Score obtenu : ${finalGlobalScore} %.`);
+      }
+    } catch (err: any) {
+      console.error("Erreur lors de la finalisation de la séance :", err);
+      toast.error(err.message || "Impossible de finaliser l'entraînement. Veuillez réessayer.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Helper for difficulty badge
@@ -597,24 +807,44 @@ export default function ClientTrainingSession() {
   ).length;
 
   if (isCompletedState) {
+    const scorePct = finalScoreSummary?.scorePercentage ?? 0;
+    const isPassed = finalScoreSummary?.isPassed ?? false;
+    const correctCount = finalScoreSummary?.correctCount ?? exercises.filter(ex => 
+      ex.exercise_type === 'r_code' ? (validationResults[ex.id]?.success || previousExerciseHistory[ex.id]?.isPassed) : false
+    ).length;
+
     return (
       <div className="min-h-screen bg-gray-50 font-sans py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-gray-100 shadow-sm text-center space-y-5">
-          <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
-            <Check className="w-8 h-8" />
+          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto shadow-inner ${
+            isPassed ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+          }`}>
+            {isPassed ? <Check className="w-8 h-8" /> : <Award className="w-8 h-8" />}
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-black text-gray-900">Entraînement terminé !</h2>
+            <h2 className="text-2xl font-black text-gray-900">
+              {isPassed ? "Félicitations !" : "Entraînement terminé"}
+            </h2>
             <p className="text-sm text-gray-600 leading-relaxed">
               Vous avez complété la session <span className="font-semibold text-gray-900">« {session.title} »</span>.
             </p>
+
+            <div className="pt-2">
+              <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-extrabold border ${
+                isPassed 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                Score obtenu : {scorePct} % {isPassed ? '(Validé ✓)' : '(À revoir)'}
+              </span>
+            </div>
           </div>
 
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 grid grid-cols-2 gap-3 text-left">
             <div>
-              <span className="text-[11px] text-gray-400 font-bold block">Exercices validés</span>
-              <span className="text-base font-bold text-gray-900">{validRExercisesCount} / {exercises.length}</span>
+              <span className="text-[11px] text-gray-400 font-bold block">Exercices réussis</span>
+              <span className="text-base font-bold text-gray-900">{correctCount} / {exercises.length}</span>
             </div>
             <div>
               <span className="text-[11px] text-gray-400 font-bold block">Temps total</span>
@@ -1260,9 +1490,20 @@ export default function ClientTrainingSession() {
               <button
                 type="button"
                 onClick={handleConfirmFinish}
-                className="w-full py-3 px-4 rounded-2xl font-black text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 transition-all active:scale-95"
+                disabled={isSubmitting}
+                className="w-full py-3 px-4 rounded-2xl font-black text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-200 transition-all active:scale-95 inline-flex items-center justify-center gap-2"
               >
-                Terminer
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Enregistrement...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Terminer</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

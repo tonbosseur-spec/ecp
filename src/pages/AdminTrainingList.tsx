@@ -69,7 +69,7 @@ export default function AdminTrainingList() {
         .select(`
           *,
           courses (id, title),
-          training_exercises (count)
+          training_exercises (id, is_active)
         `)
         .order('order_index', { ascending: true })
         .order('created_at', { ascending: false });
@@ -202,7 +202,8 @@ export default function AdminTrainingList() {
     const published = sessions.filter(s => s.is_published).length;
     const drafts = total - published;
     const totalExercises = sessions.reduce((acc, curr) => {
-      const cnt = (curr.training_exercises as any)?.[0]?.count ?? 0;
+      const activeArr = (curr.training_exercises as any[]) || [];
+      const cnt = activeArr.filter((ex: any) => ex.is_active !== false).length;
       return acc + cnt;
     }, 0);
     return { total, published, drafts, totalExercises };
@@ -409,7 +410,8 @@ export default function AdminTrainingList() {
             {filteredSessions.map(session => {
               const typeConfig = formatActivityType(session.activity_type);
               const difficultyConfig = formatDifficulty(session.difficulty_level);
-              const exercisesCount = (session.training_exercises as any)?.[0]?.count ?? 0;
+              const exercisesArr = (session.training_exercises as any[]) || [];
+              const exercisesCount = exercisesArr.filter((ex: any) => ex.is_active !== false).length;
               const TypeIcon = typeConfig.icon;
               const isActionLoading = actionLoadingId === session.id;
 

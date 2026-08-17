@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.training_exercises (
     hint TEXT,
     expected_output TEXT,
     test_cases JSONB DEFAULT '[]'::jsonb,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS public.training_exercise_attempts (
     attempt_id UUID NOT NULL REFERENCES public.training_attempts(id) ON DELETE CASCADE,
     exercise_id UUID NOT NULL REFERENCES public.training_exercises(id) ON DELETE CASCADE,
     answer_data JSONB,
+    snapshot_data JSONB,
     is_correct BOOLEAN,
     score NUMERIC(5,2),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
