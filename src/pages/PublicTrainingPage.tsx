@@ -265,21 +265,17 @@ export default function PublicTrainingPage() {
     <div className="min-h-screen bg-gray-50 font-sans selection:bg-indigo-100 selection:text-indigo-900 flex flex-col">
       {/* Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-indigo-700 rounded-xl flex items-center justify-center text-white font-black shadow-md shadow-indigo-200">
-              ECP
-            </div>
-            <div>
-              <span className="font-extrabold text-gray-900 text-base tracking-tight block">Exceller chez Pierre</span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 block -mt-1">Espace Entraînement</span>
-            </div>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+          <Link to="/" className="flex items-center min-w-0 hover:opacity-90 transition-opacity">
+            <span className="font-extrabold text-gray-900 text-sm sm:text-base tracking-tight truncate">
+              Exceller chez Pierre
+            </span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               onClick={handleCopyShareLink}
-              className="p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-gray-200 flex items-center gap-1.5 text-xs font-bold"
+              className="p-2 sm:px-3 sm:py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-gray-200 flex items-center gap-1.5 text-xs font-bold shrink-0"
               title="Partager cet entraînement"
             >
               {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
@@ -289,15 +285,15 @@ export default function PublicTrainingPage() {
             {session ? (
               <Link
                 to="/client/hub"
-                className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5"
+                className="px-3 py-2 sm:px-4 sm:py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold rounded-xl text-xs transition-all flex items-center gap-1 shrink-0 whitespace-nowrap"
               >
-                <span>Mon Espace Client</span>
+                <span>Espace Client</span>
                 <ChevronRight className="w-4 h-4" />
               </Link>
             ) : (
               <Link
                 to={`/client/login?redirect=${encodeURIComponent(`/client/training/${training.id}`)}`}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-indigo-200"
+                className="px-3 py-2 sm:px-4 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-indigo-200 shrink-0 whitespace-nowrap"
               >
                 Se connecter
               </Link>
