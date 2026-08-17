@@ -26,9 +26,30 @@ interface RateLimitInfo {
 }
 const rateLimits = new Map<string, RateLimitInfo>();
 
-// Servir les assets statiques WebR (R.wasm, vfs, etc.)
+// Servir les assets statiques WebR (R.wasm, vfs, etc.) avec en-têtes CORS et CORP appropriés
 const webrDistPath = path.join(process.cwd(), 'node_modules', 'webr', 'dist');
-app.use('/webr', express.static(webrDistPath));
+app.use('/webr', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+}, express.static(webrDistPath, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.wasm')) {
+      res.setHeader('Content-Type', 'application/wasm');
+    } else if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (filePath.endsWith('.data.gz')) {
+      res.setHeader('Content-Type', 'application/gzip');
+    } else if (filePath.endsWith('.so')) {
+      res.setHeader('Content-Type', 'application/octet-stream');
+    }
+  }
+}));
 
 // ==========================================
 // 1. ROUTE D'API (Gemini)

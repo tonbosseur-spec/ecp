@@ -12,7 +12,11 @@ import {
   Loader2, 
   Sparkles,
   Info,
-  Layers
+  Layers,
+  FileUp,
+  FolderOpen,
+  X,
+  BarChart2
 } from 'lucide-react';
 import { 
   initWebR, 
@@ -22,6 +26,7 @@ import {
   WebREngineState, 
   WebRExecutionResult 
 } from '../lib/webrEngine';
+import WebRFileManager from './WebRFileManager';
 
 export interface REditorConsoleRef {
   focus: () => void;
@@ -62,6 +67,8 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [loadingSeconds, setLoadingSeconds] = useState(0);
+  const [showFileManager, setShowFileManager] = useState(false);
+  const [activeGraphicIndex, setActiveGraphicIndex] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const lineNumbersRef = useRef<HTMLDivElement | null>(null);
@@ -191,6 +198,8 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
       return;
     }
 
+    setActiveGraphicIndex(0);
+
     try {
       const result = await executeRCode(currentCode);
       setLastResult(result);
@@ -237,6 +246,7 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
   const handleClearConsole = () => {
     setConsoleOutput([]);
     setLastResult(null);
+    setActiveGraphicIndex(0);
   };
 
   // Copy code
@@ -288,6 +298,16 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
                 <span className="hidden sm:inline">Réinitialiser</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => setShowFileManager(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-amber-400 hover:text-amber-300 hover:bg-slate-800 transition-colors"
+              title="Gérer vos fichiers de données"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Données</span>
+            </button>
 
             <button
               type="button"
@@ -536,21 +556,25 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
         </div>
 
         {/* Console Body */}
-        <div className="p-3.5 sm:p-4 bg-slate-950 min-h-[110px] max-h-[260px] overflow-y-auto font-mono text-xs sm:text-sm leading-relaxed text-slate-200 select-text">
-          {consoleOutput.length === 0 ? (
+        <div className="p-3.5 sm:p-4 bg-slate-950 min-h-[110px] max-h-[300px] overflow-y-auto font-mono text-xs sm:text-sm leading-relaxed text-slate-200 select-text">
+          {consoleOutput.length === 0 && !lastResult?.graphicDataUrl ? (
             <div className="h-full min-h-[80px] flex items-center justify-center text-slate-500 text-xs italic">
               La sortie de votre code R apparaîtra ici après l'exécution.
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-2">
               {consoleOutput.map((line, idx) => {
                 let textStyle = "text-slate-200";
-                if (line.startsWith('[Erreur R]') || line.startsWith('[Erreur]')) {
+                if (line.startsWith('[Erreur R]') || line.startsWith('[Erreur]') || line.includes('❌')) {
                   textStyle = "text-rose-400 font-semibold";
                 } else if (line.startsWith('[Avertissement]')) {
                   textStyle = "text-amber-400 font-medium";
                 } else if (line.startsWith('[Message R]')) {
                   textStyle = "text-sky-400";
+                } else if (line.includes('📦') || line.startsWith('[Package WebR]')) {
+                  textStyle = "text-sky-300 font-medium";
+                } else if (line.includes('✅')) {
+                  textStyle = "text-emerald-400 font-medium";
                 } else if (line.startsWith('[Info]') || line.startsWith('[Code exécuté')) {
                   textStyle = "text-slate-400 italic";
                 }
@@ -561,10 +585,107 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
                   </div>
                 );
               })}
+
+              {/* Render Plot Graphic if created (ggplot2, plot, etc.) */}
+              {lastResult?.graphics && lastResult.graphics.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-between mb-3">
+                    <div className="text-[11px] font-sans font-black text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
+                      <BarChart2 className="w-3.5 h-3.5" />
+                      Graphiques R ({lastResult.graphics.length})
+                    </div>
+                    
+                    {/* Compact Selector for Console */}
+                    {lastResult.graphics.length > 1 && (
+                      <div className="flex items-center gap-1.5 bg-slate-800/50 p-1 rounded-xl border border-slate-700">
+                        <select
+                          value={activeGraphicIndex}
+                          onChange={(e) => setActiveGraphicIndex(parseInt(e.target.value))}
+                          className="bg-transparent text-[10px] font-bold text-slate-300 focus:outline-none px-1"
+                        >
+                          {lastResult.graphics.map((_, idx) => (
+                            <option key={idx} value={idx} className="bg-slate-900">
+                              N° {idx + 1}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-2xl shadow-xl border border-slate-700 w-full flex justify-center overflow-hidden group">
+                    <img 
+                      src={lastResult.graphics[activeGraphicIndex] || lastResult.graphicDataUrl} 
+                      alt={`Graphique R ${activeGraphicIndex + 1}`} 
+                      className="max-h-[320px] w-auto object-contain rounded-lg transition-transform duration-300 group-hover:scale-[1.02]"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  
+                  {lastResult.graphics.length > 1 && (
+                    <div className="mt-3 flex gap-1 justify-center">
+                      {lastResult.graphics.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setActiveGraphicIndex(idx)}
+                          className={`w-1.5 h-1.5 rounded-full transition-all ${
+                            activeGraphicIndex === idx ? 'bg-sky-400 w-4' : 'bg-slate-700'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* 4. FILE MANAGER MODAL OVERLAY */}
+      {showFileManager && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <FolderOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Gestionnaire de données R</h3>
+                  <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">WebR VFS Storage</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowFileManager(false)}
+                className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto">
+              <WebRFileManager 
+                onFileImported={(meta) => {
+                  // Suggest code injection if appropriate
+                }}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setShowFileManager(false)}
+                className="px-5 py-2.5 bg-gray-900 text-white rounded-2xl text-xs font-black hover:bg-gray-800 transition-all active:scale-95"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

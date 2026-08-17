@@ -12,6 +12,20 @@
  * - Clean teardown and timeout support.
  */
 
+import {
+  ensurePackagesForCode,
+  extractPackageRequirements,
+  isPackageInstalled,
+  installWebRPackage,
+  getTrackedPackages,
+  PackageStatusInfo,
+  PackageInstallResult,
+  PackageProgressEvent,
+  WEBR_KNOWN_PACKAGES,
+} from './webrPackages';
+
+export * from './webrPackages';
+
 /**
  * Normalizes R code for deterministic fragment comparison:
  * 1. Strips comments (# to end of line).
@@ -87,7 +101,8 @@ export interface WebRExecutionResult {
   errors: string[];
   executionTimeMs: number;
   resultValue?: any;
-  graphicDataUrl?: string;
+  graphicDataUrl?: string; // Gardé pour rétro-compatibilité (premier graphique)
+  graphics?: string[];     // Liste de tous les graphiques générés
 }
 
 export interface RTestCase {
@@ -216,7 +231,7 @@ class WebREngine {
       return this.initPromise;
     }
 
-    const timeoutMs = 120000;
+    const timeoutMs = 90000;
     let timeoutId: NodeJS.Timeout | null = null;
 
     this.initPromise = (async () => {
@@ -231,14 +246,70 @@ class WebREngine {
 
         const loadPromise = (async () => {
           // Dynamic import to guarantee zero bundle overhead on initial page load
-          const { WebR } = await import('webr');
+          const { WebR, ChannelType } = await import('webr');
 
-          // Instantiate WebR with self-hosted runtime files
-          const webR = new WebR({
-            baseUrl: '/webr/',
-          });
-          await webR.init();
-          return webR;
+          // Helper to verify that an initialized WebR instance can safely execute R code
+          const verifyInstance = async (instance: any) => {
+            const ok = await instance.evalRBoolean('TRUE');
+            if (!ok) throw new Error('Échec de la validation de base de WebR.');
+            return instance;
+          };
+
+          // In sandboxed browser iframes or environments without cross-origin isolation,
+          // PostMessage is required to avoid SharedArrayBuffer security exceptions.
+          const isIsolated = typeof window !== 'undefined' && window.crossOriginIsolated === true;
+          const preferredChannel = isIsolated ? ChannelType.Automatic : ChannelType.PostMessage;
+
+          const localBaseUrl = typeof window !== 'undefined' && window.location?.origin
+            ? `${window.location.origin}/webr/`
+            : '/webr/';
+
+          const strategies: Array<{ name: string; options: any }> = [
+            // Strategy 1: Local self-hosted runtime with absolute URL
+            {
+              name: 'Local self-hosted (Absolute URL)',
+              options: {
+                baseUrl: localBaseUrl,
+                repoUrl: 'https://repo.r-wasm.org',
+                channelType: preferredChannel,
+              },
+            },
+            // Strategy 2: Official WebR Wasm CDN (PostMessage channel)
+            {
+              name: 'CDN WebR (https://webr.r-wasm.org/v0.6.0/)',
+              options: {
+                baseUrl: 'https://webr.r-wasm.org/v0.6.0/',
+                repoUrl: 'https://repo.r-wasm.org',
+                channelType: ChannelType.PostMessage,
+              },
+            },
+            // Strategy 3: Relative path fallback
+            {
+              name: 'Local fallback (Relative path)',
+              options: {
+                baseUrl: '/webr/',
+                repoUrl: 'https://repo.r-wasm.org',
+                channelType: ChannelType.PostMessage,
+              },
+            },
+          ];
+
+          let lastError: any = null;
+          for (const strat of strategies) {
+            try {
+              console.log(`[WebR] Initialisation du moteur via : ${strat.name}...`);
+              const webR = new WebR(strat.options);
+              await webR.init();
+              await verifyInstance(webR);
+              console.log(`[WebR] Initialisation réussie avec succès via : ${strat.name}`);
+              return webR;
+            } catch (err: any) {
+              console.warn(`[WebR] Échec avec ${strat.name} :`, err?.message || err);
+              lastError = err;
+            }
+          }
+
+          throw lastError || new Error("Impossible d'initialiser le worker WebR.");
         })();
 
         const webR = await Promise.race([loadPromise, timeoutPromise]);
@@ -292,12 +363,56 @@ class WebREngine {
     const warnings: string[] = [];
     const errors: string[] = [];
 
-    const timeoutMs = options.timeoutMs || 30000; // 30s timeout default
+    // Step 0: Detect and prepare any requested packages (library, require, install.packages, pkg::...)
+    try {
+      const pkgReqs = extractPackageRequirements(code);
+      const hasPkgs = pkgReqs.requiredPackages.length > 0 || pkgReqs.explicitInstalls.length > 0 || pkgReqs.namespacePackages.length > 0;
+
+      if (hasPkgs) {
+        this.setStatus('running', 'Vérification et installation des packages R...');
+        const pkgPrep = await ensurePackagesForCode(this.webRInstance, code, (evt) => {
+          this.setStatus('running', evt.message);
+        });
+
+        if (pkgPrep.messages && pkgPrep.messages.length > 0) {
+          stdout.push(...pkgPrep.messages);
+        }
+
+        if (!pkgPrep.success && pkgPrep.failedPackages.length > 0) {
+          const failedList = pkgPrep.failedPackages.join(', ');
+          const pkgErrorMsg = `❌ Impossible d'utiliser le(s) package(s) : ${failedList}.\nCe(s) package(s) ne sont pas disponibles sous forme de binaires WebAssembly compatibles avec WebR ou une erreur réseau est survenue.`;
+          errors.push(pkgErrorMsg);
+          this.setStatus('ready', 'R est prêt.');
+
+          const outputLines: string[] = [...stdout, `[Error] ${pkgErrorMsg}`];
+          return {
+            success: false,
+            output: outputLines.join('\n'),
+            stdout,
+            stderr,
+            warnings,
+            errors,
+            executionTimeMs: Math.round(performance.now() - startTime),
+          };
+        }
+      }
+    } catch (pkgErr: any) {
+      console.warn("Erreur lors de la préparation des packages:", pkgErr);
+    }
+
+    const timeoutMs = options.timeoutMs || 45000; // 45s timeout default for package workloads
     let timeoutId: NodeJS.Timeout | null = null;
 
     try {
       // Create a Shelter for safe R evaluation and memory cleanup
       const shelter = await new this.webRInstance.Shelter();
+
+      // Define harmless install.packages shim inside shelter so R doesn't attempt CRAN source compilation
+      await shelter.evalR(`
+        install.packages <- function(pkgs, ...) {
+          invisible(NULL)
+        }
+      `);
 
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
@@ -314,17 +429,18 @@ class WebREngine {
         });
 
         // Extract graphics if generated (via webr::canvas())
-        let graphicDataUrl: string | undefined = undefined;
+        const graphics: string[] = [];
         try {
           if (capture.images && capture.images.length > 0) {
-            const imgBitmap = capture.images[capture.images.length - 1];
-            const canvas = document.createElement('canvas');
-            canvas.width = imgBitmap.width;
-            canvas.height = imgBitmap.height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(imgBitmap, 0, 0);
-              graphicDataUrl = canvas.toDataURL('image/png');
+            for (const imgBitmap of capture.images) {
+              const canvas = document.createElement('canvas');
+              canvas.width = imgBitmap.width;
+              canvas.height = imgBitmap.height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(imgBitmap, 0, 0);
+                graphics.push(canvas.toDataURL('image/png'));
+              }
             }
           }
         } catch (e) {
@@ -363,10 +479,10 @@ class WebREngine {
         // Purge shelter memory objects
         await shelter.purge();
 
-        return { resultValue, graphicDataUrl };
+        return { resultValue, graphics };
       })();
 
-      const { resultValue, graphicDataUrl } = await Promise.race([executionPromise, timeoutPromise]);
+      const { resultValue, graphics } = await Promise.race([executionPromise, timeoutPromise]);
 
       if (timeoutId) clearTimeout(timeoutId);
 
@@ -401,7 +517,8 @@ class WebREngine {
         errors,
         executionTimeMs,
         resultValue,
-        graphicDataUrl,
+        graphics,
+        graphicDataUrl: graphics.length > 0 ? graphics[0] : undefined,
       };
     } catch (err: any) {
       if (timeoutId) clearTimeout(timeoutId);
@@ -538,12 +655,57 @@ class WebREngine {
     const startTime = performance.now();
     this.setStatus('running', 'Validation des critères R...');
 
-    const timeoutMs = options.timeoutMs || 30000;
+    // Step 0: Ensure packages required by student code are prepared
+    try {
+      const pkgReqs = extractPackageRequirements(code);
+      const hasPkgs = pkgReqs.requiredPackages.length > 0 || pkgReqs.explicitInstalls.length > 0 || pkgReqs.namespacePackages.length > 0;
+
+      if (hasPkgs) {
+        this.setStatus('running', 'Préparation des packages R pour la validation...');
+        const pkgPrep = await ensurePackagesForCode(this.webRInstance, code);
+
+        if (!pkgPrep.success && pkgPrep.failedPackages.length > 0) {
+          const failedList = pkgPrep.failedPackages.join(', ');
+          const errText = `Le package requis « ${failedList} » n'a pas pu être installé ou n'est pas disponible pour WebR.`;
+          const failedTests: RTestResultDetail[] = validTestCases.map(tc => ({
+            description: tc.description || 'Critère de validation',
+            passed: false,
+          }));
+          if (expOutStr) {
+            failedTests.unshift({
+              description: `Résultat attendu : "${expOutStr}"`,
+              passed: false,
+            });
+          }
+
+          this.setStatus('ready', 'R est prêt.');
+          return {
+            success: false,
+            passed: 0,
+            total: Math.max(totalTestsCount, 1),
+            tests: failedTests,
+            error: `❌ Échec de la préparation des packages : ${errText}`,
+            executionTimeMs: Math.round(performance.now() - startTime),
+          };
+        }
+      }
+    } catch (pkgErr: any) {
+      console.warn("Erreur lors de la préparation des packages pour validation:", pkgErr);
+    }
+
+    const timeoutMs = options.timeoutMs || 45000;
     let timeoutId: NodeJS.Timeout | null = null;
 
     try {
       // Create isolated Shelter
       const shelter = await new this.webRInstance.Shelter();
+
+      // Define harmless install.packages shim inside shelter
+      await shelter.evalR(`
+        install.packages <- function(pkgs, ...) {
+          invisible(NULL)
+        }
+      `);
 
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
@@ -980,6 +1142,101 @@ class WebREngine {
   }
 
   /**
+   * Installs an R package directly using WebR binary packages.
+   */
+  public async installPackage(pkg: string): Promise<PackageInstallResult> {
+    if (!this.isReady()) {
+      await this.init();
+    }
+    return installWebRPackage(this.webRInstance, pkg);
+  }
+
+  /**
+   * Checks if an R package is currently loaded or installed in this session.
+   */
+  public async isPackageInstalled(pkg: string): Promise<boolean> {
+    if (!this.isReady()) return false;
+    return isPackageInstalled(this.webRInstance, pkg);
+  }
+
+  /**
+   * Returns list of currently tracked packages and their status.
+   */
+  public getTrackedPackages(): PackageStatusInfo[] {
+    return getTrackedPackages();
+  }
+
+  /**
+   * Returns raw WebR instance.
+   */
+  public getWebR(): any {
+    return this.webRInstance;
+  }
+
+  /**
+   * Writes a file to the WebR virtual file system (VFS).
+   * 
+   * @param path Target path in the VFS (e.g. "data.csv")
+   * @param data Content as Uint8Array or ArrayBuffer
+   */
+  public async writeFile(path: string, data: Uint8Array | ArrayBuffer): Promise<void> {
+    if (!this.isReady() || !this.webRInstance) {
+      throw new Error("Le moteur R n'est pas prêt.");
+    }
+    const uint8Data = data instanceof Uint8Array ? data : new Uint8Array(data);
+    await this.webRInstance.FS.writeFile(path, uint8Data);
+  }
+
+  /**
+   * Reads a file from the WebR virtual file system (VFS).
+   */
+  public async readFile(path: string): Promise<Uint8Array> {
+    if (!this.isReady() || !this.webRInstance) {
+      throw new Error("Le moteur R n'est pas prêt.");
+    }
+    return await this.webRInstance.FS.readFile(path);
+  }
+
+  /**
+   * Deletes a file from the WebR virtual file system (VFS).
+   */
+  public async unlink(path: string): Promise<void> {
+    if (!this.isReady() || !this.webRInstance) {
+      throw new Error("Le moteur R n'est pas prêt.");
+    }
+    await this.webRInstance.FS.unlink(path);
+  }
+
+  /**
+   * Checks if a file exists in the WebR virtual file system (VFS).
+   */
+  public async fileExists(path: string): Promise<boolean> {
+    if (!this.isReady() || !this.webRInstance) return false;
+    try {
+      // Re-evaluate using R to be absolutely sure R can see it
+      const res = await this.webRInstance.evalRBoolean(`file.exists("${path}")`);
+      return !!res;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Lists files in a directory of the WebR virtual file system (VFS).
+   * Filters out internal hidden files by default.
+   */
+  public async listFiles(dir: string = '.'): Promise<string[]> {
+    if (!this.isReady() || !this.webRInstance) return [];
+    try {
+      const files = await this.webRInstance.FS.readdir(dir);
+      // Filter out standard Emscripten/R internal dots
+      return files.filter((f: string) => f !== '.' && f !== '..' && !f.startsWith('.'));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Closes WebR instance and frees WebAssembly resources.
    */
   public async close(): Promise<void> {
@@ -1010,3 +1267,11 @@ export const resetREnvironment = () => webrEngine.resetEnvironment();
 export const stopWebR = () => webrEngine.close();
 export const getWebRState = () => webrEngine.getState();
 export const subscribeWebRState = (listener: WebRStateListener) => webrEngine.subscribe(listener);
+export const installRPackage = (pkg: string) => webrEngine.installPackage(pkg);
+export const isRPackageInstalled = (pkg: string) => webrEngine.isPackageInstalled(pkg);
+export const getActivePackages = () => webrEngine.getTrackedPackages();
+export const writeWebRFile = (path: string, data: Uint8Array | ArrayBuffer) => webrEngine.writeFile(path, data);
+export const readWebRFile = (path: string) => webrEngine.readFile(path);
+export const deleteWebRFile = (path: string) => webrEngine.unlink(path);
+export const listWebRFiles = (dir?: string) => webrEngine.listFiles(dir);
+export const webRFileExists = (path: string) => webrEngine.fileExists(path);

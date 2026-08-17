@@ -21,9 +21,27 @@ import {
   Maximize2,
   Table as TableIcon,
   Search,
-  RefreshCw
+  RefreshCw,
+  Package as PackageIcon,
+  Download,
+  CheckCircle,
+  Info,
+  FolderOpen
 } from 'lucide-react';
-import { webrEngine, WebRExecutionResult, RObjectInfo, WebRStatus } from '../lib/webrEngine';
+import { 
+  webrEngine, 
+  WebRExecutionResult, 
+  RObjectInfo, 
+  WebRStatus,
+  WEBR_KNOWN_PACKAGES,
+  installRPackage,
+  isRPackageInstalled,
+  getActivePackages,
+  PackageStatusInfo,
+  subscribePackageProgress,
+  listWebRFiles
+} from '../lib/webrEngine';
+import WebRFileManager from '../components/WebRFileManager';
 
 const DEFAULT_R_CODE = `# Bienvenue dans R libre !
 
@@ -48,11 +66,18 @@ export default function ClientRPlayground() {
   const [code, setCode] = useState(DEFAULT_R_CODE);
   const [executing, setExecuting] = useState(false);
   const [lastResult, setLastResult] = useState<WebRExecutionResult | null>(null);
-  const [activeTab, setActiveTab] = useState<'result' | 'objects' | 'graphics'>('result');
+  const [activeTab, setActiveTab] = useState<'result' | 'objects' | 'graphics' | 'packages' | 'files'>('result');
   const [rObjects, setRObjects] = useState<RObjectInfo[]>([]);
   const [loadingObjects, setLoadingObjects] = useState(false);
   const [selectedObject, setSelectedObject] = useState<RObjectInfo | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Package Management State
+  const [packageSearch, setPackageSearch] = useState('');
+  const [activeGraphicIndex, setActiveGraphicIndex] = useState(0);
+  const [installedMap, setInstalledMap] = useState<Record<string, boolean>>({});
+  const [installingMap, setInstallingMap] = useState<Record<string, boolean>>({});
+  const [packageStatusMsg, setPackageStatusMsg] = useState<string | null>(null);
 
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -82,12 +107,52 @@ export default function ClientRPlayground() {
     };
   }, []);
 
-  // Update object list when activeTab changes to 'objects'
+  // Update object list or packages when activeTab changes
   useEffect(() => {
     if (activeTab === 'objects' && webrEngine.isReady()) {
       refreshObjects();
+    } else if (activeTab === 'packages' && webrEngine.isReady()) {
+      checkPackagesStatus();
     }
   }, [activeTab]);
+
+  const checkPackagesStatus = async () => {
+    if (!webrEngine.isReady()) return;
+    const knownKeys = Object.keys(WEBR_KNOWN_PACKAGES);
+    const newInstalledMap: Record<string, boolean> = { ...installedMap };
+    for (const key of knownKeys) {
+      const isInst = await isRPackageInstalled(key);
+      newInstalledMap[key] = isInst;
+    }
+    setInstalledMap(newInstalledMap);
+  };
+
+  const handleInstallSinglePackage = async (pkgName: string) => {
+    if (!webrEngine.isReady()) return;
+    setInstallingMap(prev => ({ ...prev, [pkgName]: true }));
+    setPackageStatusMsg(`Installation de ${pkgName} en cours...`);
+    try {
+      const res = await installRPackage(pkgName);
+      if (res.success) {
+        setInstalledMap(prev => ({ ...prev, [pkgName]: true }));
+        setPackageStatusMsg(`✅ Le package ${pkgName} est installé et prêt.`);
+      } else {
+        setPackageStatusMsg(`❌ ${res.message}`);
+      }
+    } catch (err: any) {
+      setPackageStatusMsg(`❌ Erreur : ${err?.message || 'Échec de l\'installation.'}`);
+    } finally {
+      setInstallingMap(prev => ({ ...prev, [pkgName]: false }));
+    }
+  };
+
+  const handleLoadPackageSnippet = (pkgName: string) => {
+    const snippet = `library(${pkgName})\n`;
+    if (!code.includes(`library(${pkgName})`) && !code.includes(`library("${pkgName}")`)) {
+      setCode(prev => `${snippet}${prev}`);
+    }
+    setActiveTab('result');
+  };
 
   const refreshObjects = async () => {
     setLoadingObjects(true);
@@ -107,13 +172,16 @@ export default function ClientRPlayground() {
 
     setExecuting(true);
     setLastResult(null);
+    setActiveGraphicIndex(0);
 
     try {
       const result = await webrEngine.execute(code);
       setLastResult(result);
 
-      // Auto switch tab if graphic was produced
-      if (result.graphicDataUrl) {
+      // Auto switch tab if graphics were produced
+      if (result.graphics && result.graphics.length > 0) {
+        setActiveTab('graphics');
+      } else if (result.graphicDataUrl) {
         setActiveTab('graphics');
       } else {
         setActiveTab('result');
@@ -439,11 +507,11 @@ export default function ClientRPlayground() {
           <div className="lg:col-span-6 flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-gray-200 shadow-2xs overflow-hidden">
             
             {/* Tabs Header */}
-            <div className="flex items-center justify-between bg-gray-50/80 border-b border-gray-200 px-3 py-2">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between bg-gray-50/80 border-b border-gray-200 px-2 sm:px-3 py-2 gap-2">
+              <div className="flex items-center gap-1 overflow-x-auto flex-nowrap no-scrollbar -mb-px pb-px">
                 <button
                   onClick={() => setActiveTab('result')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     activeTab === 'result'
                       ? 'bg-white text-purple-700 shadow-2xs font-black'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
@@ -458,7 +526,7 @@ export default function ClientRPlayground() {
 
                 <button
                   onClick={() => setActiveTab('objects')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     activeTab === 'objects'
                       ? 'bg-white text-purple-700 shadow-2xs font-black'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
@@ -475,7 +543,7 @@ export default function ClientRPlayground() {
 
                 <button
                   onClick={() => setActiveTab('graphics')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     activeTab === 'graphics'
                       ? 'bg-white text-purple-700 shadow-2xs font-black'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
@@ -487,28 +555,67 @@ export default function ClientRPlayground() {
                     <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse" />
                   )}
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('files')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                    activeTab === 'files'
+                      ? 'bg-white text-purple-700 shadow-2xs font-black'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+                  }`}
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Fichiers</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('packages')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                    activeTab === 'packages'
+                      ? 'bg-white text-purple-700 shadow-2xs font-black'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+                  }`}
+                >
+                  <PackageIcon className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Packages</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">
+                    Wasm
+                  </span>
+                </button>
               </div>
 
-              {activeTab === 'result' && lastResult && (
-                <button
-                  onClick={handleClearOutput}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                  title="Effacer les résultats"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
+              <div className="flex items-center shrink-0 border-l border-gray-200 pl-2">
+                {activeTab === 'result' && lastResult && (
+                  <button
+                    onClick={handleClearOutput}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    title="Effacer les résultats"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
 
-              {activeTab === 'objects' && (
-                <button
-                  onClick={refreshObjects}
-                  disabled={loadingObjects}
-                  className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
-                  title="Rafraîchir les objets"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loadingObjects ? 'animate-spin' : ''}`} />
-                </button>
-              )}
+                {activeTab === 'objects' && (
+                  <button
+                    onClick={refreshObjects}
+                    disabled={loadingObjects}
+                    className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all"
+                    title="Rafraîchir les objets"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingObjects ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
+
+                {activeTab === 'packages' && (
+                  <button
+                    onClick={checkPackagesStatus}
+                    className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                    title="Vérifier le statut des packages"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Tab Body Content */}
@@ -691,16 +798,67 @@ export default function ClientRPlayground() {
 
               {/* TAB 3: R SVG Graphics Display */}
               {activeTab === 'graphics' && (
-                <div className="space-y-3 font-sans text-xs flex flex-col items-center justify-center min-h-[260px]">
-                  {lastResult?.graphicDataUrl ? (
-                    <div className="w-full space-y-2 flex flex-col items-center">
-                      <div className="text-[11px] font-bold text-gray-400 flex items-center justify-between w-full pb-1 border-b border-gray-100">
-                        <span>Graphique R généré</span>
-                        <span className="text-pink-600">Image Bitmap (PNG)</span>
+                <div className="space-y-3 font-sans text-xs flex flex-col items-center justify-start min-h-[260px]">
+                  {lastResult?.graphics && lastResult.graphics.length > 0 ? (
+                    <div className="w-full space-y-4 flex flex-col items-center">
+                      
+                      {/* Graphics Selector (Tabs or Select) */}
+                      {lastResult.graphics.length > 1 && (
+                        <div className="w-full bg-gray-50 p-1.5 rounded-2xl border border-gray-100 flex flex-col sm:flex-row items-center gap-3">
+                          <div className="flex items-center gap-2 shrink-0 px-2">
+                            <BarChart2 className="w-4 h-4 text-pink-600" />
+                            <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                              Graphiques : {lastResult.graphics.length}
+                            </span>
+                          </div>
+
+                          {/* Desktop: Horizontal Tabs */}
+                          <div className="hidden sm:flex flex-wrap items-center gap-1 flex-1 overflow-x-auto no-scrollbar">
+                            {lastResult.graphics.map((_, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setActiveGraphicIndex(idx)}
+                                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all whitespace-nowrap ${
+                                  activeGraphicIndex === idx
+                                    ? 'bg-white text-pink-700 shadow-2xs ring-1 ring-pink-100'
+                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+                                }`}
+                              >
+                                Graphique {idx + 1}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Mobile: Native Select */}
+                          <div className="sm:hidden w-full px-2 pb-1">
+                            <select
+                              value={activeGraphicIndex}
+                              onChange={(e) => setActiveGraphicIndex(parseInt(e.target.value))}
+                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
+                            >
+                              {lastResult.graphics.map((_, idx) => (
+                                <option key={idx} value={idx}>
+                                  Graphique {idx + 1}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="w-full bg-white p-2 rounded-2xl border border-gray-200 flex justify-center overflow-auto max-h-[500px] shadow-2xs">
+                        <img 
+                          src={lastResult.graphics[activeGraphicIndex] || lastResult.graphicDataUrl} 
+                          alt={`Graphique R ${activeGraphicIndex + 1}`} 
+                          className="max-w-full h-auto object-contain rounded-lg"
+                        />
                       </div>
-                      <div className="w-full bg-white p-2 rounded-xl border border-gray-200 flex justify-center overflow-auto max-h-[400px]">
-                        <img src={lastResult.graphicDataUrl} alt="Graphique R" className="max-w-full h-auto" />
-                      </div>
+
+                      {lastResult.graphics.length > 1 && (
+                        <p className="text-[10px] text-gray-400 font-medium italic">
+                          Affichage du graphique {activeGraphicIndex + 1} sur {lastResult.graphics.length}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-12 text-gray-400 space-y-2">
@@ -711,6 +869,145 @@ export default function ClientRPlayground() {
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB 4: File Manager */}
+              {activeTab === 'files' && (
+                <div className="font-sans">
+                  <WebRFileManager 
+                    onFileImported={(meta) => {
+                      // Optionally generate a read snippet in the console if empty
+                      if (code === DEFAULT_R_CODE) {
+                        const ext = meta.name.split('.').pop()?.toLowerCase();
+                        if (ext === 'csv') {
+                          setCode(`donnees <- read.csv("${meta.name}")\nhead(donnees)`);
+                        } else if (ext === 'xlsx' || ext === 'xls') {
+                          setCode(`library(readxl)\ndonnees <- read_excel("${meta.name}")\nhead(donnees)`);
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* TAB 5: R Packages Manager */}
+              {activeTab === 'packages' && (
+                <div className="space-y-4 font-sans text-xs">
+                  {/* Search and info banner */}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Rechercher un package R (ex: ggplot2, dplyr, readxl)..."
+                        value={packageSearch}
+                        onChange={(e) => setPackageSearch(e.target.value)}
+                        className="w-full pl-9 pr-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                      />
+                    </div>
+
+                    {packageStatusMsg && (
+                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-[11px] flex items-center justify-between">
+                        <span>{packageStatusMsg}</span>
+                        <button onClick={() => setPackageStatusMsg(null)} className="text-emerald-600 hover:text-emerald-900 font-bold ml-2">
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 flex items-start gap-2">
+                      <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-slate-800">Chargement automatique :</strong> Écrivez simplement <code className="bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-emerald-700">library(ggplot2)</code> dans votre code. WebR détectera, téléchargera le binaire WebAssembly et activera le package automatiquement !
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* List of Known / Recommended Packages */}
+                  <div className="space-y-2">
+                    <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                      Packages vérifiés et optimisés WebAssembly
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      {Object.entries(WEBR_KNOWN_PACKAGES)
+                        .filter(([pkgName, info]) => 
+                          !packageSearch || 
+                          pkgName.toLowerCase().includes(packageSearch.toLowerCase()) || 
+                          info.title.toLowerCase().includes(packageSearch.toLowerCase()) ||
+                          info.category.toLowerCase().includes(packageSearch.toLowerCase())
+                        )
+                        .map(([pkgName, info]) => {
+                          const isInstalled = !!installedMap[pkgName];
+                          const isInstalling = !!installingMap[pkgName];
+
+                          return (
+                            <div
+                              key={pkgName}
+                              className="p-3 bg-white border border-gray-200 rounded-xl hover:border-emerald-200 hover:shadow-2xs transition-all flex items-center justify-between gap-3"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-black text-gray-900 text-sm">
+                                    {pkgName}
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-[10px] font-bold">
+                                    {info.category}
+                                  </span>
+                                  {isInstalled && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                                      <CheckCircle className="w-3 h-3" /> Installé
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                                  {info.title}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  onClick={() => handleLoadPackageSnippet(pkgName)}
+                                  className="px-2.5 py-1.5 bg-gray-100 hover:bg-purple-50 hover:text-purple-700 text-gray-700 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1"
+                                  title={`Insérer library(${pkgName}) dans l'éditeur`}
+                                >
+                                  <Code2 className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Utiliser</span>
+                                </button>
+
+                                {!isInstalled ? (
+                                  <button
+                                    onClick={() => handleInstallSinglePackage(pkgName)}
+                                    disabled={isInstalling}
+                                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 shadow-2xs"
+                                  >
+                                    {isInstalling ? (
+                                      <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>Installation...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Installer</span>
+                                      </>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleLoadPackageSnippet(pkgName)}
+                                    className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold hover:bg-emerald-100 transition-all"
+                                  >
+                                    Prêt
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
                 </div>
               )}
 
