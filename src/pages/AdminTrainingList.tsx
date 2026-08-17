@@ -22,7 +22,8 @@ import {
   HelpCircle,
   AlertCircle,
   Copy,
-  ExternalLink
+  ExternalLink,
+  BarChart3
 } from 'lucide-react';
 import { TrainingSession } from '../types';
 
@@ -237,13 +238,23 @@ export default function AdminTrainingList() {
             </div>
           </div>
 
-          <Link
-            to="/admin/training/new"
-            className="flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl transition-all shadow-md shadow-indigo-200 hover:shadow-lg shrink-0 active:scale-98"
-          >
-            <PlusCircle className="w-5 h-5" />
-            <span>+ Créer un entraînement</span>
-          </Link>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Link
+              to="/admin/training/stats"
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 text-sm font-bold rounded-2xl transition-all shadow-2xs hover:shadow-xs active:scale-98"
+            >
+              <BarChart3 className="w-5 h-5 text-emerald-600" />
+              <span>Tableau de Bord & Stats</span>
+            </Link>
+
+            <Link
+              to="/admin/training/new"
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl transition-all shadow-md shadow-indigo-200 hover:shadow-lg shrink-0 active:scale-98"
+            >
+              <PlusCircle className="w-5 h-5" />
+              <span>+ Créer un entraînement</span>
+            </Link>
+          </div>
         </div>
 
         {/* Quick Stats Banner */}

@@ -44,6 +44,7 @@ import AdminSessionsDashboard from './pages/AdminSessionsDashboard';
 import AdminActivityFeed from './pages/AdminActivityFeed';
 import AdminTrainingList from './pages/AdminTrainingList';
 import AdminTrainingEditor from './pages/AdminTrainingEditor';
+import AdminTrainingStats from './pages/AdminTrainingStats';
 import LiveDashboard from './pages/LiveDashboard';
 import LiveRoom from './pages/LiveRoom';
 import PublicLiveSessionPage from './pages/PublicLiveSessionPage';
@@ -230,6 +231,8 @@ export default function App() {
           <Route path="/admin/trainers" element={<ManageTrainers />} />
           <Route path="/admin/clients" element={<AdminClients />} />
           <Route path="/admin/training" element={<AdminTrainingList />} />
+          <Route path="/admin/training/stats" element={<AdminTrainingStats />} />
+          <Route path="/admin/training/dashboard" element={<AdminTrainingStats />} />
           <Route path="/admin/training/new" element={<AdminTrainingEditor />} />
           <Route path="/admin/training/:id" element={<AdminTrainingEditor />} />
           <Route path="/admin/sessions" element={<AdminSessionsDashboard />} />

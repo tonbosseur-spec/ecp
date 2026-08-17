@@ -25,7 +25,8 @@ import {
   Activity,
   Smartphone,
   Mail,
-  Brain
+  Brain,
+  BarChart3
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -321,6 +322,30 @@ export default function Dashboard() {
                 </h3>
                 <p className="text-[11px] sm:text-xs lg:text-[10px] xl:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">
                   Exercices & Quiz
+                </p>
+              </div>
+            </Link>
+
+            {/* TUILE 3B: Analytics Entraînements */}
+            <Link
+              to="/admin/training/stats"
+              className="group bg-white p-4 sm:p-5 lg:p-4 xl:p-5 rounded-3xl lg:rounded-2xl border border-indigo-100/80 shadow-sm hover:shadow-xl lg:hover:shadow-lg transition-all duration-300 flex flex-col justify-between aspect-square lg:aspect-auto lg:h-36 xl:h-40 relative overflow-hidden ring-1 ring-indigo-500/10 active:scale-95 lg:hover:-translate-y-1 bg-gradient-to-br from-white to-indigo-50/30"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-2xl lg:rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
+                  <BarChart3 className="w-6 h-6 sm:w-6 sm:h-6 lg:w-5 lg:h-5 xl:w-5 xl:h-5" />
+                </div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 lg:w-7 lg:h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 lg:w-4 lg:h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm sm:text-base lg:text-xs xl:text-sm font-extrabold text-gray-900 group-hover:text-indigo-900 transition-colors leading-snug flex items-center gap-1">
+                  <span>Stats Entraînements</span>
+                </h3>
+                <p className="text-[11px] sm:text-xs lg:text-[10px] xl:text-[11px] text-gray-500 mt-0.5 sm:mt-1 font-medium line-clamp-1">
+                  Essais, Notes & Questions
                 </p>
               </div>
             </Link>
