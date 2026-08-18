@@ -35,8 +35,10 @@ import {
   WebRStatus,
   WEBR_KNOWN_PACKAGES,
   installRPackage,
+  uninstallRPackage,
   isRPackageInstalled,
   getActivePackages,
+  getPersistedRPackages,
   PackageStatusInfo,
   subscribePackageProgress,
   listWebRFiles
@@ -117,12 +119,20 @@ export default function ClientRPlayground() {
     }
   }, [activeTab]);
 
+  // Check package status when WebR is ready or activeTab changes to packages
+  useEffect(() => {
+    if (webrStatus === 'ready') {
+      checkPackagesStatus();
+    }
+  }, [webrStatus]);
+
   const checkPackagesStatus = async () => {
     if (!webrEngine.isReady()) return;
     const knownKeys = Object.keys(WEBR_KNOWN_PACKAGES);
+    const persistedList = getPersistedRPackages();
     const newInstalledMap: Record<string, boolean> = { ...installedMap };
     for (const key of knownKeys) {
-      const isInst = await isRPackageInstalled(key);
+      const isInst = await isRPackageInstalled(key) || persistedList.includes(key);
       newInstalledMap[key] = isInst;
     }
     setInstalledMap(newInstalledMap);
@@ -136,7 +146,7 @@ export default function ClientRPlayground() {
       const res = await installRPackage(pkgName);
       if (res.success) {
         setInstalledMap(prev => ({ ...prev, [pkgName]: true }));
-        setPackageStatusMsg(`✅ Le package ${pkgName} est installé et prêt.`);
+        setPackageStatusMsg(`✅ Le package ${pkgName} est installé et conservé pour vos prochaines sessions.`);
       } else {
         setPackageStatusMsg(`❌ ${res.message}`);
       }
@@ -144,6 +154,16 @@ export default function ClientRPlayground() {
       setPackageStatusMsg(`❌ Erreur : ${err?.message || 'Échec de l\'installation.'}`);
     } finally {
       setInstallingMap(prev => ({ ...prev, [pkgName]: false }));
+    }
+  };
+
+  const handleUninstallSinglePackage = async (pkgName: string) => {
+    try {
+      await uninstallRPackage(pkgName);
+      setInstalledMap(prev => ({ ...prev, [pkgName]: false }));
+      setPackageStatusMsg(`ℹ️ Le package ${pkgName} a été retiré de vos packages enregistrés.`);
+    } catch (err: any) {
+      setPackageStatusMsg(`❌ Erreur : ${err?.message || 'Échec de la désinstallation.'}`);
     }
   };
 
@@ -882,18 +902,26 @@ export default function ClientRPlayground() {
                       </div>
                     )}
 
-                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 flex items-start gap-2">
-                      <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="text-slate-800">Chargement automatique :</strong> Écrivez simplement <code className="bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-emerald-700">library(ggplot2)</code> dans votre code. WebR détectera, téléchargera le binaire WebAssembly et activera le package automatiquement !
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-700 space-y-1.5">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="text-slate-800">Persistance & Chargement automatique :</strong> Vos packages installés sont automatiquement conservés dans le cache de votre navigateur. Même en actualisant la page ou en revenant plus tard, vos packages restent disponibles.
+                        </div>
+                      </div>
+                      <div className="text-[10.5px] text-slate-500 pl-6">
+                        Écrivez simplement <code className="bg-white px-1 py-0.5 rounded border border-slate-200 font-mono text-emerald-700">library(ggplot2)</code> dans votre code pour activer un package directement.
                       </div>
                     </div>
                   </div>
 
                   {/* List of Known / Recommended Packages */}
                   <div className="space-y-2">
-                    <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                      Packages vérifiés et optimisés WebAssembly
+                    <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                      <span>Packages vérifiés et optimisés WebAssembly</span>
+                      <span className="text-[10px] lowercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-normal">
+                        {Object.values(installedMap).filter(Boolean).length} actif(s)
+                      </span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2">
@@ -911,19 +939,21 @@ export default function ClientRPlayground() {
                           return (
                             <div
                               key={pkgName}
-                              className="p-3 bg-white border border-gray-200 rounded-xl hover:border-emerald-200 hover:shadow-2xs transition-all flex items-center justify-between gap-3"
+                              className={`p-3 bg-white border rounded-xl transition-all flex items-center justify-between gap-3 ${
+                                isInstalled ? 'border-emerald-200 bg-emerald-50/20 shadow-2xs' : 'border-gray-200 hover:border-gray-300'
+                              }`}
                             >
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-mono font-black text-gray-900 text-sm">
                                     {pkgName}
                                   </span>
-                                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-[10px] font-bold">
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-bold">
                                     {info.category}
                                   </span>
                                   {isInstalled && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
-                                      <CheckCircle className="w-3 h-3" /> Installé
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                      <CheckCircle className="w-3 h-3 text-emerald-600" /> Conservé & Prêt
                                     </span>
                                   )}
                                 </div>
@@ -962,10 +992,11 @@ export default function ClientRPlayground() {
                                   </button>
                                 ) : (
                                   <button
-                                    onClick={() => handleLoadPackageSnippet(pkgName)}
-                                    className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold hover:bg-emerald-100 transition-all"
+                                    onClick={() => handleUninstallSinglePackage(pkgName)}
+                                    className="px-2 py-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[11px] font-medium transition-all"
+                                    title="Retirer de vos packages persistés"
                                   >
-                                    Prêt
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 )}
                               </div>

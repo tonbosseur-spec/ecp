@@ -17,6 +17,10 @@ import {
   extractPackageRequirements,
   isPackageInstalled,
   installWebRPackage,
+  uninstallWebRPackage,
+  restorePersistedPackages,
+  getPersistedPackages,
+  removePersistedPackage,
   getTrackedPackages,
   PackageStatusInfo,
   PackageInstallResult,
@@ -353,6 +357,15 @@ class WebREngine {
 
         this.webRInstance = webR;
         this.setStatus('ready', 'R est prêt.');
+
+        // Restauration automatique et non-bloquante des packages enregistrés par l'utilisateur
+        restorePersistedPackages(webR).then((restored) => {
+          if (restored.length > 0) {
+            console.log(`[WebR] ${restored.length} package(s) restauré(s) avec succès : ${restored.join(', ')}`);
+          }
+        }).catch((e) => {
+          console.warn('[WebR] Restauration des packages:', e);
+        });
       } catch (err: any) {
         if (overallTimeoutId) clearTimeout(overallTimeoutId);
         console.error("Échec de l'initialisation de WebR :", err);
@@ -1204,6 +1217,9 @@ class WebREngine {
   /**
    * Installs an R package directly using WebR binary packages.
    */
+  /**
+   * Installs an R package directly using WebR binary packages and saves it persistently.
+   */
   public async installPackage(pkg: string): Promise<PackageInstallResult> {
     if (!this.isReady()) {
       await this.init();
@@ -1212,11 +1228,25 @@ class WebREngine {
   }
 
   /**
+   * Uninstalls/unmounts an R package from the active session and persistence.
+   */
+  public async uninstallPackage(pkg: string): Promise<{ success: boolean; message: string }> {
+    return uninstallWebRPackage(this.webRInstance, pkg);
+  }
+
+  /**
    * Checks if an R package is currently loaded or installed in this session.
    */
   public async isPackageInstalled(pkg: string): Promise<boolean> {
     if (!this.isReady()) return false;
     return isPackageInstalled(this.webRInstance, pkg);
+  }
+
+  /**
+   * Returns list of packages saved for persistent auto-restoration across reloads.
+   */
+  public getPersistedPackages(): string[] {
+    return getPersistedPackages();
   }
 
   /**
@@ -1328,8 +1358,11 @@ export const stopWebR = () => webrEngine.close();
 export const getWebRState = () => webrEngine.getState();
 export const subscribeWebRState = (listener: WebRStateListener) => webrEngine.subscribe(listener);
 export const installRPackage = (pkg: string) => webrEngine.installPackage(pkg);
+export const uninstallRPackage = (pkg: string) => webrEngine.uninstallPackage(pkg);
 export const isRPackageInstalled = (pkg: string) => webrEngine.isPackageInstalled(pkg);
 export const getActivePackages = () => webrEngine.getTrackedPackages();
+export const getPersistedRPackages = () => webrEngine.getPersistedPackages();
+export const removePersistedRPackage = (pkg: string) => removePersistedPackage(pkg);
 export const writeWebRFile = (path: string, data: Uint8Array | ArrayBuffer) => webrEngine.writeFile(path, data);
 export const readWebRFile = (path: string) => webrEngine.readFile(path);
 export const deleteWebRFile = (path: string) => webrEngine.unlink(path);

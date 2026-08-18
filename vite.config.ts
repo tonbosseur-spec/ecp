@@ -79,6 +79,20 @@ export default defineConfig({
               },
             },
           },
+          {
+            urlPattern: /^https:\/\/repo\.r-wasm\.org\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'r-wasm-packages-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 90 * 24 * 60 * 60, // 90 jours
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
         ],
       }
     })

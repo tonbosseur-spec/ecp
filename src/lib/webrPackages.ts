@@ -250,6 +250,140 @@ export async function isPackageInstalled(webrInstance: any, pkgName: string): Pr
 }
 
 /**
+ * Storage key for persisting installed packages across page reloads and browser sessions.
+ */
+export const PERSISTED_PACKAGES_STORAGE_KEY = 'ecp_persisted_r_packages';
+
+/**
+ * Retrieves the list of user-installed packages saved in localStorage.
+ */
+export function getPersistedPackages(): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = localStorage.getItem(PERSISTED_PACKAGES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(p => typeof p === 'string' && isValidRIdentifier(p)) : [];
+  } catch (e) {
+    console.warn("Erreur lecture packages persistés:", e);
+    return [];
+  }
+}
+
+/**
+ * Persists a newly installed package in localStorage.
+ */
+export function addPersistedPackage(pkgName: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const clean = pkgName.trim();
+  if (!clean || !isValidRIdentifier(clean) || isStandardBaseRPackage(clean)) return;
+
+  try {
+    const list = getPersistedPackages();
+    if (!list.includes(clean)) {
+      list.push(clean);
+      localStorage.setItem(PERSISTED_PACKAGES_STORAGE_KEY, JSON.stringify(list));
+      console.log(`[WebR Packages] Package « ${clean} » enregistré dans la persistance locale.`);
+    }
+  } catch (e) {
+    console.warn("Erreur sauvegarde package persisté:", e);
+  }
+}
+
+/**
+ * Removes a package from localStorage persistence.
+ */
+export function removePersistedPackage(pkgName: string): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  const clean = pkgName.trim();
+  try {
+    const list = getPersistedPackages().filter(p => p !== clean);
+    localStorage.setItem(PERSISTED_PACKAGES_STORAGE_KEY, JSON.stringify(list));
+    packageStatusCache.delete(clean);
+    console.log(`[WebR Packages] Package « ${clean} » retiré de la persistance locale.`);
+  } catch (e) {
+    console.warn("Erreur suppression package persisté:", e);
+  }
+}
+
+/**
+ * Restores all previously saved user packages into the freshly initialized WebR instance.
+ * Runs non-blocking in background, pulling binary packages from disk cache or CDN.
+ */
+export async function restorePersistedPackages(
+  webrInstance: any,
+  onProgress?: (event: PackageProgressEvent) => void
+): Promise<string[]> {
+  if (!webrInstance) return [];
+
+  const savedPackages = getPersistedPackages();
+  if (savedPackages.length === 0) return [];
+
+  console.log(`[WebR Packages] Restauration automatique de ${savedPackages.length} package(s) persisté(s) :`, savedPackages);
+  const restored: string[] = [];
+
+  for (const pkg of savedPackages) {
+    try {
+      const isAlready = await isPackageInstalled(webrInstance, pkg);
+      if (!isAlready) {
+        const res = await installWebRPackage(webrInstance, pkg, onProgress);
+        if (res.success) {
+          restored.push(pkg);
+        }
+      } else {
+        restored.push(pkg);
+      }
+    } catch (err) {
+      console.warn(`[WebR Packages] Échec de restauration pour « ${pkg} » :`, err);
+    }
+  }
+
+  return restored;
+}
+
+/**
+ * Uninstalls / unmounts a package from tracking and persistence.
+ */
+export async function uninstallWebRPackage(
+  webrInstance: any,
+  pkgName: string
+): Promise<{ success: boolean; message: string }> {
+  const clean = pkgName.trim();
+  removePersistedPackage(clean);
+
+  if (webrInstance) {
+    try {
+      // Detach from R search path if currently loaded
+      await webrInstance.evalR(`
+        if ("package:${clean}" %in% search()) {
+          try(detach("package:${clean}", unload = TRUE, character.only = TRUE), silent = TRUE)
+        }
+      `);
+    } catch {
+      // Ignore detach error
+    }
+  }
+
+  packageStatusCache.set(clean, {
+    name: clean,
+    status: 'not_installed',
+    lastChecked: Date.now(),
+  });
+
+  const event: PackageProgressEvent = {
+    pkg: clean,
+    type: 'installed',
+    message: `Le package « ${clean} » a été retiré de vos packages actifs.`,
+  };
+  notifyPackageProgress(event);
+
+  return {
+    success: true,
+    message: `Package « ${clean} » désactivé avec succès.`,
+  };
+}
+
+/**
  * Installs a single R package using WebR's binary repository.
  * Guarantees mutex / concurrency locking so duplicate parallel calls return the same promise.
  */
@@ -282,6 +416,7 @@ export async function installWebRPackage(
   // 1. Check if already installed
   const alreadyPresent = await isPackageInstalled(webrInstance, cleanPkg);
   if (alreadyPresent) {
+    addPersistedPackage(cleanPkg);
     const event: PackageProgressEvent = {
       pkg: cleanPkg,
       type: 'installed',
@@ -337,6 +472,9 @@ export async function installWebRPackage(
       );
 
       if (verifyInstalled) {
+        // Persist package to localStorage so it is automatically reloaded across browser sessions
+        addPersistedPackage(cleanPkg);
+
         packageStatusCache.set(cleanPkg, {
           name: cleanPkg,
           status: 'installed',
@@ -346,7 +484,7 @@ export async function installWebRPackage(
         const successEvent: PackageProgressEvent = {
           pkg: cleanPkg,
           type: 'installed',
-          message: `✅ Le package « ${cleanPkg} » a été installé avec succès et est prêt.`,
+          message: `✅ Le package « ${cleanPkg} » a été installé avec succès et sera conservé pour vos prochaines sessions.`,
         };
         notifyPackageProgress(successEvent);
         if (onProgress) onProgress(successEvent);

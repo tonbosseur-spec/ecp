@@ -55,24 +55,63 @@ import { Loader2 } from 'lucide-react';
 import { useNativeFeatures } from './hooks/useNativeFeatures';
 import { Capacitor } from '@capacitor/core';
 
+function isMobileEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (sessionStorage.getItem('ecp_force_desktop_web') === 'true') return false;
+  
+  const target = import.meta.env.VITE_APP_TARGET;
+  if (Capacitor.isNativePlatform() || target === 'client') return true;
+  
+  const isSmallScreen = window.innerWidth <= 768;
+  const isTouchMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent || navigator.vendor || (window as any).opera || ''
+  );
+  
+  return isSmallScreen || isTouchMobile;
+}
+
 function RootRedirector({ session }: { session: any }) {
   const target = import.meta.env.VITE_APP_TARGET;
   
   if (target === 'admin') {
     return <Navigate to="/login" replace />;
   }
+
+  const isMobile = isMobileEnvironment();
   
-  const isAndroidApp = Capacitor.isNativePlatform() || target === 'client';
-  
-  if (isAndroidApp) {
-    if (session) {
-      return <Navigate to="/client/hub" replace />;
-    }
-    const onboardingSeen = localStorage.getItem('ecp_mobile_onboarding_seen') === 'true';
-    if (onboardingSeen) {
+  if (isMobile) {
+    const sessionWelcomed = typeof window !== 'undefined' && sessionStorage.getItem('ecp_session_welcomed') === 'true';
+    
+    // Vérifier si l'utilisateur était récemment actif (ex: simple passage sur une autre app il y a moins de 30 min)
+    let isRecentlyActive = false;
+    try {
+      const lastActive = localStorage.getItem('ecp_last_activity_time');
+      if (lastActive) {
+        const timeDiff = Date.now() - parseInt(lastActive, 10);
+        if (timeDiff < 30 * 60 * 1000) { // 30 minutes
+          isRecentlyActive = true;
+        }
+      }
+    } catch (e) {}
+
+    // Si l'utilisateur est déjà en session active ou revient d'une autre application :
+    if (sessionWelcomed || isRecentlyActive) {
+      if (session) {
+        return <Navigate to="/client/hub" replace />;
+      }
+      const lastPath = typeof window !== 'undefined' ? sessionStorage.getItem('ecp_last_active_path') : null;
+      if (lastPath && lastPath !== '/' && lastPath !== '/mobile-landing') {
+        return <Navigate to={lastPath} replace />;
+      }
       return <Navigate to="/client/login" replace />;
     }
-    return <Navigate to="/mobile-landing" replace />;
+
+    // Premier lancement de la session (l'application ou le navigateur venait d'être fermé)
+    return <MobileLandingPage session={session} />;
+  }
+  
+  if (session) {
+    return <Navigate to="/client/hub" replace />;
   }
   
   return <LandingPage />;
@@ -163,6 +202,20 @@ export default function App() {
   }, [session?.user?.email]);
 
   const location = useLocation();
+
+  // Enregistrer l'activité et le chemin en cours pour préserver le travail lors du multitâche (changement d'app)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const currentPath = location.pathname;
+    
+    if (currentPath !== '/' && currentPath !== '/mobile-landing') {
+      try {
+        sessionStorage.setItem('ecp_session_welcomed', 'true');
+        sessionStorage.setItem('ecp_last_active_path', currentPath);
+        localStorage.setItem('ecp_last_activity_time', Date.now().toString());
+      } catch (e) {}
+    }
+  }, [location.pathname]);
 
   if (loading) {
     return (
