@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
@@ -27,7 +28,10 @@ interface RateLimitInfo {
 const rateLimits = new Map<string, RateLimitInfo>();
 
 // Servir les assets statiques WebR (R.wasm, vfs, etc.) avec en-têtes CORS et CORP appropriés
+const webrPublicPath = path.join(process.cwd(), 'public', 'webr');
 const webrDistPath = path.join(process.cwd(), 'node_modules', 'webr', 'dist');
+const webrStaticDir = fs.existsSync(webrPublicPath) ? webrPublicPath : webrDistPath;
+
 app.use('/webr', (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -37,7 +41,7 @@ app.use('/webr', (req, res, next) => {
     return res.sendStatus(204);
   }
   next();
-}, express.static(webrDistPath, {
+}, express.static(webrStaticDir, {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.wasm')) {
       res.setHeader('Content-Type', 'application/wasm');

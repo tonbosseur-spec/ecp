@@ -92,6 +92,13 @@ export interface RObjectInfo {
   previewData?: any;
 }
 
+export interface WebRExecuteOptions {
+  timeoutMs?: number;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  canvasPointSize?: number;
+}
+
 export interface WebRExecutionResult {
   success: boolean;
   output: string;
@@ -231,17 +238,17 @@ class WebREngine {
       return this.initPromise;
     }
 
-    const timeoutMs = 90000;
-    let timeoutId: NodeJS.Timeout | null = null;
+    const overallTimeoutMs = 60000;
+    let overallTimeoutId: NodeJS.Timeout | null = null;
 
     this.initPromise = (async () => {
       try {
         this.setStatus('loading', "Chargement de l'environnement R...");
 
         const timeoutPromise = new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(new Error("Le chargement de R prend trop de temps. Vérifiez votre connexion internet puis réessayez."));
-          }, timeoutMs);
+          overallTimeoutId = setTimeout(() => {
+            reject(new Error("Le chargement de R a dépassé le délai imparti. Vérifiez votre connexion internet puis réessayez."));
+          }, overallTimeoutMs);
         });
 
         const loadPromise = (async () => {
@@ -255,8 +262,6 @@ class WebREngine {
             return instance;
           };
 
-          // In sandboxed browser iframes or environments without cross-origin isolation,
-          // PostMessage is required to avoid SharedArrayBuffer security exceptions.
           const isIsolated = typeof window !== 'undefined' && window.crossOriginIsolated === true;
           const preferredChannel = isIsolated ? ChannelType.Automatic : ChannelType.PostMessage;
 
@@ -264,17 +269,8 @@ class WebREngine {
             ? `${window.location.origin}/webr/`
             : '/webr/';
 
-          const strategies: Array<{ name: string; options: any }> = [
-            // Strategy 1: Local self-hosted runtime with absolute URL
-            {
-              name: 'Local self-hosted (Absolute URL)',
-              options: {
-                baseUrl: localBaseUrl,
-                repoUrl: 'https://repo.r-wasm.org',
-                channelType: preferredChannel,
-              },
-            },
-            // Strategy 2: Official WebR Wasm CDN (PostMessage channel)
+          const strategies: Array<{ name: string; options: any; timeoutMs: number }> = [
+            // Strategy 1: Official CDN with PostMessage (Highest reliability across all browsers/iframes)
             {
               name: 'CDN WebR (https://webr.r-wasm.org/v0.6.0/)',
               options: {
@@ -282,8 +278,19 @@ class WebREngine {
                 repoUrl: 'https://repo.r-wasm.org',
                 channelType: ChannelType.PostMessage,
               },
+              timeoutMs: 15000,
             },
-            // Strategy 3: Relative path fallback
+            // Strategy 2: Local self-hosted runtime with absolute URL
+            {
+              name: 'Local self-hosted (Absolute URL)',
+              options: {
+                baseUrl: localBaseUrl,
+                repoUrl: 'https://repo.r-wasm.org',
+                channelType: preferredChannel,
+              },
+              timeoutMs: 12000,
+            },
+            // Strategy 3: Local fallback (Relative path)
             {
               name: 'Local fallback (Relative path)',
               options: {
@@ -291,21 +298,50 @@ class WebREngine {
                 repoUrl: 'https://repo.r-wasm.org',
                 channelType: ChannelType.PostMessage,
               },
+              timeoutMs: 10000,
+            },
+            // Strategy 4: Default WebR package setup
+            {
+              name: 'Default package options',
+              options: {
+                channelType: ChannelType.PostMessage,
+              },
+              timeoutMs: 12000,
             },
           ];
 
           let lastError: any = null;
           for (const strat of strategies) {
+            let stratTimer: NodeJS.Timeout | null = null;
+            let currentWebRInstance: any = null;
+
             try {
-              console.log(`[WebR] Initialisation du moteur via : ${strat.name}...`);
-              const webR = new WebR(strat.options);
-              await webR.init();
-              await verifyInstance(webR);
+              console.log(`[WebR] Tentative d'initialisation via : ${strat.name}...`);
+              currentWebRInstance = new WebR(strat.options);
+
+              const stratTimeoutPromise = new Promise<never>((_, reject) => {
+                stratTimer = setTimeout(() => {
+                  reject(new Error(`Timeout de ${strat.timeoutMs}ms dépassé pour ${strat.name}`));
+                }, strat.timeoutMs);
+              });
+
+              await Promise.race([currentWebRInstance.init(), stratTimeoutPromise]);
+              await Promise.race([verifyInstance(currentWebRInstance), stratTimeoutPromise]);
+
+              if (stratTimer) clearTimeout(stratTimer);
               console.log(`[WebR] Initialisation réussie avec succès via : ${strat.name}`);
-              return webR;
+              return currentWebRInstance;
             } catch (err: any) {
+              if (stratTimer) clearTimeout(stratTimer);
               console.warn(`[WebR] Échec avec ${strat.name} :`, err?.message || err);
               lastError = err;
+              if (currentWebRInstance && typeof currentWebRInstance.close === 'function') {
+                try {
+                  await currentWebRInstance.close();
+                } catch {
+                  // Ignore cleanup error
+                }
+              }
             }
           }
 
@@ -313,12 +349,12 @@ class WebREngine {
         })();
 
         const webR = await Promise.race([loadPromise, timeoutPromise]);
-        if (timeoutId) clearTimeout(timeoutId);
+        if (overallTimeoutId) clearTimeout(overallTimeoutId);
 
         this.webRInstance = webR;
         this.setStatus('ready', 'R est prêt.');
       } catch (err: any) {
-        if (timeoutId) clearTimeout(timeoutId);
+        if (overallTimeoutId) clearTimeout(overallTimeoutId);
         console.error("Échec de l'initialisation de WebR :", err);
         const errMsg = err?.message || "Impossible de charger le moteur R dans ce navigateur.";
         this.setStatus('error', errMsg, errMsg);
@@ -340,7 +376,7 @@ class WebREngine {
    */
   public async execute(
     code: string,
-    options: { timeoutMs?: number } = {}
+    options: WebRExecuteOptions = {}
   ): Promise<WebRExecutionResult> {
     if (!this.isReady()) {
       // Auto-initialize if not done yet
@@ -406,6 +442,30 @@ class WebREngine {
     try {
       // Create a Shelter for safe R evaluation and memory cleanup
       const shelter = await new this.webRInstance.Shelter();
+
+      // Configure graphic device dimensions dynamically based on requested options
+      const canvasWidth = options.canvasWidth;
+      const canvasHeight = options.canvasHeight;
+      const pointSize = options.canvasPointSize || (canvasWidth && Math.min(canvasWidth, canvasHeight || 600) >= 800 ? 14 : 12);
+
+      if (canvasWidth && canvasHeight) {
+        await shelter.evalR(`
+          options(
+            webr.fig.width = ${Math.round(canvasWidth)},
+            webr.fig.height = ${Math.round(canvasHeight)},
+            webr.fig.pointsize = ${pointSize}
+          )
+        `);
+      } else {
+        // Standard normal default: 504x504, pointsize 12
+        await shelter.evalR(`
+          options(
+            webr.fig.width = 504,
+            webr.fig.height = 504,
+            webr.fig.pointsize = 12
+          )
+        `);
+      }
 
       // Define harmless install.packages shim inside shelter so R doesn't attempt CRAN source compilation
       await shelter.evalR(`
@@ -1259,7 +1319,7 @@ export const webrEngine = WebREngine.getInstance();
 export const initWebR = () => webrEngine.init();
 export const isWebRReady = () => webrEngine.isReady();
 export const isWebRRunning = () => webrEngine.isRunning();
-export const executeRCode = (code: string, options?: { timeoutMs?: number }) => webrEngine.execute(code, options);
+export const executeRCode = (code: string, options?: WebRExecuteOptions) => webrEngine.execute(code, options);
 export const validateCode = (code: string, testCases: RTestCase[] | string | any, options?: ValidateCodeOptions) => webrEngine.validateCode(code, testCases, options);
 export const validateRCode = validateCode;
 export const getEnvironmentObjects = () => webrEngine.getEnvironmentObjects();

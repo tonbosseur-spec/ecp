@@ -27,6 +27,7 @@ import {
   WebRExecutionResult 
 } from '../lib/webrEngine';
 import WebRFileManager from './WebRFileManager';
+import RGraphicViewer from './RGraphicViewer';
 
 export interface REditorConsoleRef {
   focus: () => void;
@@ -239,6 +240,23 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
         errors: [errorMsg],
         executionTimeMs: 0
       });
+    }
+  };
+
+  // Re-render graphics with custom canvas dimensions (for full screen)
+  const handleReRenderGraphics = async (dimensions: { width: number; height: number }) => {
+    if (engineState.isRunning || !currentCode.trim()) return;
+    try {
+      const result = await executeRCode(currentCode, {
+        canvasWidth: dimensions.width,
+        canvasHeight: dimensions.height,
+      });
+      setLastResult(result);
+      if (onExecute) {
+        onExecute(result);
+      }
+    } catch (err: any) {
+      console.warn("Erreur re-render graphique:", err);
     }
   };
 
@@ -588,53 +606,15 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
 
               {/* Render Plot Graphic if created (ggplot2, plot, etc.) */}
               {lastResult?.graphics && lastResult.graphics.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col items-center">
-                  <div className="w-full flex items-center justify-between mb-3">
-                    <div className="text-[11px] font-sans font-black text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
-                      <BarChart2 className="w-3.5 h-3.5" />
-                      Graphiques R ({lastResult.graphics.length})
-                    </div>
-                    
-                    {/* Compact Selector for Console */}
-                    {lastResult.graphics.length > 1 && (
-                      <div className="flex items-center gap-1.5 bg-slate-800/50 p-1 rounded-xl border border-slate-700">
-                        <select
-                          value={activeGraphicIndex}
-                          onChange={(e) => setActiveGraphicIndex(parseInt(e.target.value))}
-                          className="bg-transparent text-[10px] font-bold text-slate-300 focus:outline-none px-1"
-                        >
-                          {lastResult.graphics.map((_, idx) => (
-                            <option key={idx} value={idx} className="bg-slate-900">
-                              N° {idx + 1}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-white p-2.5 rounded-2xl shadow-xl border border-slate-700 w-full flex justify-center overflow-hidden group">
-                    <img 
-                      src={lastResult.graphics[activeGraphicIndex] || lastResult.graphicDataUrl} 
-                      alt={`Graphique R ${activeGraphicIndex + 1}`} 
-                      className="max-h-[320px] w-auto object-contain rounded-lg transition-transform duration-300 group-hover:scale-[1.02]"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  
-                  {lastResult.graphics.length > 1 && (
-                    <div className="mt-3 flex gap-1 justify-center">
-                      {lastResult.graphics.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setActiveGraphicIndex(idx)}
-                          className={`w-1.5 h-1.5 rounded-full transition-all ${
-                            activeGraphicIndex === idx ? 'bg-sky-400 w-4' : 'bg-slate-700'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  )}
+                <div className="mt-4 pt-4 border-t border-slate-800 w-full">
+                  <RGraphicViewer
+                    graphics={lastResult.graphics}
+                    graphicDataUrl={lastResult.graphicDataUrl}
+                    onReRender={handleReRenderGraphics}
+                    isReRendering={engineState.isRunning}
+                    title="Graphique R"
+                    variant="dark"
+                  />
                 </div>
               )}
             </div>

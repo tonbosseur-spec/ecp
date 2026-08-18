@@ -42,6 +42,7 @@ import {
   listWebRFiles
 } from '../lib/webrEngine';
 import WebRFileManager from '../components/WebRFileManager';
+import RGraphicViewer from '../components/RGraphicViewer';
 
 const DEFAULT_R_CODE = `# Bienvenue dans R libre !
 
@@ -200,6 +201,23 @@ export default function ClientRPlayground() {
         executionTimeMs: 0
       });
       setActiveTab('result');
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  // Re-render graphics when fullscreen requested or resized
+  const handleReRenderGraphics = async (dimensions: { width: number; height: number }) => {
+    if (executing || !code.trim()) return;
+    setExecuting(true);
+    try {
+      const result = await webrEngine.execute(code, {
+        canvasWidth: dimensions.width,
+        canvasHeight: dimensions.height,
+      });
+      setLastResult(result);
+    } catch (err: any) {
+      console.warn("Erreur re-render graphique:", err);
     } finally {
       setExecuting(false);
     }
@@ -800,66 +818,14 @@ export default function ClientRPlayground() {
               {activeTab === 'graphics' && (
                 <div className="space-y-3 font-sans text-xs flex flex-col items-center justify-start min-h-[260px]">
                   {lastResult?.graphics && lastResult.graphics.length > 0 ? (
-                    <div className="w-full space-y-4 flex flex-col items-center">
-                      
-                      {/* Graphics Selector (Tabs or Select) */}
-                      {lastResult.graphics.length > 1 && (
-                        <div className="w-full bg-gray-50 p-1.5 rounded-2xl border border-gray-100 flex flex-col sm:flex-row items-center gap-3">
-                          <div className="flex items-center gap-2 shrink-0 px-2">
-                            <BarChart2 className="w-4 h-4 text-pink-600" />
-                            <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">
-                              Graphiques : {lastResult.graphics.length}
-                            </span>
-                          </div>
-
-                          {/* Desktop: Horizontal Tabs */}
-                          <div className="hidden sm:flex flex-wrap items-center gap-1 flex-1 overflow-x-auto no-scrollbar">
-                            {lastResult.graphics.map((_, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => setActiveGraphicIndex(idx)}
-                                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all whitespace-nowrap ${
-                                  activeGraphicIndex === idx
-                                    ? 'bg-white text-pink-700 shadow-2xs ring-1 ring-pink-100'
-                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
-                                }`}
-                              >
-                                Graphique {idx + 1}
-                              </button>
-                            ))}
-                          </div>
-
-                          {/* Mobile: Native Select */}
-                          <div className="sm:hidden w-full px-2 pb-1">
-                            <select
-                              value={activeGraphicIndex}
-                              onChange={(e) => setActiveGraphicIndex(parseInt(e.target.value))}
-                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-pink-500/20"
-                            >
-                              {lastResult.graphics.map((_, idx) => (
-                                <option key={idx} value={idx}>
-                                  Graphique {idx + 1}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="w-full bg-white p-2 rounded-2xl border border-gray-200 flex justify-center overflow-auto max-h-[500px] shadow-2xs">
-                        <img 
-                          src={lastResult.graphics[activeGraphicIndex] || lastResult.graphicDataUrl} 
-                          alt={`Graphique R ${activeGraphicIndex + 1}`} 
-                          className="max-w-full h-auto object-contain rounded-lg"
-                        />
-                      </div>
-
-                      {lastResult.graphics.length > 1 && (
-                        <p className="text-[10px] text-gray-400 font-medium italic">
-                          Affichage du graphique {activeGraphicIndex + 1} sur {lastResult.graphics.length}
-                        </p>
-                      )}
-                    </div>
+                    <RGraphicViewer
+                      graphics={lastResult.graphics}
+                      graphicDataUrl={lastResult.graphicDataUrl}
+                      onReRender={handleReRenderGraphics}
+                      isReRendering={executing}
+                      title="Graphique R"
+                      variant="playground"
+                    />
                   ) : (
                     <div className="text-center py-12 text-gray-400 space-y-2">
                       <BarChart2 className="w-12 h-12 mx-auto opacity-30 text-pink-600" />
