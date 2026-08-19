@@ -27,6 +27,8 @@ import ClientPaymentResult from './pages/ClientPaymentResult';
 import MobileLandingPage from './pages/MobileLandingPage';
 import ClientCourseView from './pages/ClientCourseView';
 import ClientModuleView from './pages/ClientModuleView';
+import ClientInteractiveCourseView from './pages/ClientInteractiveCourseView';
+import ClientInteractiveActivityPlayer from './pages/ClientInteractiveActivityPlayer';
 import Marketplace from './pages/Marketplace';
 import LandingPage from './pages/LandingPage';
 import ExpertisesPage from './pages/ExpertisesPage';
@@ -260,6 +262,8 @@ export default function App() {
       <Route path="/client/payment/result" element={<PageTransition><ClientPaymentResult /></PageTransition>} />
       <Route path="/client/course/:courseId" element={<PageTransition><ClientCourseView /></PageTransition>} />
       <Route path="/client/course/:courseId/module/:moduleId" element={<PageTransition><ClientModuleView /></PageTransition>} />
+      <Route path="/client/interactive-course/:courseId" element={<PageTransition><ClientInteractiveCourseView /></PageTransition>} />
+      <Route path="/client/interactive-course/:courseId/lesson/:lessonId" element={<PageTransition><ClientInteractiveActivityPlayer /></PageTransition>} />
       <Route path="/catalogue" element={<PageTransition><Marketplace /></PageTransition>} />
       
       {/* Live Visioconference Module Routes + Compatibility Redirect */}

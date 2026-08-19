@@ -65,6 +65,7 @@ export default function ClientHub() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [interactiveCourses, setInteractiveCourses] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage' | 'settings' | 'more' | 'files'>('hub');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -201,6 +202,8 @@ export default function ClientHub() {
         if (cachedPayments) setPayments(cachedPayments);
         if (cachedProgress) setAllCompletedModuleIds(cachedProgress);
         if (cachedProposals) setProposals(cachedProposals);
+        const cachedInteractive = loadFromCache('interactive_courses_' + userId);
+        if (cachedInteractive) setInteractiveCourses(cachedInteractive);
 
         if (!navigator.onLine) {
           setLoading(false);
@@ -295,6 +298,32 @@ export default function ClientHub() {
         if (propData) {
           setProposals(propData);
           saveToCache('proposals_' + userId, propData);
+        }
+
+        // Fetch published interactive courses
+        try {
+          const { data: interactiveData, error: interactiveError } = await supabase
+            .from('interactive_courses')
+            .select(`
+              *,
+              interactive_course_modules (
+                id,
+                title,
+                interactive_course_lessons (
+                  id,
+                  interactive_activities (id)
+                )
+              )
+            `)
+            .eq('status', 'published')
+            .order('created_at', { ascending: false });
+
+          if (!interactiveError && interactiveData) {
+            setInteractiveCourses(interactiveData);
+            saveToCache('interactive_courses_' + userId, interactiveData);
+          }
+        } catch (interactiveErr) {
+          console.warn("Notice: chargement cours interactifs:", interactiveErr);
         }
       } catch (err) {
         console.error("Erreur chargement hub:", err);
@@ -820,6 +849,90 @@ export default function ClientHub() {
                 </div>
               </button>
 
+            </div>
+
+            {/* Section Cours Interactifs & Auto-formation */}
+            <div className="mt-10">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">
+                      Cours interactifs & Auto-formation
+                    </h3>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                      <Sparkles className="w-3 h-3 text-sky-500" />
+                      Nouveau
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Apprenez à votre rythme avec nos parcours pas à pas
+                  </p>
+                </div>
+              </div>
+
+              {interactiveCourses.length === 0 ? (
+                <div className="bg-white rounded-2xl md:rounded-3xl border border-gray-100 p-6 text-center shadow-xs">
+                  <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mx-auto mb-3">
+                    <BookOpen className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-gray-900 mb-1">
+                    Parcours interactifs en cours de publication
+                  </h4>
+                  <p className="text-xs text-gray-500 max-w-md mx-auto">
+                    De nouveaux cours autonomes avec exercices pratiques seront bientôt disponibles ici.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {interactiveCourses.map((course) => {
+                    const modulesCount = course.interactive_course_modules?.length || 0;
+                    const lessonsCount = (course.interactive_course_modules || []).reduce(
+                      (acc: number, m: any) => acc + (m.interactive_course_lessons?.length || 0),
+                      0
+                    );
+
+                    return (
+                      <Link
+                        key={course.id}
+                        to={`/client/interactive-course/${course.id}`}
+                        className="bg-white border border-gray-100 hover:border-sky-200 rounded-2xl md:rounded-3xl p-5 shadow-xs hover:shadow-lg hover:shadow-sky-900/5 transition-all group flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-100">
+                              {course.category}
+                            </span>
+                            <span className="text-[11px] font-medium text-gray-400">
+                              {course.level === 'beginner' ? 'Débutant' : course.level === 'intermediate' ? 'Intermédiaire' : 'Avancé'}
+                            </span>
+                          </div>
+
+                          <h4 className="text-base font-bold text-gray-900 group-hover:text-sky-600 transition-colors line-clamp-2 mb-1.5">
+                            {course.title}
+                          </h4>
+
+                          {course.description && (
+                            <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-4">
+                              {course.description}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-50 flex items-center justify-between mt-2">
+                          <div className="text-[11px] font-medium text-gray-400">
+                            {modulesCount} chap. • {lessonsCount} leçon{lessonsCount !== 1 ? 's' : ''}
+                          </div>
+
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-sky-600 group-hover:translate-x-0.5 transition-transform">
+                            <span>Accéder</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
           </div>

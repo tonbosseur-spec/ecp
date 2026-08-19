@@ -96,3 +96,96 @@ export interface TrainingExerciseAttempt {
   updated_at?: string;
 }
 
+// Interactive Autonomous Course Types
+export type InteractiveCourseLevel = 'beginner' | 'intermediate' | 'advanced';
+export type InteractiveCourseCategory = 'R' | 'Excel' | 'Power BI' | 'SQL' | 'Python' | 'DAX' | 'General';
+export type InteractiveCourseStatus = 'draft' | 'published' | 'archived';
+export type InteractiveActivityType = 
+  | 'text' 
+  | 'video' 
+  | 'image' 
+  | 'quiz' 
+  | 'code_r' 
+  | 'challenge' 
+  | 'assessment' 
+  | 'code_python' 
+  | 'code_sql' 
+  | 'code_excel' 
+  | 'code_dax';
+
+export interface InteractiveCourse {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  cover_image?: string | null;
+  level: InteractiveCourseLevel;
+  category: InteractiveCourseCategory;
+  estimated_duration: number;
+  status: InteractiveCourseStatus;
+  access_policy: {
+    type: 'free' | 'premium' | 'linked_course' | 'restricted';
+    linked_course_id?: string;
+    allowed_domain?: string;
+    [key: string]: any;
+  };
+  created_at?: string;
+  updated_at?: string;
+  published_at?: string | null;
+  interactive_course_modules?: InteractiveCourseModule[];
+}
+
+export interface InteractiveCourseModule {
+  id: string;
+  course_id: string;
+  title: string;
+  description?: string | null;
+  position: number;
+  created_at?: string;
+  updated_at?: string;
+  interactive_course_lessons?: InteractiveCourseLesson[];
+}
+
+export interface InteractiveCourseLesson {
+  id: string;
+  module_id: string;
+  title: string;
+  description?: string | null;
+  position: number;
+  estimated_duration: number;
+  created_at?: string;
+  updated_at?: string;
+  interactive_activities?: InteractiveActivity[];
+}
+
+export interface InteractiveActivity {
+  id: string;
+  lesson_id: string;
+  activity_type: InteractiveActivityType;
+  title: string;
+  instructions: string;
+  position: number;
+  is_required: boolean;
+  points: number;
+  configuration: {
+    video_url?: string;
+    image_url?: string;
+    caption?: string;
+    content?: string;
+    questions?: {
+      id?: string;
+      question: string;
+      options: string[];
+      explanation?: string;
+      correctAnswerIndex?: number;
+    }[];
+    options?: string[];
+    question?: string;
+    starter_code?: string;
+    [key: string]: any;
+  };
+  hints: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
