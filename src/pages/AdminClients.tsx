@@ -691,7 +691,7 @@ export default function AdminClients() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/admin/dashboard')}
               className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all flex items-center justify-center shrink-0"
               title="Retour à l'accueil admin"
             >
@@ -699,149 +699,38 @@ export default function AdminClients() {
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">
-                  Espace Client
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  {activeTab === 'payments' && 'Finances & Ventes'}
+                  {activeTab === 'service_requests' && 'Prestations Sur Mesure'}
+                  {activeTab === 'proposals' && 'Prospection & Idées'}
+                  {activeTab === 'students' && 'Apprenants & Inscriptions'}
+                  {activeTab === 'commerciaux' && 'Affiliation & Codes Promo'}
+                  {activeTab === 'all_clients' && 'Base de Données Clients'}
                 </span>
+                {activeTab === 'payments' && pendingPayments.length > 0 && (
+                  <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full animate-pulse">
+                    {pendingPayments.length} en attente
+                  </span>
+                )}
               </div>
-              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Gestion clients</h1>
-              <p className="text-xs sm:text-sm text-gray-500">Paiements, propositions, apprenants, promo et messagerie</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-          <button
-            onClick={() => changeTab('payments')}
-            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 relative ${
-              activeTab === 'payments'
-                ? 'bg-emerald-900 text-white border-emerald-900 shadow-md ring-2 ring-emerald-600'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-emerald-200 shadow-sm'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <CreditCard className={`w-5 h-5 ${activeTab === 'payments' ? 'text-white' : 'text-emerald-600'}`} />
-              {pendingPayments.length > 0 && (
-                <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-black rounded-full animate-pulse">
-                  {pendingPayments.length}
-                </span>
-              )}
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Paiements</h3>
-              <p className={`text-[11px] ${activeTab === 'payments' ? 'text-emerald-200' : 'text-gray-500'}`}>En attente</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => changeTab('service_requests')}
-            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 relative ${
-              activeTab === 'service_requests'
-                ? 'bg-teal-900 text-white border-teal-900 shadow-md ring-2 ring-teal-600'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-teal-200 shadow-sm'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <Briefcase className={`w-5 h-5 ${activeTab === 'service_requests' ? 'text-white' : 'text-teal-600'}`} />
-              {serviceRequests.filter(sr => sr.status === 'Nouvelle').length > 0 && (
-                <span className="px-2 py-0.5 bg-emerald-500 text-white text-[10px] font-black rounded-full animate-pulse">
-                  {serviceRequests.filter(sr => sr.status === 'Nouvelle').length}
-                </span>
-              )}
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Prestations</h3>
-              <p className={`text-[11px] ${activeTab === 'service_requests' ? 'text-teal-200' : 'text-gray-500'}`}>Demandes services</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => changeTab('proposals')}
-            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 ${
-              activeTab === 'proposals'
-                ? 'bg-blue-900 text-white border-blue-900 shadow-md ring-2 ring-blue-600'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-blue-200 shadow-sm'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <Lightbulb className={`w-5 h-5 ${activeTab === 'proposals' ? 'text-white' : 'text-blue-600'}`} />
-              {proposals.length > 0 && (
-                <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] font-black rounded-full">
-                  {proposals.length}
-                </span>
-              )}
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Idées / Demandes</h3>
-              <p className={`text-[11px] ${activeTab === 'proposals' ? 'text-blue-200' : 'text-gray-500'}`}>Propositions</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => changeTab('students')}
-            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 ${
-              activeTab === 'students'
-                ? 'bg-purple-900 text-white border-purple-900 shadow-md ring-2 ring-purple-600'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-purple-200 shadow-sm'
-            }`}
-          >
-            <Users className={`w-5 h-5 ${activeTab === 'students' ? 'text-white' : 'text-purple-600'}`} />
-            <div>
-              <h3 className="font-bold text-sm">Apprenants</h3>
-              <p className={`text-[11px] ${activeTab === 'students' ? 'text-purple-200' : 'text-gray-500'}`}>Suivi & accès</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => changeTab('commerciaux')}
-            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 ${
-              activeTab === 'commerciaux'
-                ? 'bg-amber-900 text-white border-amber-900 shadow-md ring-2 ring-amber-600'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-amber-200 shadow-sm'
-            }`}
-          >
-            <Gift className={`w-5 h-5 ${activeTab === 'commerciaux' ? 'text-white' : 'text-amber-500'}`} />
-            <div>
-              <h3 className="font-bold text-sm">Commerciaux & Promo</h3>
-              <p className={`text-[11px] ${activeTab === 'commerciaux' ? 'text-amber-200' : 'text-gray-500'}`}>Codes de réduction</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => changeTab('messages')}
-            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 col-span-2 sm:col-span-1 ${
-              (activeTab as string) === 'messages'
-                ? 'bg-gray-900 text-white border-gray-900 shadow-md'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-gray-300 shadow-sm'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <MessageSquare className={`w-5 h-5 ${(activeTab as string) === 'messages' ? 'text-white' : 'text-indigo-600'}`} />
-              {unreadMessagesCount > 0 && (
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-              )}
-            </div>
-            <div>
-              <h3 className="font-bold text-sm">Messages</h3>
-              <p className={`text-[11px] ${(activeTab as string) === 'messages' ? 'text-gray-300' : 'text-gray-500'}`}>
-                {unreadMessagesCount > 0 ? `${unreadMessagesCount} non lu(s)` : 'Messagerie'}
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-1">
+                {activeTab === 'payments' && 'Validation des Paiements'}
+                {activeTab === 'service_requests' && 'Demandes de Services'}
+                {activeTab === 'proposals' && 'Propositions de Projets'}
+                {activeTab === 'students' && 'Suivi des Apprenants'}
+                {activeTab === 'commerciaux' && 'Commerciaux & Codes Promo'}
+                {activeTab === 'all_clients' && 'Base de Données Clients'}
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500">
+                {activeTab === 'payments' && 'Vérifiez les reçus de paiement et validez les accès aux formations.'}
+                {activeTab === 'service_requests' && 'Consultez et répondez aux demandes d’accompagnement et de prestations sur mesure.'}
+                {activeTab === 'proposals' && 'Idées, retours et propositions de formations soumises par les apprenants.'}
+                {activeTab === 'students' && 'Suivi des cours suivis, taux de complétion et contact direct avec les élèves.'}
+                {activeTab === 'commerciaux' && 'Codes promotionnels, suivi des ventes affiliées et commissions commerciales.'}
+                {activeTab === 'all_clients' && 'Tous les profils enregistrés avec coordonnées et date d’inscription.'}
               </p>
             </div>
-          </button>
-          <button
-            onClick={() => changeTab('all_clients')}
-            className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 col-span-2 sm:col-span-1 ${
-              activeTab === 'all_clients'
-                ? 'bg-sky-900 text-white border-sky-900 shadow-md ring-2 ring-sky-600'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-sky-200 shadow-sm'
-            }`}
-          >
-            <Users className={`w-5 h-5 ${activeTab === 'all_clients' ? 'text-white' : 'text-sky-600'}`} />
-            <div>
-              <h3 className="font-bold text-sm">Inscrits</h3>
-              <p className={`text-[11px] ${activeTab === 'all_clients' ? 'text-sky-200' : 'text-gray-500'}`}>Base de données</p>
-            </div>
-          </button>
+          </div>
         </div>
 
         {/* TAB DEMANDES DE SERVICES / PRESTATIONS */}

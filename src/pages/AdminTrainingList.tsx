@@ -215,7 +215,7 @@ export default function AdminTrainingList() {
         
         {/* Header with Back Button & New Training CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <button
               onClick={() => navigate('/dashboard')}
               className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl transition-all flex items-center justify-center shrink-0"
@@ -223,37 +223,38 @@ export default function AdminTrainingList() {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1 shrink-0">
                   <Brain className="w-3 h-3 text-indigo-600" />
                   Espace Pédagogique
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mt-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-gray-900 tracking-tight mt-1 truncate">
                 Centre d'entraînement
               </h1>
-              <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">
-                Créez et gérez les exercices interactifs de vos formations.
+              <p className="text-[10px] sm:text-sm text-gray-500 font-medium mt-0.5 truncate sm:whitespace-normal">
+                Créez et gérez les exercices interactifs.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex flex-row items-center gap-2 shrink-0">
             <Link
               to="/admin/training/stats"
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 text-sm font-bold rounded-2xl transition-all shadow-2xs hover:shadow-xs active:scale-98"
+              className="flex items-center justify-center p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 rounded-2xl transition-all shadow-2xs hover:shadow-xs active:scale-95"
+              title="Statistiques"
             >
               <BarChart3 className="w-5 h-5 text-emerald-600" />
-              <span>Tableau de Bord & Stats</span>
+              <span className="hidden lg:inline ml-2 text-sm font-bold">Statistiques</span>
             </Link>
 
             <Link
               to="/admin/training/new"
-              className="flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl transition-all shadow-md shadow-indigo-200 hover:shadow-lg shrink-0 active:scale-98"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl transition-all shadow-md shadow-indigo-200 hover:shadow-lg active:scale-95 whitespace-nowrap"
             >
-              <PlusCircle className="w-5 h-5" />
-              <span>+ Créer un entraînement</span>
+              <PlusCircle className="w-5 h-5 shrink-0" />
+              <span>Nouveau</span>
             </Link>
           </div>
         </div>
@@ -505,13 +506,13 @@ export default function AdminTrainingList() {
                       onClick={() => {
                         const link = `${window.location.origin}/training/${session.slug || session.id}`;
                         navigator.clipboard.writeText(link);
-                        toast.success('Lien public copié dans le presse-papier !');
+                        toast.success('Lien public copié !');
                       }}
-                      className="p-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
-                      title="Copier le lien public de la présentation"
+                      className="flex-1 sm:flex-none p-2 sm:p-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                      title="Copier le lien public"
                     >
-                      <Copy className="w-4 h-4" />
-                      <span className="hidden sm:inline">Copier le lien</span>
+                      <Copy className="w-3.5 h-3.5 sm:w-4 h-4" />
+                      <span className="sm:inline">Lien</span>
                     </button>
 
                     {/* Open Public Page */}
@@ -519,34 +520,33 @@ export default function AdminTrainingList() {
                       href={`/training/${session.slug || session.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
+                      className="p-2 sm:p-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 rounded-xl transition-all active:scale-95"
                       title="Ouvrir la page publique"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-3.5 h-3.5 sm:w-4 h-4" />
                     </a>
 
                     {/* Toggle Publish */}
                     <button
                       onClick={() => handleTogglePublish(session)}
                       disabled={isActionLoading}
-                      className={`p-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
+                      className={`flex-1 sm:flex-none p-2 sm:p-2.5 rounded-xl border text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 ${
                         session.is_published
                           ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
                           : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
                       }`}
-                      title={session.is_published ? 'Dépublier (passer en brouillon)' : 'Publier l\'entraînement'}
                     >
                       {isActionLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 sm:w-4 h-4 animate-spin" />
                       ) : session.is_published ? (
                         <>
-                          <EyeOff className="w-4 h-4" />
-                          <span className="hidden sm:inline">Dépublier</span>
+                          <EyeOff className="w-3.5 h-3.5 sm:w-4 h-4" />
+                          <span className="sm:inline">Masquer</span>
                         </>
                       ) : (
                         <>
-                          <Eye className="w-4 h-4" />
-                          <span className="hidden sm:inline">Publier</span>
+                          <Eye className="w-3.5 h-3.5 sm:w-4 h-4" />
+                          <span className="sm:inline">Publier</span>
                         </>
                       )}
                     </button>
@@ -554,22 +554,20 @@ export default function AdminTrainingList() {
                     {/* Edit Button */}
                     <Link
                       to={`/admin/training/${session.id}`}
-                      className="p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
-                      title="Modifier cet entraînement"
+                      className="flex-1 sm:flex-none p-2 sm:p-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
                     >
-                      <Edit3 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Modifier</span>
+                      <Edit3 className="w-3.5 h-3.5 sm:w-4 h-4" />
+                      <span className="sm:inline">Éditer</span>
                     </Link>
 
                     {/* Delete Button */}
                     <button
                       onClick={() => handleDelete(session)}
                       disabled={isActionLoading}
-                      className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
-                      title="Supprimer cet entraînement"
+                      className="p-2 sm:p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl transition-all active:scale-95"
+                      title="Supprimer"
                     >
-                      <Trash2 className="w-4 h-4" />
-                      <span className="hidden sm:inline">Supprimer</span>
+                      <Trash2 className="w-3.5 h-3.5 sm:w-4 h-4" />
                     </button>
                   </div>
                 </div>

@@ -111,6 +111,45 @@ export async function getUniqueTrainingSlug(title: string, currentTrainingId?: s
 }
 
 /**
+ * Génère un slug unique pour un cours interactif en interrogeant Supabase.
+ */
+export async function getUniqueInteractiveCourseSlug(title: string, currentCourseId?: string): Promise<string> {
+  const baseSlug = generateSlug(title) || 'cours-interactif';
+  let candidateSlug = baseSlug;
+  let counter = 1;
+
+  try {
+    while (true) {
+      let query = supabase
+        .from('interactive_courses')
+        .select('id, slug')
+        .eq('slug', candidateSlug);
+
+      if (currentCourseId) {
+        query = query.neq('id', currentCourseId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.warn('Vérification slug cours interactif Supabase:', error.message);
+        return candidateSlug;
+      }
+
+      if (!data || data.length === 0) {
+        return candidateSlug;
+      }
+
+      counter++;
+      candidateSlug = `${baseSlug}-${counter}`;
+    }
+  } catch (err) {
+    console.warn('Erreur lors de la génération du slug cours interactif:', err);
+    return candidateSlug;
+  }
+}
+
+/**
  * Migration automatique: génère et enregistre un slug pour tous les entraînements existants qui n'en ont pas.
  */
 export async function ensureSlugsForExistingTrainings(): Promise<void> {
@@ -168,5 +207,35 @@ export async function ensureSlugsForExistingCourses(): Promise<void> {
     }
   } catch (err) {
     console.warn('Migration des slugs ignorée ou échouée:', err);
+  }
+}
+
+/**
+ * Migration automatique: génère et enregistre un slug pour tous les cours interactifs existants qui n'en ont pas.
+ */
+export async function ensureSlugsForExistingInteractiveCourses(): Promise<void> {
+  try {
+    const { data: interactiveCourses, error } = await supabase
+      .from('interactive_courses')
+      .select('*');
+
+    if (error || !interactiveCourses) {
+      return;
+    }
+
+    for (const course of interactiveCourses) {
+      if (!course.slug && course.title) {
+        const uniqueSlug = await getUniqueInteractiveCourseSlug(course.title, course.id);
+        const updateRes = await supabase
+          .from('interactive_courses')
+          .update({ slug: uniqueSlug })
+          .eq('id', course.id);
+        if (updateRes.error) {
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Migration des slugs cours interactifs ignorée ou échouée:', err);
   }
 }

@@ -58,7 +58,6 @@ export default function AdminFormations() {
   const { toast: notify } = useToast();
   const navigate = useNavigate();
   
-  const [activeSubTab, setActiveSubTab] = useState<'catalogue' | 'actions'>('catalogue');
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +71,6 @@ export default function AdminFormations() {
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
   const [selectedCourseForViewer, setSelectedCourseForViewer] = useState<Course | null>(null);
   const [selectedModuleForViewer, setSelectedModuleForViewer] = useState<ModuleData | null>(null);
-  const [viewerInitialTab, setViewerInitialTab] = useState<'content' | 'sessions' | 'add-session'>('content');
   const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   useEffect(() => {
@@ -105,7 +103,7 @@ export default function AdminFormations() {
             order_index
           )
         `)
-        .order('date_time', { ascending: false });
+        .neq('product_type', 'ebook').order('date_time', { ascending: false });
 
       if (error) {
         // Fallback without is_archived
@@ -131,7 +129,7 @@ export default function AdminFormations() {
               order_index
             )
           `)
-          .order('date_time', { ascending: false });
+          .neq('product_type', 'ebook').order('date_time', { ascending: false });
         
         if (fallbackError) throw fallbackError;
         data = fallbackData as any;
@@ -312,11 +310,14 @@ export default function AdminFormations() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
-                  Page Administrateur
+                  Formations Classiques
+                </span>
+                <span className="text-xs text-gray-400 font-medium">
+                  {courses.length} formation{courses.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Gestion de formations</h1>
-              <p className="text-xs sm:text-sm text-gray-500">Catalogue complet, ajout de formations, séances et lives</p>
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight mt-1">Gestion des Formations</h1>
+              <p className="text-xs sm:text-sm text-gray-500">Catalogue complet des formations, gestion des modules et contenus</p>
             </div>
           </div>
 
@@ -331,87 +332,6 @@ export default function AdminFormations() {
 
         {/* Supabase Slug Banner */}
         <SupabaseSlugMigrationBanner />
-
-        {/* Action Hub Navigation Tuiles */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button
-            onClick={() => setActiveSubTab('catalogue')}
-            className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between gap-4 ${
-              activeSubTab === 'catalogue'
-                ? 'bg-indigo-900 text-white border-indigo-900 shadow-md ring-2 ring-indigo-600'
-                : 'bg-white text-gray-900 border-gray-100 hover:border-indigo-200 shadow-sm'
-            }`}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className={`p-3 rounded-xl ${activeSubTab === 'catalogue' ? 'bg-white/10 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <span className={`text-xs font-bold px-2 py-1 rounded-full ${activeSubTab === 'catalogue' ? 'bg-indigo-800 text-indigo-200' : 'bg-gray-100 text-gray-600'}`}>
-                {courses.length} formation{courses.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div>
-              <h3 className="font-bold text-base">Catalogue (page unique)</h3>
-              <p className={`text-xs mt-1 ${activeSubTab === 'catalogue' ? 'text-indigo-200' : 'text-gray-500'}`}>
-                Consulter et gérer toutes vos formations
-              </p>
-            </div>
-          </button>
-
-          <Link
-            to="/admin/formations/new"
-            className="p-5 bg-white hover:border-indigo-200 rounded-2xl border border-gray-100 text-gray-900 transition-all flex flex-col justify-between gap-4 shadow-sm group"
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                <PlusCircle className="w-6 h-6" />
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 transition-colors" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base">Ajouter une formation</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Créer un nouveau programme ou e-book
-              </p>
-            </div>
-          </Link>
-
-          <Link
-            to="/admin/sessions"
-            className="p-5 bg-white hover:border-indigo-200 rounded-2xl border border-gray-100 text-gray-900 transition-all flex flex-col justify-between gap-4 shadow-sm group"
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                <CalendarCheck className="w-6 h-6" />
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-600 transition-colors" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base">Séances de formations</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Suivi des rendez-vous et formateurs
-              </p>
-            </div>
-          </Link>
-
-          <Link
-            to="/live"
-            className="p-5 bg-white hover:border-indigo-200 rounded-2xl border border-gray-100 text-gray-900 transition-all flex flex-col justify-between gap-4 shadow-sm group"
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
-                <Video className="w-6 h-6" />
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-rose-600 transition-colors" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base">Création des Lives</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Salles virtuelles et visioconférences
-              </p>
-            </div>
-          </Link>
-        </div>
 
         {/* Catalogue Content Section */}
         <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-sm">
@@ -588,7 +508,6 @@ export default function AdminFormations() {
                                         onClick={() => {
                                           setSelectedCourseForViewer(course);
                                           setSelectedModuleForViewer(m);
-                                          setViewerInitialTab('content');
                                           setIsViewerOpen(true);
                                         }}
                                         className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[10px] shrink-0 flex items-center gap-1 transition-colors"
@@ -609,22 +528,10 @@ export default function AdminFormations() {
                                           Vidéo
                                         </span>
                                       )}
-                                      {sessions.length > 0 ? (
-                                        <span className="px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 font-semibold border border-orange-100">
-                                          {sessions.length} séance(s)
+                                      {rawFiles.length > 0 && (
+                                        <span className="px-1.5 py-0.5 rounded bg-slate-50 text-slate-700 font-semibold border border-slate-200">
+                                          {rawFiles.length} ressource(s)
                                         </span>
-                                      ) : (
-                                        <button
-                                          onClick={() => {
-                                            setSelectedCourseForViewer(course);
-                                            setSelectedModuleForViewer(m);
-                                            setViewerInitialTab('add-session');
-                                            setIsViewerOpen(true);
-                                          }}
-                                          className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold border border-amber-200 underline"
-                                        >
-                                          + Ajouter séance
-                                        </button>
                                       )}
                                     </div>
                                   </div>
@@ -681,7 +588,7 @@ export default function AdminFormations() {
 
       </div>
 
-      {/* Module Content & Sessions Viewer Modal */}
+      {/* Module Content Viewer Modal */}
       {selectedCourseForViewer && (
         <AdminModuleViewerModal
           isOpen={isViewerOpen}
@@ -689,7 +596,7 @@ export default function AdminFormations() {
           courseId={selectedCourseForViewer.id}
           courseTitle={selectedCourseForViewer.title}
           module={selectedModuleForViewer}
-          initialTab={viewerInitialTab}
+          initialTab="content"
           onRefreshCourse={fetchCourses}
         />
       )}

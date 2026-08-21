@@ -143,6 +143,7 @@ export interface InteractiveCourseModule {
   position: number;
   created_at?: string;
   updated_at?: string;
+  interactive_courses?: InteractiveCourse | null;
   interactive_course_lessons?: InteractiveCourseLesson[];
 }
 
@@ -155,6 +156,7 @@ export interface InteractiveCourseLesson {
   estimated_duration: number;
   created_at?: string;
   updated_at?: string;
+  interactive_course_modules?: InteractiveCourseModule | null;
   interactive_activities?: InteractiveActivity[];
 }
 
@@ -182,10 +184,39 @@ export interface InteractiveActivity {
     options?: string[];
     question?: string;
     starter_code?: string;
+    correction?: {
+      tests?: any[];
+      [key: string]: any;
+    };
     [key: string]: any;
   };
   hints: string[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface InteractiveActivityProgress {
+  id?: string;
+  user_id: string;
+  course_id: string;
+  lesson_id: string;
+  activity_id: string;
+  completed: boolean;
+  completed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CourseProgressionSummary {
+  totalActivities: number;
+  completedActivities: number;
+  totalRequiredActivities: number;
+  completedRequiredActivities: number;
+  percentage: number;
+  requiredPercentage: number;
+  isCourseCompleted: boolean;
+  nextLessonId?: string | null;
+  nextActivityId?: string | null;
+  completedActivityIds: Set<string>;
 }
 

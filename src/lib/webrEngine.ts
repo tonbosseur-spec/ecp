@@ -242,7 +242,7 @@ class WebREngine {
       return this.initPromise;
     }
 
-    const overallTimeoutMs = 60000;
+    const overallTimeoutMs = 120000;
     let overallTimeoutId: NodeJS.Timeout | null = null;
 
     this.initPromise = (async () => {
@@ -282,7 +282,7 @@ class WebREngine {
                 repoUrl: 'https://repo.r-wasm.org',
                 channelType: ChannelType.PostMessage,
               },
-              timeoutMs: 15000,
+              timeoutMs: 45000,
             },
             // Strategy 2: Local self-hosted runtime with absolute URL
             {
@@ -292,7 +292,7 @@ class WebREngine {
                 repoUrl: 'https://repo.r-wasm.org',
                 channelType: preferredChannel,
               },
-              timeoutMs: 12000,
+              timeoutMs: 30000,
             },
             // Strategy 3: Local fallback (Relative path)
             {
@@ -302,7 +302,7 @@ class WebREngine {
                 repoUrl: 'https://repo.r-wasm.org',
                 channelType: ChannelType.PostMessage,
               },
-              timeoutMs: 10000,
+              timeoutMs: 30000,
             },
             // Strategy 4: Default WebR package setup
             {
@@ -310,7 +310,7 @@ class WebREngine {
               options: {
                 channelType: ChannelType.PostMessage,
               },
-              timeoutMs: 12000,
+              timeoutMs: 25000,
             },
           ];
 

@@ -353,104 +353,124 @@ export const ClientChat: React.FC<ClientChatProps> = ({ courseId, registrationId
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50 relative group">
+        {/* Watermark Background Elements */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none opacity-[0.05] dark:opacity-[0.08]">
+          <MessageSquare className="absolute top-10 -left-10 w-64 h-64 rotate-12 text-indigo-500" />
+          <Send className="absolute bottom-20 -right-20 w-80 h-80 -rotate-12 text-purple-500" />
+          <div className="absolute top-1/4 left-1/4 w-[300px] h-[300px] bg-indigo-400 rounded-full blur-[100px] opacity-20" />
+          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-purple-400 rounded-full blur-[120px] opacity-20" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border-[40px] border-indigo-500 rounded-full opacity-10" />
+        </div>
+
         {loading ? (
-          <div className="flex justify-center items-center h-full">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+          <div className="flex justify-center items-center h-full relative z-10">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
           </div>
         ) : activeMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-3 max-w-md mx-auto">
-            <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-4">
-              <MessageSquare className="w-10 h-10 text-indigo-300" />
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 max-w-md mx-auto relative z-10">
+            <div className="w-24 h-24 bg-white shadow-xl shadow-indigo-100 rounded-[2rem] flex items-center justify-center mb-4 transform hover:rotate-6 transition-transform">
+              <MessageSquare className="w-12 h-12 text-indigo-400" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800">Besoin d'aide ?</h3>
-            <p className="text-gray-500">Posez votre question ci-dessous, notre équipe vous répondra dans les plus brefs délais.</p>
+            <h3 className="text-2xl font-black text-slate-800 tracking-tight">Besoin d'aide ?</h3>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Posez votre question ci-dessous, notre équipe vous répondra dans les plus brefs délais.
+            </p>
           </div>
         ) : (
-          <AnimatePresence initial={false}>
-            {activeMessages.map((msg, idx) => {
-              const isClient = msg.sender_id === clientId;
-              const showAvatar = idx === 0 || activeMessages[idx - 1].sender_id !== msg.sender_id;
-              
-              return (
-                <motion.div
-                  key={`${msg.id}-${idx}`}
-                  layout
-                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 25 }}
-                  className={`flex ${isClient ? 'justify-end' : 'justify-start'} gap-3 max-w-4xl mx-auto w-full`}
-                >
-                  {!isClient && showAvatar && (
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center flex-shrink-0 text-indigo-700 font-bold mt-auto shadow-sm">
-                      A
-                    </div>
-                  )}
-                  {isClient && showAvatar && (
-                    <div className="w-10 h-10 opacity-0 flex-shrink-0" />
-                  )}
-                  
-                  <div className={`flex flex-col max-w-[75%] ${isClient ? 'items-end' : 'items-start'}`}>
-                    <div
-                      className={`px-5 py-3 text-[15px] shadow-sm leading-relaxed whitespace-pre-wrap break-words ${
-                        isClient
-                          ? 'bg-gray-900 text-white rounded-2xl rounded-br-sm'
-                          : 'bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-bl-sm'
-                      }`}
-                    >
-                      {renderTextWithLinks(msg.content)}
-                    </div>
-                    <div className={`flex items-center gap-1.5 mt-1.5 px-1 ${isClient ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <span className="text-[11px] font-medium text-gray-400">
-                        {formatTime(msg.created_at)}
-                      </span>
-                      {isClient && (
-                        <span className={msg.is_read ? "text-blue-500" : "text-gray-300"}>
-                          {msg.is_read ? <CheckCheck className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          <div className="relative z-10 max-w-4xl mx-auto w-full">
+            <AnimatePresence initial={false}>
+              {activeMessages.map((msg, idx) => {
+                const isClient = msg.sender_id === clientId;
+                const showAvatar = idx === 0 || activeMessages[idx - 1].sender_id !== msg.sender_id;
+                
+                return (
+                  <motion.div
+                    key={`${msg.id}-${idx}`}
+                    layout
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className={`flex ${isClient ? 'justify-end' : 'justify-start'} gap-3 mb-4`}
+                  >
+                    {!isClient && (
+                      <div className="w-10 flex-shrink-0 flex items-end">
+                        {showAvatar ? (
+                          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-200">
+                            P
+                          </div>
+                        ) : <div className="w-9" />}
+                      </div>
+                    )}
+                    
+                    <div className={`flex flex-col max-w-[85%] sm:max-w-[70%] ${isClient ? 'items-end' : 'items-start'}`}>
+                      <div
+                        className={`px-4 py-3 text-[14px] md:text-[15px] shadow-sm leading-relaxed whitespace-pre-wrap break-words transition-all duration-300 ${
+                          isClient
+                            ? 'bg-slate-900 text-white rounded-2xl rounded-tr-none'
+                            : 'bg-white border border-slate-100 text-slate-800 rounded-2xl rounded-tl-none'
+                        }`}
+                      >
+                        {renderTextWithLinks(msg.content)}
+                      </div>
+                      <div className={`flex items-center gap-1.5 mt-1.5 px-1 ${isClient ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {formatTime(msg.created_at)}
                         </span>
-                      )}
+                        {isClient && (
+                          <span className={msg.is_read ? "text-sky-500" : "text-slate-300"}>
+                            {msg.is_read ? <CheckCheck className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
+      <div className="p-4 bg-white/80 backdrop-blur-xl border-t border-slate-100">
         {sendError && (
-          <div className="mb-3 p-3 text-sm bg-red-50 text-red-600 rounded-xl flex items-center gap-2 border border-red-100">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-3 p-3 text-sm bg-rose-50 text-rose-600 rounded-xl flex items-center gap-2 border border-rose-100 font-medium"
+          >
             <AlertCircle className="w-4 h-4 shrink-0" />
             {sendError}
-          </div>
+          </motion.div>
         )}
         <form onSubmit={handleSendMessage} className="flex items-end gap-3 max-w-4xl mx-auto">
-          <textarea
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage(e);
-              }
-            }}
-            placeholder="Écrivez votre message à l'administrateur..."
-            className="flex-1 bg-slate-50 border border-gray-200 hover:border-gray-300 rounded-2xl px-5 py-3.5 text-[15px] focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:outline-none resize-none overflow-hidden min-h-[52px] max-h-[150px] transition-colors placeholder:text-xs sm:placeholder:text-sm md:placeholder:text-[15px]"
-            rows={1}
-            disabled={sending || loading}
-          />
+          <div className="flex-1 relative group">
+            <textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(e);
+                }
+              }}
+              placeholder="Écrivez votre message..."
+              className="w-full bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-2xl px-5 py-3.5 text-[15px] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:outline-none resize-none overflow-hidden min-h-[56px] max-h-[150px] transition-all placeholder:text-slate-400 placeholder:font-medium"
+              rows={1}
+              disabled={sending || loading}
+            />
+          </div>
           <button
             type="submit"
             disabled={!newMessage.trim() || sending || loading}
-            className="p-4 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex-shrink-0 shadow-sm"
+            className="w-14 h-14 bg-slate-900 text-white rounded-2xl hover:bg-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 flex-shrink-0 shadow-lg shadow-slate-200 flex items-center justify-center group"
           >
-            {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />}
           </button>
         </form>
       </div>
+
     </div>
   );
 };

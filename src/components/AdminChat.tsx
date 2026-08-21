@@ -555,98 +555,119 @@ export const AdminChat = ({ onBack }: { onBack?: () => void }) => {
             )}
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50/50 min-h-0">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 bg-slate-50 relative group">
+              {/* Watermark Background Elements */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden select-none opacity-[0.06] dark:opacity-[0.09]">
+                <MessageSquare className="absolute top-10 -left-10 w-64 h-64 rotate-12 text-indigo-600" />
+                <Send className="absolute bottom-20 -right-20 w-80 h-80 -rotate-12 text-blue-600" />
+                <div className="absolute top-1/3 left-1/4 w-[250px] h-[250px] bg-indigo-500 rounded-full blur-[90px] opacity-25" />
+                <div className="absolute bottom-1/3 right-1/4 w-[350px] h-[350px] bg-blue-500 rounded-full blur-[110px] opacity-25" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border-[40px] border-indigo-500 rounded-full opacity-10" />
+              </div>
+
               {activeMessages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                  <p className="mb-2">Aucun message pour le moment.</p>
-                  <p className="text-sm">Envoyez le premier message pour démarrer la conversation !</p>
+                <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto relative z-10">
+                  <div className="w-24 h-24 bg-white shadow-xl shadow-slate-200 rounded-[2rem] flex items-center justify-center mb-6 transform hover:scale-110 transition-transform">
+                    <MessageSquare className="w-12 h-12 text-slate-300" />
+                  </div>
+                  <h3 className="font-black text-slate-800 text-xl mb-2 tracking-tight">Aucun message</h3>
+                  <p className="text-slate-500 font-medium leading-relaxed">Envoyez le premier message pour démarrer la conversation avec {selectedConversation?.first_name}.</p>
                 </div>
               ) : (
-                <AnimatePresence initial={false}>
-                  {activeMessages.map((msg, index) => {
-                    const isClient = msg.sender_id !== adminId;
-                    const showAvatar = index === 0 || activeMessages[index - 1].sender_id !== msg.sender_id;
-                    
-                    return (
-                      <motion.div
-                        key={`${msg.id}-${index}`}
-                        layout
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 25 }}
-                        className={`flex ${isClient ? 'justify-start' : 'justify-end'} gap-3 max-w-4xl mx-auto w-full`}
-                      >
-                        {isClient && showAvatar && (
-                          <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 text-gray-600 font-bold mt-auto shadow-sm">
-                            {selectedConversation?.first_name.charAt(0)}
-                          </div>
-                        )}
-                        {!isClient && showAvatar && (
-                          <div className="w-10 h-10 opacity-0 flex-shrink-0" />
-                        )}
-                        
-                        <div className={`flex flex-col max-w-[75%] ${isClient ? 'items-start' : 'items-end'}`}>
-                          <div
-                            className={`px-5 py-3 text-[15px] shadow-sm leading-relaxed whitespace-pre-wrap break-words ${
-                              isClient
-                                ? 'bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-bl-sm'
-                                : 'bg-gray-900 text-white rounded-2xl rounded-br-sm'
-                            }`}
-                          >
-                            {renderTextWithLinks(msg.content)}
-                          </div>
-                          <div className={`flex items-center gap-1.5 mt-1.5 px-1 ${isClient ? 'flex-row' : 'flex-row-reverse'}`}>
-                            <span className="text-[11px] font-medium text-gray-400">
-                              {formatTime(msg.created_at)}
-                            </span>
-                            {!isClient && (
-                              <span className={msg.is_read ? "text-blue-500" : "text-gray-300"}>
-                                {msg.is_read ? <CheckCheck className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <div className="relative z-10 max-w-4xl mx-auto w-full">
+                  <AnimatePresence initial={false}>
+                    {activeMessages.map((msg, index) => {
+                      const isClient = msg.sender_id !== adminId;
+                      const showAvatar = index === 0 || activeMessages[index - 1].sender_id !== msg.sender_id;
+                      
+                      return (
+                        <motion.div
+                          key={`${msg.id}-${index}`}
+                          layout
+                          initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          className={`flex ${isClient ? 'justify-start' : 'justify-end'} gap-3 mb-4`}
+                        >
+                          {isClient && (
+                            <div className="w-10 flex-shrink-0 flex items-end">
+                              {showAvatar ? (
+                                <div className="w-9 h-9 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 font-black text-sm shadow-sm">
+                                  {selectedConversation?.first_name.charAt(0)}
+                                </div>
+                              ) : <div className="w-9" />}
+                            </div>
+                          )}
+                          
+                          <div className={`flex flex-col max-w-[85%] sm:max-w-[70%] ${isClient ? 'items-start' : 'items-end'}`}>
+                            <div
+                              className={`px-4 py-3 text-[14px] md:text-[15px] shadow-sm leading-relaxed whitespace-pre-wrap break-words transition-all duration-300 ${
+                                isClient
+                                  ? 'bg-white border border-slate-100 text-slate-800 rounded-2xl rounded-tl-none'
+                                  : 'bg-slate-900 text-white rounded-2xl rounded-tr-none'
+                              }`}
+                            >
+                              {renderTextWithLinks(msg.content)}
+                            </div>
+                            <div className={`flex items-center gap-1.5 mt-1.5 px-1 ${isClient ? 'flex-row' : 'flex-row-reverse'}`}>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                {formatTime(msg.created_at)}
                               </span>
-                            )}
+                              {!isClient && (
+                                <span className={msg.is_read ? "text-sky-500" : "text-slate-300"}>
+                                  {msg.is_read ? <CheckCheck className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
+            <div className="p-4 bg-white/80 backdrop-blur-xl border-t border-slate-100">
               {sendError && (
-                <div className="mb-3 p-3 text-sm bg-red-50 text-red-600 rounded-xl flex items-center gap-2 border border-red-100">
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-3 p-3 text-sm bg-rose-50 text-rose-600 rounded-xl flex items-center gap-2 border border-rose-100 font-medium"
+                >
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   {sendError}
-                </div>
+                </motion.div>
               )}
 
               <form onSubmit={handleSendMessage} className="flex items-end gap-3 max-w-4xl mx-auto">
-                <textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage(e);
-                    }
-                  }}
-                  placeholder={`Écrire un message à ${selectedConversation?.first_name}...`}
-                  className="flex-1 bg-slate-50 border border-gray-200 hover:border-gray-300 rounded-2xl px-5 py-3.5 text-[15px] focus:ring-2 focus:ring-gray-900/10 focus:border-gray-900 focus:outline-none resize-none overflow-hidden min-h-[52px] max-h-[150px] transition-colors"
-                  rows={1}
-                  disabled={sending || loading}
-                />
+                <div className="flex-1 relative group">
+                  <textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e);
+                      }
+                    }}
+                    placeholder={`Écrire un message à ${selectedConversation?.first_name}...`}
+                    className="w-full bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-2xl px-5 py-3.5 text-[15px] focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 focus:outline-none resize-none overflow-hidden min-h-[56px] max-h-[150px] transition-all placeholder:text-slate-400 placeholder:font-medium"
+                    rows={1}
+                    disabled={sending || loading}
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={!newMessage.trim() || sending || loading}
-                  className="p-4 bg-gray-900 text-white rounded-2xl hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex-shrink-0 shadow-sm"
+                  className="w-14 h-14 bg-slate-900 text-white rounded-2xl hover:bg-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 flex-shrink-0 shadow-lg shadow-slate-200 flex items-center justify-center group"
                 >
-                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />}
                 </button>
               </form>
             </div>
+
           </>
         )}
       </div>

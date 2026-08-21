@@ -7,12 +7,18 @@ import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import { checkIsAdmin } from './lib/adminAuthService';
+import { 
+  ensureSlugsForExistingCourses, 
+  ensureSlugsForExistingTrainings, 
+  ensureSlugsForExistingInteractiveCourses 
+} from './lib/slugUtils';
 import PageTransition from './components/PageTransition';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CreateCourse from './pages/CreateCourse';
 import ManageTrainers from './pages/ManageTrainers';
 import PublicCoursePage from './pages/PublicCoursePage';
+import PublicInteractiveCoursePage from './pages/PublicInteractiveCoursePage';
 import PublicQuizChallenge from './pages/PublicQuizChallenge';
 import PublicTrainingPage from './pages/PublicTrainingPage';
 import AdminCourseDetails from './pages/AdminCourseDetails';
@@ -44,9 +50,16 @@ import AdminFormations from './pages/AdminFormations';
 import AdminClients from './pages/AdminClients';
 import AdminSessionsDashboard from './pages/AdminSessionsDashboard';
 import AdminActivityFeed from './pages/AdminActivityFeed';
+import AdminEbooks from './pages/AdminEbooks';
+import CreateEbook from "./pages/CreateEbook";
+import EditEbook from "./pages/EditEbook";
 import AdminTrainingList from './pages/AdminTrainingList';
 import AdminTrainingEditor from './pages/AdminTrainingEditor';
 import AdminTrainingStats from './pages/AdminTrainingStats';
+import AdminInteractiveCourseList from './pages/AdminInteractiveCourseList';
+import AdminInteractiveCourseEditor from './pages/AdminInteractiveCourseEditor';
+import AdminInteractiveCourseContent from './pages/AdminInteractiveCourseContent';
+import AdminInteractiveLessonActivities from './pages/AdminInteractiveLessonActivities';
 import LiveDashboard from './pages/LiveDashboard';
 import LiveRoom from './pages/LiveRoom';
 import PublicLiveSessionPage from './pages/PublicLiveSessionPage';
@@ -171,6 +184,11 @@ export default function App() {
 
     initAuth();
 
+    // Vérification asynchrone des slugs pour compatibilité URLs lisibles
+    ensureSlugsForExistingCourses().catch(() => {});
+    ensureSlugsForExistingTrainings().catch(() => {});
+    ensureSlugsForExistingInteractiveCourses().catch(() => {});
+
     // Écouter les changements de session (connexion, déconnexion)
     const {
       data: { subscription },
@@ -247,6 +265,7 @@ export default function App() {
       <Route path="/download" element={<PageTransition><DownloadAppPage /></PageTransition>} />
       <Route path="/quiz-demo" element={<PageTransition><QuizDemo /></PageTransition>} />
       <Route path="/course/:id" element={<PageTransition><PublicCoursePage /></PageTransition>} />
+      <Route path="/interactive-course/:id" element={<PageTransition><PublicInteractiveCoursePage /></PageTransition>} />
       <Route path="/challenge/:courseId" element={<PageTransition><PublicQuizChallenge /></PageTransition>} />
       <Route path="/training/:slug" element={<PageTransition><PublicTrainingPage /></PageTransition>} />
       
@@ -282,6 +301,9 @@ export default function App() {
           {/* Canonical Admin Routes */}
           <Route path="/admin/dashboard" element={<Dashboard />} />
           <Route path="/admin/formations" element={<AdminFormations />} />
+          <Route path="/admin/ebooks" element={<AdminEbooks />} />
+          <Route path="/admin/ebooks/new" element={<CreateEbook />} />
+          <Route path="/admin/ebooks/:id/edit" element={<EditEbook />} />
           <Route path="/admin/formations/new" element={<CreateCourse />} />
           <Route path="/admin/formations/:id" element={<AdminCourseDetails />} />
           <Route path="/admin/formations/:id/edit" element={<EditCourse />} />
@@ -292,6 +314,11 @@ export default function App() {
           <Route path="/admin/training/dashboard" element={<AdminTrainingStats />} />
           <Route path="/admin/training/new" element={<AdminTrainingEditor />} />
           <Route path="/admin/training/:id" element={<AdminTrainingEditor />} />
+          <Route path="/admin/interactive-courses" element={<AdminInteractiveCourseList />} />
+          <Route path="/admin/interactive-courses/new" element={<AdminInteractiveCourseEditor />} />
+          <Route path="/admin/interactive-courses/:id/edit" element={<AdminInteractiveCourseEditor />} />
+          <Route path="/admin/interactive-courses/:courseId/content" element={<AdminInteractiveCourseContent />} />
+          <Route path="/admin/interactive-courses/:courseId/lesson/:lessonId/activities" element={<AdminInteractiveLessonActivities />} />
           <Route path="/admin/sessions" element={<AdminSessionsDashboard />} />
           <Route path="/admin/hub" element={<AdminHub />} />
           <Route path="/admin/activity" element={<AdminActivityFeed />} />

@@ -445,40 +445,40 @@ export const REditorConsole = React.forwardRef<REditorConsoleRef, REditorConsole
         )}
 
         {/* Bottom Bar of Editor with Engine Status */}
-        <div className="bg-slate-950/60 px-3.5 py-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+        <div className="bg-slate-950/80 px-3.5 py-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
           <div className="flex items-center gap-2">
             {engineState.status === 'loading' && (
-              <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
+              <span className="inline-flex items-center gap-1.5 text-amber-300 font-bold">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                Initialisation de R... ({loadingSeconds}s)
+                ⏳ Préparation de l'environnement R... ({loadingSeconds}s)
               </span>
             )}
             {engineState.status === 'ready' && (
-              <span className="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                R est prêt
+              <span className="inline-flex items-center gap-1.5 text-emerald-300 font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                ✓ R est prêt
               </span>
             )}
             {engineState.status === 'running' && (
-              <span className="inline-flex items-center gap-1.5 text-sky-400 font-medium">
+              <span className="inline-flex items-center gap-1.5 text-sky-300 font-bold">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
-                Exécution en cours...
+                ⏳ Exécution en cours...
               </span>
             )}
             {engineState.status === 'error' && (
-              <span className="inline-flex items-center gap-1.5 text-rose-400 font-medium">
+              <span className="inline-flex items-center gap-1.5 text-rose-300 font-bold">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                Erreur de chargement
+                ⚠️ Impossible de préparer l'environnement R
               </span>
             )}
             {engineState.status === 'idle' && (
-              <span className="inline-flex items-center gap-1.5 text-slate-500">
+              <span className="inline-flex items-center gap-1.5 text-slate-400 font-medium">
                 Moteur R prêt à démarrer
               </span>
             )}
           </div>
 
-          <span className="hidden sm:inline font-mono text-[10px] text-slate-500">
+          <span className="hidden sm:inline font-mono text-[11px] text-slate-400 font-semibold">
             Ctrl+Entrée pour exécuter
           </span>
         </div>

@@ -20,23 +20,12 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'node_modules/webr/dist/{R.wasm,R.js,libRblas.so,libRlapack.so,webr-worker.js,webr.mjs}',
+          src: 'node_modules/webr/dist/*',
           dest: 'webr',
-          rename: { stripBase: true },
         },
       ],
     }),
-    {
-      name: 'copy-webr-vfs',
-      closeBundle() {
-        const src = path.resolve(__dirname, 'node_modules/webr/dist/vfs');
-        const dest = path.resolve(__dirname, 'dist/webr/vfs');
-        if (fs.existsSync(src)) {
-          fs.cpSync(src, dest, { recursive: true });
-          console.log('[copy-webr-vfs] Copied WebR VFS directory to dist/webr/vfs');
-        }
-      },
-    },
+
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {

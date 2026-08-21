@@ -36,7 +36,10 @@ import {
   LayoutGrid,
   FolderDown,
   Brain,
-  CreditCard
+  CreditCard,
+  GraduationCap,
+  ShoppingBag,
+  Dumbbell
 } from 'lucide-react';
 import { ClientChat } from '../components/ClientChat';
 import ClientSettings from '../components/ClientSettings';
@@ -67,6 +70,7 @@ export default function ClientHub() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [interactiveCourses, setInteractiveCourses] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState<'hub' | 'inscriptions' | 'interests' | 'proposals' | 'calendar' | 'messages' | 'payments' | 'parrainage' | 'settings' | 'more' | 'files'>('hub');
+  const [formationsTab, setFormationsTab] = useState<'classic' | 'interactive'>('classic');
   const [chatContext, setChatContext] = useState<{courseId?: string, registrationId?: string} | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -310,17 +314,19 @@ export default function ClientHub() {
                 id,
                 title,
                 interactive_course_lessons (
-                  id,
-                  interactive_activities (id)
+                  id
                 )
               )
             `)
-            .eq('status', 'published')
             .order('created_at', { ascending: false });
 
           if (!interactiveError && interactiveData) {
-            setInteractiveCourses(interactiveData);
-            saveToCache('interactive_courses_' + userId, interactiveData);
+            const activeInteractive = interactiveData.filter((c: any) => 
+              c.status === 'published' || c.is_published === true || (c.status !== 'draft' && c.status !== 'archived')
+            );
+            const finalData = activeInteractive.length > 0 ? activeInteractive : interactiveData;
+            setInteractiveCourses(finalData);
+            saveToCache('interactive_courses_' + userId, finalData);
           }
         } catch (interactiveErr) {
           console.warn("Notice: chargement cours interactifs:", interactiveErr);
@@ -688,167 +694,186 @@ export default function ClientHub() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Hub / Home View */}
         {activeSection === 'hub' && (
-          <div className="animate-fade-in">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Aperçu de votre espace</h2>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+          <div className="animate-fade-in space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                  Bonjour{profile?.first_name ? `, ${profile.first_name}` : ''}
+                </h2>
+                <p className="text-xs sm:text-sm text-gray-500 mt-0.5 font-medium">
+                  Ravi de vous revoir. Voici votre tableau de bord.
+                </p>
+              </div>
+            </div>
+
+            {/* 6 MAIN TILES GRID */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-5">
               
-              {/* Live Visioconférence */}
-              <button 
-                onClick={() => navigate('/live')}
-                className="col-span-1 md:col-span-2 bg-gradient-to-br from-red-600 via-rose-600 to-red-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-red-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between aspect-square md:aspect-auto md:min-h-[160px]"
-              >
-                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-15 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
-                  <Video className="w-24 h-24 md:w-40 md:h-40 text-white" />
-                </div>
-                <div className="relative z-10 flex justify-between items-start w-full">
-                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
-                    <Video className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <span className="bg-white/20 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                    <span className="hidden sm:inline">Live Direct</span>
-                    <span className="sm:hidden">Live</span>
-                  </span>
-                </div>
-                <div className="relative z-10">
-                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">Espace Live</h3>
-                  <p className="text-red-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">Visioconférences groupe</p>
-                </div>
-              </button>
-
-              {/* Mes formations */}
-              <button 
+              {/* 1. Mes formations */}
+              <button
                 onClick={() => setActiveSection('inscriptions')}
-                className="col-span-1 md:col-span-2 bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/10 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between aspect-square md:aspect-auto md:min-h-[160px]"
+                className="bg-gradient-to-br from-indigo-600 via-purple-600 to-purple-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/15 active:scale-[0.98] transition-all duration-300 text-white flex flex-col justify-between min-h-[140px] sm:min-h-[160px]"
               >
-                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-10 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
-                  <BookOpen className="w-24 h-24 md:w-40 md:h-40 text-white" />
-                </div>
-                <div className="relative z-10 flex justify-between items-start w-full">
+                <GraduationCap className="w-28 h-28 text-white opacity-10 absolute -bottom-3 -right-3 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
                   <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
-                    <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <span className="bg-white/20 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm">
-                    {registrations.length} <span className="hidden sm:inline">formation{registrations.length !== 1 ? 's' : ''}</span>
-                  </span>
-                </div>
-                <div className="relative z-10">
-                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">Mes formations</h3>
-                  <p className="text-purple-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">Reprendre votre cours</p>
-                </div>
-              </button>
-
-              {/* S'exercer */}
-              <Link 
-                to="/client/training"
-                className="col-span-2 md:col-span-2 bg-gradient-to-br from-sky-600 via-indigo-600 to-blue-800 rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-sky-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between min-h-[130px] sm:min-h-[150px] md:min-h-[160px]"
-              >
-                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-15 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
-                  <Brain className="w-24 h-24 md:w-40 md:h-40 text-white" />
-                </div>
-                <div className="relative z-10 flex justify-between items-start w-full gap-2">
-                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm shrink-0">
-                    <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <span className="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1 shrink-0">
-                    <Sparkles className="w-3 h-3 text-sky-200" />
-                    <span>Quiz & Pratique</span>
-                  </span>
-                </div>
-                <div className="relative z-10 mt-3 sm:mt-4">
-                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">S'exercer</h3>
-                  <p className="text-sky-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">Testez vos connaissances et entraînez-vous sur vos formations.</p>
-                </div>
-              </Link>
-
-              {/* Mes fichiers / Bibliothèque */}
-              <button 
-                onClick={() => setActiveSection('files')}
-                className="col-span-2 md:col-span-2 bg-gradient-to-br from-purple-700 via-indigo-700 to-blue-800 rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between min-h-[130px] sm:min-h-[150px] md:min-h-[160px]"
-              >
-                <div className="absolute top-0 right-0 p-4 md:p-8 opacity-15 transform translate-x-2 -translate-y-2 md:translate-x-4 md:-translate-y-4 group-hover:scale-110 transition-transform duration-500">
-                  <FolderDown className="w-24 h-24 md:w-40 md:h-40 text-white" />
-                </div>
-                <div className="relative z-10 flex justify-between items-start w-full gap-2">
-                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm shrink-0">
-                    <FolderDown className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <span className="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1 shrink-0">
-                    <FileText className="w-3 h-3" />
-                    <span>Tous vos supports</span>
-                  </span>
-                </div>
-                <div className="relative z-10 mt-3 sm:mt-4">
-                  <h3 className="text-base sm:text-xl md:text-2xl font-black text-white leading-tight mb-0.5 sm:mb-1">Mes fichiers</h3>
-                  <p className="text-purple-100 text-[11px] sm:text-xs md:text-sm font-medium line-clamp-2">PDF, Word, Excel & E-books de vos cours</p>
-                </div>
-              </button>
-
-              {/* Catalogue */}
-              <Link 
-                to="/catalogue"
-                className="col-span-1 relative overflow-hidden bg-gray-900 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-gray-900/20 active:scale-95 transition-all duration-300 aspect-square"
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-gray-800 via-gray-900 to-black opacity-80" />
-                <div className="relative z-10 flex justify-between w-full items-start">
-                  <div className="bg-white/10 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-white group-hover:bg-white/20 transition-all">
-                    <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 group-hover:text-white transition-colors" />
-                </div>
-                <div className="relative z-10">
-                  <h3 className="text-base sm:text-lg font-bold text-white leading-tight mb-0.5">Catalogue</h3>
-                  <p className="text-gray-400 text-[11px] sm:text-xs font-medium line-clamp-1">Découvrir plus</p>
-                </div>
-              </Link>
-
-              {/* Paiement */}
-              <button 
-                onClick={() => setActiveSection('payments')}
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:border-emerald-100 active:scale-95 transition-all duration-300 aspect-square"
-              >
-                <div className="flex justify-between w-full items-start">
-                  <div className="bg-emerald-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-emerald-600 group-hover:bg-emerald-100 transition-all">
-                    <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </div>
-                  {payments.filter(p => p.status === 'pending').length > 0 && (
-                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200 shadow-sm">
-                      {payments.filter(p => p.status === 'pending').length}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Paiement</h3>
-                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Suivi des tranches</p>
-                </div>
-              </button>
-
-              {/* Voir plus */}
-              <button 
-                onClick={() => setActiveSection('more')}
-                className="col-span-2 md:col-span-2 bg-slate-900 hover:bg-slate-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-slate-900/20 active:scale-95 transition-all duration-300 text-white flex flex-col justify-between min-h-[120px] md:min-h-[160px]"
-              >
-                <div className="absolute top-0 right-0 p-4 md:p-6 opacity-10 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform duration-500">
-                  <LayoutGrid className="w-24 h-24 md:w-32 md:h-32 text-white" />
-                </div>
-                <div className="relative z-10 flex justify-between items-start w-full">
-                  <div className="bg-white/10 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm group-hover:bg-white/20 transition-all">
-                    <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6 text-purple-300" />
-                  </div>
-                  <span className="bg-purple-500/20 text-purple-200 border border-purple-400/30 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1">
-                    <span>Autres services</span>
-                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  <span className="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-xs whitespace-nowrap">
+                    {registrations.length} {registrations.length === 1 ? 'cours' : 'cours'}
                   </span>
                 </div>
                 <div className="relative z-10 mt-3">
-                  <h3 className="text-base sm:text-xl font-bold text-white leading-tight mb-0.5">Voir plus</h3>
-                  <p className="text-slate-300 text-[11px] sm:text-xs font-medium line-clamp-1">
-                    Calendrier, Messagerie, Suggestions, Parrainage & Paramètres
+                  <h3 className="text-base sm:text-lg font-black text-white leading-tight mb-0.5">Mes formations</h3>
+                  <p className="text-purple-100/90 text-[11px] sm:text-xs font-medium line-clamp-2">
+                    Accéder à vos cours et suivre votre progression
                   </p>
                 </div>
               </button>
 
+              {/* 2. Catalogue */}
+              <Link
+                to="/catalogue"
+                className="bg-gradient-to-br from-slate-900 via-gray-900 to-black rounded-2xl sm:rounded-3xl p-4 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-gray-900/20 active:scale-[0.98] transition-all duration-300 text-white flex flex-col justify-between min-h-[140px] sm:min-h-[160px]"
+              >
+                <ShoppingBag className="w-28 h-28 text-white opacity-10 absolute -bottom-3 -right-3 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
+                  <div className="bg-white/15 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="bg-white/15 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-gray-200 shadow-xs flex items-center gap-1">
+                    <span>Explorer</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </span>
+                </div>
+                <div className="relative z-10 mt-3">
+                  <h3 className="text-base sm:text-lg font-black text-white leading-tight mb-0.5">Catalogue</h3>
+                  <p className="text-gray-300/90 text-[11px] sm:text-xs font-medium line-clamp-2">
+                    Découvrir de nouvelles formations & cours
+                  </p>
+                </div>
+              </Link>
+
+              {/* 3. S'exercer */}
+              <Link
+                to="/client/training"
+                className="bg-gradient-to-br from-sky-600 via-indigo-600 to-blue-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-sky-900/20 active:scale-[0.98] transition-all duration-300 text-white flex flex-col justify-between min-h-[140px] sm:min-h-[160px]"
+              >
+                <Brain className="w-28 h-28 text-white opacity-10 absolute -bottom-3 -right-3 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
+                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-xs flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-sky-200" />
+                    <span>Pratique</span>
+                  </span>
+                </div>
+                <div className="relative z-10 mt-3">
+                  <h3 className="text-base sm:text-lg font-black text-white leading-tight mb-0.5">S'exercer</h3>
+                  <p className="text-sky-100/90 text-[11px] sm:text-xs font-medium line-clamp-2">
+                    Pratiquer avec des quiz et cas pratiques R
+                  </p>
+                </div>
+              </Link>
+
+              {/* 4. Mes fichiers */}
+              <button
+                onClick={() => setActiveSection('files')}
+                className="bg-gradient-to-br from-indigo-700 via-purple-700 to-indigo-900 rounded-2xl sm:rounded-3xl p-4 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-indigo-900/20 active:scale-[0.98] transition-all duration-300 text-white flex flex-col justify-between min-h-[140px] sm:min-h-[160px]"
+              >
+                <FolderDown className="w-28 h-28 text-white opacity-10 absolute -bottom-3 -right-3 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
+                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+                    <FolderDown className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <span className="bg-white/20 px-2.5 py-1 rounded-full backdrop-blur-sm text-[10px] sm:text-xs font-bold text-white shadow-xs">
+                    Bibliothèque
+                  </span>
+                </div>
+                <div className="relative z-10 mt-3">
+                  <h3 className="text-base sm:text-lg font-black text-white leading-tight mb-0.5">Mes fichiers</h3>
+                  <p className="text-indigo-100/90 text-[11px] sm:text-xs font-medium line-clamp-2">
+                    Consulter vos supports PDF, Word & Excel
+                  </p>
+                </div>
+              </button>
+
+              {/* 5. Paiements */}
+              <button
+                onClick={() => setActiveSection('payments')}
+                className="bg-white border border-gray-200/80 hover:border-emerald-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-emerald-900/5 active:scale-[0.98] transition-all duration-300 text-gray-900 flex flex-col justify-between min-h-[140px] sm:min-h-[160px]"
+              >
+                <CreditCard className="w-28 h-28 text-emerald-600 opacity-5 absolute -bottom-3 -right-3 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
+                  <div className="bg-emerald-50 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                    <CreditCard className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  {payments.filter(p => p.status === 'pending').length > 0 ? (
+                    <span className="bg-amber-100 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-black shadow-xs">
+                      {payments.filter(p => p.status === 'pending').length} en attente
+                    </span>
+                  ) : (
+                    <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold">
+                      Reçus
+                    </span>
+                  )}
+                </div>
+                <div className="relative z-10 mt-3">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Paiements</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-2">
+                    Suivi de vos tranches de paiement et reçus
+                  </p>
+                </div>
+              </button>
+
+              {/* 6. Paramètres */}
+              <button
+                onClick={() => setActiveSection('settings')}
+                className="bg-white border border-gray-200/80 hover:border-purple-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-purple-900/5 active:scale-[0.98] transition-all duration-300 text-gray-900 flex flex-col justify-between min-h-[140px] sm:min-h-[160px]"
+              >
+                <Settings className="w-28 h-28 text-purple-600 opacity-5 absolute -bottom-3 -right-3 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10 flex justify-between items-start w-full gap-2">
+                  <div className="bg-purple-50 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-purple-600 group-hover:bg-purple-100 transition-colors">
+                    <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold">
+                    Compte
+                  </span>
+                </div>
+                <div className="relative z-10 mt-3">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Paramètres</h3>
+                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-2">
+                    Gérer votre profil et vos préférences
+                  </p>
+                </div>
+              </button>
+
+            </div>
+
+            {/* SECONDARY "VOIR PLUS" TILE */}
+            <div className="pt-2">
+              <button
+                onClick={() => setActiveSection('more')}
+                className="w-full bg-slate-900 hover:bg-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-5 relative overflow-hidden text-left group hover:shadow-xl hover:shadow-slate-900/20 active:scale-[0.99] transition-all duration-300 text-white flex items-center justify-between min-h-[90px]"
+              >
+                <LayoutGrid className="w-32 h-32 text-white opacity-5 absolute -right-4 -bottom-4 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10 flex items-center gap-3.5">
+                  <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-sm group-hover:bg-white/20 transition-colors shrink-0">
+                    <LayoutGrid className="w-6 h-6 text-purple-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-white leading-tight">Voir plus</h3>
+                    <p className="text-slate-300 text-xs font-medium mt-0.5">
+                      Calendrier, Messagerie, Mes demandes & Parrainage
+                    </p>
+                  </div>
+                </div>
+                <div className="relative z-10 bg-purple-500/20 text-purple-200 border border-purple-400/30 px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shrink-0 ml-2">
+                  <span>Autres services</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </button>
             </div>
 
             {/* Section Cours Interactifs & Auto-formation */}
@@ -894,7 +919,7 @@ export default function ClientHub() {
                     return (
                       <Link
                         key={course.id}
-                        to={`/client/interactive-course/${course.id}`}
+                        to={`/client/interactive-course/${course.slug || course.id}`}
                         className="bg-white border border-gray-100 hover:border-sky-200 rounded-2xl md:rounded-3xl p-5 shadow-xs hover:shadow-lg hover:shadow-sky-900/5 transition-all group flex flex-col justify-between"
                       >
                         <div>
@@ -944,7 +969,7 @@ export default function ClientHub() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Plus de fonctionnalités</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Accédez à l'ensemble de vos modules complémentaires</p>
+                <p className="text-xs text-gray-500 mt-0.5">Accédez à l'ensemble de vos services complémentaires</p>
               </div>
               <button 
                 onClick={() => setActiveSection('hub')}
@@ -955,25 +980,12 @@ export default function ClientHub() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-              {/* S'exercer */}
-              <Link 
-                to="/client/training"
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-sky-900/5 hover:border-sky-100 active:scale-95 transition-all duration-300 aspect-square"
-              >
-                <div className="bg-sky-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-sky-600 group-hover:bg-sky-100 transition-all w-fit">
-                  <Brain className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">S'exercer</h3>
-                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Quiz & entraînements</p>
-                </div>
-              </Link>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-5">
 
               {/* Calendrier */}
               <button 
                 onClick={() => setActiveSection('calendar')}
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-blue-900/5 hover:border-blue-100 active:scale-95 transition-all duration-300 aspect-square"
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-blue-900/5 hover:border-blue-100 active:scale-95 transition-all duration-300 aspect-square"
               >
                 <div className="flex justify-between w-full items-start">
                   <div className="bg-blue-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-blue-600 group-hover:bg-blue-100 transition-colors">
@@ -991,24 +1003,10 @@ export default function ClientHub() {
                 </div>
               </button>
 
-              {/* Mes fichiers */}
-              <button 
-                onClick={() => setActiveSection('files')}
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-purple-900/5 hover:border-purple-100 active:scale-95 transition-all duration-300 aspect-square"
-              >
-                <div className="bg-purple-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-purple-600 group-hover:bg-purple-100 transition-all w-fit">
-                  <FolderDown className="w-5 h-5 sm:w-6 sm:h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight mb-0.5">Bibliothèque</h3>
-                  <p className="text-gray-500 text-[11px] sm:text-xs font-medium line-clamp-1">Tous vos fichiers</p>
-                </div>
-              </button>
-
               {/* Messagerie */}
               <button 
                 onClick={() => setActiveSection('messages')}
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:border-emerald-100 active:scale-95 transition-all duration-300 aspect-square"
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/5 hover:border-emerald-100 active:scale-95 transition-all duration-300 aspect-square"
               >
                 <div className="bg-emerald-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-emerald-600 group-hover:bg-emerald-100 transition-all w-fit">
                   <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -1022,7 +1020,7 @@ export default function ClientHub() {
               {/* Mes demandes */}
               <button 
                 onClick={() => setActiveSection('proposals')}
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-amber-900/5 hover:border-amber-100 active:scale-95 transition-all duration-300 aspect-square"
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-amber-900/5 hover:border-amber-100 active:scale-95 transition-all duration-300 aspect-square"
               >
                 <div className="flex justify-between w-full items-start">
                   <div className="bg-amber-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-amber-600 group-hover:bg-amber-100 transition-all">
@@ -1042,7 +1040,7 @@ export default function ClientHub() {
               {referralCode && (
                 <button 
                   onClick={() => setActiveSection('parrainage')}
-                  className="col-span-1 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-amber-900/20 active:scale-95 transition-all duration-300 text-white relative overflow-hidden aspect-square"
+                  className="col-span-1 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-amber-900/20 active:scale-95 transition-all duration-300 text-white relative overflow-hidden aspect-square"
                 >
                   <div className="absolute top-0 right-0 p-3 opacity-15 transform translate-x-2 -translate-y-2">
                     <Gift className="w-20 h-20 text-white" />
@@ -1067,7 +1065,7 @@ export default function ClientHub() {
               {/* Paramètres */}
               <button 
                 onClick={() => setActiveSection('settings')}
-                className="col-span-1 bg-white border border-gray-100 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-indigo-900/5 hover:border-indigo-100 active:scale-95 transition-all duration-300 aspect-square"
+                className="col-span-1 bg-white border border-gray-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-indigo-900/5 hover:border-indigo-100 active:scale-95 transition-all duration-300 aspect-square"
               >
                 <div className="bg-slate-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl text-slate-600 group-hover:bg-slate-100 transition-all w-fit">
                   <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -1078,27 +1076,6 @@ export default function ClientHub() {
                 </div>
               </button>
 
-              {/* Découvrir l'application */}
-              <button 
-                onClick={() => navigate('/mobile-landing')}
-                className="col-span-1 bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 rounded-2xl md:rounded-3xl p-3.5 sm:p-5 flex flex-col justify-between text-left group hover:shadow-xl hover:shadow-emerald-900/20 active:scale-95 transition-all duration-300 text-white relative overflow-hidden aspect-square"
-              >
-                <div className="absolute top-0 right-0 p-3 opacity-15 transform translate-x-2 -translate-y-2">
-                  <Sparkles className="w-20 h-20 text-white" />
-                </div>
-                <div className="relative z-10 flex justify-between w-full items-start">
-                  <div className="bg-white/20 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm">
-                    <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  </div>
-                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black backdrop-blur-sm border border-white/20">
-                    Présentation
-                  </span>
-                </div>
-                <div className="relative z-10">
-                  <h3 className="text-base sm:text-lg font-bold text-white leading-tight mb-0.5">Découvrir l'app</h3>
-                  <p className="text-emerald-100 text-[11px] sm:text-xs font-medium line-clamp-1">Revoir la présentation</p>
-                </div>
-              </button>
             </div>
           </div>
         )}
@@ -1529,25 +1506,77 @@ export default function ClientHub() {
                 )}
               </div>
             </div>
-          ) : registrations.length === 0 ? (
-            <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-sm">
-              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <BookOpen className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Aucune formation</h3>
-              <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                Vous n'êtes inscrit à aucune formation pour le moment. Explorez notre catalogue pour trouver celle qui vous convient.
-              </p>
-              <Link 
-                to="/catalogue" 
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors shadow-sm"
-              >
-                Voir le catalogue
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-6 animate-fade-in">
+              {/* Header with Tabs */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-gray-100 shadow-2xs">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-black text-gray-900">Mes formations</h2>
+                  <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                    Consultez vos formations inscrites et vos cours interactifs
+                  </p>
+                </div>
+
+                {/* Navigation Tabs */}
+                <div className="flex bg-gray-100/80 p-1.5 rounded-2xl border border-gray-200/80 self-start sm:self-auto shrink-0 max-w-full overflow-x-auto no-scrollbar gap-1">
+                  <button
+                    onClick={() => setFormationsTab('classic')}
+                    className={`px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                      formationsTab === 'classic'
+                        ? 'bg-white text-purple-700 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>Formations</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${
+                      formationsTab === 'classic' ? 'bg-purple-100 text-purple-800' : 'bg-gray-200 text-gray-700'
+                    }`}>
+                      {registrations.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setFormationsTab('interactive')}
+                    className={`px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                      formationsTab === 'interactive'
+                        ? 'bg-white text-sky-700 shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-500" />
+                    <span className="hidden xs:inline">Cours interactifs</span>
+                    <span className="xs:hidden">Interactifs</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${
+                      formationsTab === 'interactive' ? 'bg-sky-100 text-sky-800' : 'bg-gray-200 text-gray-700'
+                    }`}>
+                      {interactiveCourses.length}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* TAB 1: FORMATIONS CLASSIQUES */}
+              {formationsTab === 'classic' && (
+                registrations.length === 0 ? (
+                  <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-xs">
+                    <div className="w-16 h-16 bg-purple-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-purple-600">
+                      <BookOpen className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Aucune formation</h3>
+                    <p className="text-gray-500 text-xs sm:text-sm mb-6 max-w-md mx-auto">
+                      Vous n'êtes inscrit à aucune formation pour le moment. Explorez notre catalogue pour trouver celle qui vous convient.
+                    </p>
+                    <Link 
+                      to="/catalogue" 
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition-colors shadow-xs"
+                    >
+                      Voir le catalogue
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {registrations.map((reg, index) => {
                 const course = reg.courses;
                 const courseDate = new Date(course.date_time);
@@ -1757,6 +1786,106 @@ export default function ClientHub() {
                   </div>
                 );
               })}
+            </div>
+          )
+        )}
+
+              {/* TAB 2: COURS INTERACTIFS */}
+              {formationsTab === 'interactive' && (
+                interactiveCourses.length === 0 ? (
+                  <div className="bg-white rounded-3xl p-10 text-center border border-gray-100 shadow-xs">
+                    <div className="w-16 h-16 bg-sky-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-sky-600">
+                      <Sparkles className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Aucun cours interactif disponible</h3>
+                    <p className="text-gray-500 text-xs sm:text-sm mb-6 max-w-md mx-auto">
+                      Des cours interactifs autonomes avec exercices pratiques R seront bientôt publiés.
+                    </p>
+                    <Link 
+                      to="/catalogue" 
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-600 text-white rounded-xl text-xs font-bold hover:bg-sky-700 transition-colors shadow-xs"
+                    >
+                      Découvrir le catalogue
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {interactiveCourses.map((course) => {
+                      const modulesCount = course.interactive_course_modules?.length || 0;
+                      const lessonsCount = (course.interactive_course_modules || []).reduce(
+                        (acc: number, m: any) => acc + (m.interactive_course_lessons?.length || 0),
+                        0
+                      );
+
+                      return (
+                        <div 
+                          key={course.id}
+                          className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-xs hover:shadow-lg hover:border-sky-200 transition-all flex flex-col justify-between group"
+                        >
+                          {/* Cover Image or Header */}
+                          {course.cover_image_url ? (
+                            <div className="h-40 w-full overflow-hidden relative">
+                              <img 
+                                src={course.cover_image_url} 
+                                alt={course.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                              <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-sky-600 text-white shadow-xs">
+                                Cours interactif
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="h-32 w-full bg-gradient-to-br from-sky-600 via-indigo-600 to-purple-700 p-5 flex flex-col justify-between relative overflow-hidden text-white">
+                              <Sparkles className="w-24 h-24 text-white opacity-10 absolute -right-4 -bottom-4 pointer-events-none" />
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-white/20 text-white backdrop-blur-sm w-fit border border-white/20">
+                                Cours interactif
+                              </span>
+                              <div className="text-xs font-bold text-sky-100">
+                                {modulesCount} chapitres • {lessonsCount} leçons
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="p-5 flex-grow flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase bg-sky-50 text-sky-700 border border-sky-100">
+                                  {course.category || 'R & Data'}
+                                </span>
+                                <span className="text-xs font-semibold text-gray-400">
+                                  {course.level === 'beginner' ? 'Débutant' : course.level === 'intermediate' ? 'Intermédiaire' : 'Avancé'}
+                                </span>
+                              </div>
+
+                              <h3 className="text-base font-extrabold text-gray-900 group-hover:text-sky-600 transition-colors line-clamp-2 mb-2 leading-snug">
+                                {course.title}
+                              </h3>
+
+                              {course.description && (
+                                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-4">
+                                  {course.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="pt-4 border-t border-gray-100 mt-auto">
+                              <Link
+                                to={`/client/interactive-course/${course.slug || course.id}`}
+                                className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-2 shadow-xs group-hover:scale-[1.01]"
+                              >
+                                <span>Accéder au cours</span>
+                                <ChevronRight className="w-4 h-4" />
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
             </div>
           )
         )}
