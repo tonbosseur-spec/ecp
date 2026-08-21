@@ -30,10 +30,14 @@ import {
   Globe,
   RefreshCw,
   Copy,
-  ExternalLink
+  ExternalLink,
+  FileSpreadsheet,
+  Table
 } from 'lucide-react';
 import { TrainingActivityType, TrainingDifficultyLevel } from '../types';
 import { generateSlug, getUniqueTrainingSlug } from '../lib/slugUtils';
+import { ExcelChallengeConfig, DEFAULT_EXCEL_CHALLENGE_CONFIG } from '../lib/excel/excelChallengeTypes';
+import { AdminExcelChallengeBuilder } from '../components/excel/AdminExcelChallengeBuilder';
 
 export interface TestCaseItem {
   description: string;
@@ -42,7 +46,7 @@ export interface TestCaseItem {
 
 export interface ExerciseFormItem {
   id?: string;
-  exercise_type: 'qcm' | 'r_code';
+  exercise_type: 'qcm' | 'r_code' | 'excel_formula';
   title: string;
   instructions: string;
   orderIndex: number;
@@ -56,6 +60,8 @@ export interface ExerciseFormItem {
   ai_assistance_enabled?: boolean;
   expected_output: string;
   test_cases: TestCaseItem[];
+  // Excel specific fields
+  excel_config?: ExcelChallengeConfig;
   // UI preview state
   showPreview?: boolean;
 }
@@ -214,6 +220,50 @@ export default function AdminTrainingEditor() {
               orderIndex: ex.order_index ?? index,
               showPreview: false
             };
+          } else if (ex.exercise_type === 'excel_formula') {
+            let parsedExcelConfig: ExcelChallengeConfig = { ...DEFAULT_EXCEL_CHALLENGE_CONFIG };
+            if (ex.test_cases && typeof ex.test_cases === 'object' && !Array.isArray(ex.test_cases)) {
+              parsedExcelConfig = {
+                initial_data: ex.test_cases.initial_data || DEFAULT_EXCEL_CHALLENGE_CONFIG.initial_data,
+                target_cells: Array.isArray(ex.test_cases.target_cells) ? ex.test_cases.target_cells : DEFAULT_EXCEL_CHALLENGE_CONFIG.target_cells,
+                criteria: Array.isArray(ex.test_cases.criteria) ? ex.test_cases.criteria : DEFAULT_EXCEL_CHALLENGE_CONFIG.criteria,
+                grid_cols: ex.test_cases.grid_cols || 6,
+                grid_rows: ex.test_cases.grid_rows || 20
+              };
+            } else if (typeof ex.test_cases === 'string') {
+              try {
+                const parsed = JSON.parse(ex.test_cases);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                  parsedExcelConfig = {
+                    initial_data: parsed.initial_data || DEFAULT_EXCEL_CHALLENGE_CONFIG.initial_data,
+                    target_cells: Array.isArray(parsed.target_cells) ? parsed.target_cells : DEFAULT_EXCEL_CHALLENGE_CONFIG.target_cells,
+                    criteria: Array.isArray(parsed.criteria) ? parsed.criteria : DEFAULT_EXCEL_CHALLENGE_CONFIG.criteria,
+                    grid_cols: parsed.grid_cols || 6,
+                    grid_rows: parsed.grid_rows || 20
+                  };
+                }
+              } catch {
+                parsedExcelConfig = { ...DEFAULT_EXCEL_CHALLENGE_CONFIG };
+              }
+            }
+
+            return {
+              id: ex.id,
+              exercise_type: 'excel_formula',
+              title: ex.title || `Défi Excel ${index + 1}`,
+              instructions: ex.instructions || '',
+              options: ['', '', '', ''],
+              correctOptionIndex: 0,
+              explanation: '',
+              starter_code: '',
+              hint: ex.hint || '',
+              ai_assistance_enabled: ex.ai_assistance_enabled ?? true,
+              expected_output: '',
+              test_cases: [],
+              excel_config: parsedExcelConfig,
+              orderIndex: ex.order_index ?? index,
+              showPreview: false
+            };
           } else {
             // QCM
             let opts: [string, string, string, string] = ['', '', '', ''];
@@ -284,6 +334,25 @@ export default function AdminTrainingEditor() {
                   code: 'mean(notes)'
                 }
               ],
+              orderIndex: 0,
+              showPreview: false
+            }
+          ]);
+        } else if (newType === 'excel_exercise') {
+          setExercises([
+            {
+              exercise_type: 'excel_formula',
+              title: 'Calculer le montant total d’une commande',
+              instructions: '1. Dans les cellules D2, D3 et D4, calculez le montant total de chaque produit en multipliant le prix unitaire par la quantité.\n2. Dans la cellule D5, calculez le total général de la commande à l’aide de la fonction SOMME.',
+              options: ['', '', '', ''],
+              correctOptionIndex: 0,
+              explanation: '',
+              starter_code: '',
+              hint: 'Utilisez =B2*C2 pour la première ligne et =SOMME(D2:D4) pour le total.',
+              ai_assistance_enabled: true,
+              expected_output: '',
+              test_cases: [],
+              excel_config: { ...DEFAULT_EXCEL_CHALLENGE_CONFIG },
               orderIndex: 0,
               showPreview: false
             }
@@ -359,13 +428,39 @@ export default function AdminTrainingEditor() {
     ]);
   };
 
+  const handleAddExcelExercise = () => {
+    setExercises(prev => [
+      ...prev,
+      {
+        exercise_type: 'excel_formula',
+        title: `Défi Excel ${prev.length + 1}`,
+        instructions: '',
+        options: ['', '', '', ''],
+        correctOptionIndex: 0,
+        explanation: '',
+        starter_code: '',
+        hint: '',
+        ai_assistance_enabled: true,
+        expected_output: '',
+        test_cases: [],
+        excel_config: { ...DEFAULT_EXCEL_CHALLENGE_CONFIG },
+        orderIndex: prev.length,
+        showPreview: false
+      }
+    ]);
+  };
+
   const handleRemoveExercise = (indexToRemove: number) => {
     if (exercises.length <= 1) {
       toast.info('Un entraînement doit comporter au moins un exercice ou une question.');
       return;
     }
     const ex = exercises[indexToRemove];
-    const label = ex.exercise_type === 'qcm' ? 'cette question QCM' : 'cet exercice R';
+    const label = ex.exercise_type === 'qcm' 
+      ? 'cette question QCM' 
+      : ex.exercise_type === 'excel_formula' 
+        ? 'ce défi Excel' 
+        : 'cet exercice R';
     if ((ex.instructions || ex.title) && !window.confirm(`Supprimer ${label} (#${indexToRemove + 1}) ?`)) {
       return;
     }
@@ -506,6 +601,23 @@ export default function AdminTrainingEditor() {
             return false;
           }
         }
+      } else if (ex.exercise_type === 'excel_formula') {
+        if (!ex.title.trim()) {
+          toast.error(`Le défi Excel #${i + 1} doit avoir un titre.`);
+          return false;
+        }
+
+        if (!ex.instructions.trim()) {
+          toast.error(`Le défi Excel #${i + 1} (« ${ex.title || 'Sans titre'} ») doit comporter une consigne.`);
+          return false;
+        }
+
+        const targetCells = ex.excel_config?.target_cells || [];
+        const criteria = ex.excel_config?.criteria || [];
+        if (targetCells.length === 0 && criteria.length === 0) {
+          toast.error(`Le défi Excel #${i + 1} doit comporter au moins une cellule cible ou un critère de validation.`);
+          return false;
+        }
       }
     }
 
@@ -614,12 +726,20 @@ export default function AdminTrainingEditor() {
                 code: t.code.trim()
               }));
             validTestCases = filtered.length > 0 ? filtered : null;
+          } else if (ex.exercise_type === 'excel_formula') {
+            validTestCases = ex.excel_config || DEFAULT_EXCEL_CHALLENGE_CONFIG;
           }
+
+          const defaultTitle = ex.exercise_type === 'r_code' 
+            ? `Exercice R ${idx + 1}` 
+            : ex.exercise_type === 'excel_formula'
+              ? `Défi Excel ${idx + 1}`
+              : `Question ${idx + 1}`;
 
           const payload: any = {
             training_session_id: currentSessionId,
             exercise_type: ex.exercise_type,
-            title: ex.title.trim() || (ex.exercise_type === 'r_code' ? `Exercice R ${idx + 1}` : `Question ${idx + 1}`),
+            title: ex.title.trim() || defaultTitle,
             instructions: ex.instructions.trim(),
             order_index: idx,
             options: ex.exercise_type === 'qcm' ? ex.options.map(o => o.trim()) : null,
@@ -694,6 +814,7 @@ export default function AdminTrainingEditor() {
 
   const qcmCount = exercises.filter(e => e.exercise_type === 'qcm').length;
   const rCount = exercises.filter(e => e.exercise_type === 'r_code').length;
+  const excelCount = exercises.filter(e => e.exercise_type === 'excel_formula').length;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 font-sans pb-24 w-full">
@@ -710,7 +831,7 @@ export default function AdminTrainingEditor() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
                   {isEditing ? 'Édition' : 'Création'}
                 </span>
@@ -718,6 +839,18 @@ export default function AdminTrainingEditor() {
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1">
                     <Code2 className="w-3 h-3" />
                     Exercices R
+                  </span>
+                )}
+                {activityType === 'excel_exercise' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1">
+                    <FileSpreadsheet className="w-3 h-3" />
+                    Défis Excel
+                  </span>
+                )}
+                {activityType === 'quiz_qcm' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center gap-1">
+                    <HelpCircle className="w-3 h-3" />
+                    Quiz QCM
                   </span>
                 )}
                 {activityType === 'mixed' && (
@@ -905,7 +1038,7 @@ export default function AdminTrainingEditor() {
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
                 Type d'activité
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Quiz QCM */}
                 <button
                   type="button"
@@ -926,7 +1059,7 @@ export default function AdminTrainingEditor() {
                     <h4 className="text-sm font-bold flex items-center gap-1.5">
                       <span>📝</span> Quiz QCM
                     </h4>
-                    <p className="text-[11px] text-gray-500">Questions à choix multiples avec validation théorique</p>
+                    <p className="text-[11px] text-gray-500">Questions à choix multiples</p>
                   </div>
                 </button>
 
@@ -950,7 +1083,31 @@ export default function AdminTrainingEditor() {
                     <h4 className="text-sm font-bold flex items-center gap-1.5">
                       <span>💻</span> Exercices R
                     </h4>
-                    <p className="text-[11px] text-gray-500">Scripting et tests unitaires R automatisés</p>
+                    <p className="text-[11px] text-gray-500">Scripting et tests unitaires R</p>
+                  </div>
+                </button>
+
+                {/* Défis Excel */}
+                <button
+                  type="button"
+                  onClick={() => handleActivityTypeChange('excel_exercise')}
+                  className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 min-h-[90px] cursor-pointer ${
+                    activityType === 'excel_exercise'
+                      ? 'bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/20 text-emerald-900 shadow-xs'
+                      : 'bg-gray-50 border-gray-200 hover:border-gray-300 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    {activityType === 'excel_exercise' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold flex items-center gap-1.5">
+                      <span>📊</span> Défis Excel
+                    </h4>
+                    <p className="text-[11px] text-gray-500">Formules & cellules cibles</p>
                   </div>
                 </button>
 
@@ -974,7 +1131,7 @@ export default function AdminTrainingEditor() {
                     <h4 className="text-sm font-bold flex items-center gap-1.5">
                       <span>🔀</span> Mixte
                     </h4>
-                    <p className="text-[11px] text-gray-500">Combinaison libre de QCM et de scripts R</p>
+                    <p className="text-[11px] text-gray-500">QCM, R et Excel combinés</p>
                   </div>
                 </button>
               </div>
@@ -1033,17 +1190,23 @@ export default function AdminTrainingEditor() {
                     <Code2 className="w-5 h-5 text-blue-600" />
                     <span>Exercices R interactifs ({exercises.length})</span>
                   </>
+                ) : activityType === 'excel_exercise' ? (
+                  <>
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                    <span>Défis Excel interactifs ({exercises.length})</span>
+                  </>
                 ) : (
                   <>
                     <Layers className="w-5 h-5 text-purple-600" />
-                    <span>Exercices de la session ({exercises.length} au total : {qcmCount} QCM, {rCount} R)</span>
+                    <span>Exercices de la session ({exercises.length} au total : {qcmCount} QCM, {rCount} R, {excelCount} Excel)</span>
                   </>
                 )}
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 {activityType === 'quiz_qcm' && 'Rédigez vos questions, précisez les 4 options et cochez la bonne réponse.'}
                 {activityType === 'r_exercise' && 'Configurez les consignes, le code de départ et les critères de test unitaire.'}
-                {activityType === 'mixed' && 'Assemblez librement des questions théoriques et des exercices de programmation R.'}
+                {activityType === 'excel_exercise' && 'Configurez la grille initiale, les consignes et les formules / valeurs cibles attendues.'}
+                {activityType === 'mixed' && 'Assemblez librement des questions théoriques, des scripts R et des défis Excel.'}
               </p>
             </div>
 
@@ -1069,6 +1232,16 @@ export default function AdminTrainingEditor() {
                   <span>+ Ajouter un exercice R</span>
                 </button>
               )}
+              {activityType === 'excel_exercise' && (
+                <button
+                  type="button"
+                  onClick={handleAddExcelExercise}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl transition-all shadow-xs active:scale-95 min-h-[44px] cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ Ajouter un défi Excel</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1077,29 +1250,39 @@ export default function AdminTrainingEditor() {
             {exercises.map((ex, exIndex) => {
               const isQcm = ex.exercise_type === 'qcm';
               const isR = ex.exercise_type === 'r_code';
+              const isExcel = ex.exercise_type === 'excel_formula';
 
               return (
                 <div
                   key={exIndex}
                   className={`bg-white rounded-3xl border shadow-sm transition-all overflow-hidden ${
-                    isR 
-                      ? 'border-blue-100 ring-1 ring-blue-50/50' 
-                      : 'border-gray-100'
+                    isExcel
+                      ? 'border-emerald-100 ring-1 ring-emerald-50/50'
+                      : isR 
+                        ? 'border-blue-100 ring-1 ring-blue-50/50' 
+                        : 'border-gray-100'
                   }`}
                 >
                   {/* Card Header with Badges and Move/Delete/Preview Controls */}
                   <div className="p-4 sm:p-6 pb-4 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className={`w-7 h-7 rounded-xl font-black text-xs flex items-center justify-center shadow-xs shrink-0 ${
-                        isR 
-                          ? 'bg-blue-600 text-white shadow-blue-200' 
-                          : 'bg-indigo-600 text-white shadow-indigo-200'
+                        isExcel
+                          ? 'bg-emerald-600 text-white shadow-emerald-200'
+                          : isR 
+                            ? 'bg-blue-600 text-white shadow-blue-200' 
+                            : 'bg-indigo-600 text-white shadow-indigo-200'
                       }`}>
                         {exIndex + 1}
                       </span>
 
                       {/* Type Badge */}
-                      {isR ? (
+                      {isExcel ? (
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                          Défi Excel
+                        </span>
+                      ) : isR ? (
                         <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1.5">
                           <Code2 className="w-3.5 h-3.5 text-blue-700" />
                           Exercice R
@@ -1112,7 +1295,7 @@ export default function AdminTrainingEditor() {
                       )}
 
                       <h3 className="text-sm font-extrabold text-gray-900 truncate max-w-[240px] sm:max-w-[340px]">
-                        {ex.title || (isR ? `Exercice #${exIndex + 1}` : `Question #${exIndex + 1}`)}
+                        {ex.title || (isExcel ? `Défi Excel #${exIndex + 1}` : isR ? `Exercice #${exIndex + 1}` : `Question #${exIndex + 1}`)}
                       </h3>
                     </div>
 
@@ -1575,6 +1758,24 @@ export default function AdminTrainingEditor() {
                         )}
                       </div>
                     )}
+                    {/* ======================================================== */}
+                    {/* EXCEL FORM CONTENT                                       */}
+                    {/* ======================================================== */}
+                    {isExcel && (
+                      <AdminExcelChallengeBuilder
+                        exerciseIndex={exIndex}
+                        title={ex.title}
+                        instructions={ex.instructions}
+                        hint={ex.hint}
+                        aiAssistanceEnabled={ex.ai_assistance_enabled ?? true}
+                        config={ex.excel_config || DEFAULT_EXCEL_CHALLENGE_CONFIG}
+                        onUpdateTitle={(val) => handleUpdateExercise(exIndex, 'title', val)}
+                        onUpdateInstructions={(val) => handleUpdateExercise(exIndex, 'instructions', val)}
+                        onUpdateHint={(val) => handleUpdateExercise(exIndex, 'hint', val)}
+                        onUpdateAiAssistance={(val) => handleUpdateExercise(exIndex, 'ai_assistance_enabled', val)}
+                        onUpdateConfig={(newConfig) => handleUpdateExercise(exIndex, 'excel_config', newConfig)}
+                      />
+                    )}
                   </div>
                 </div>
               );
@@ -1605,15 +1806,26 @@ export default function AdminTrainingEditor() {
               </button>
             )}
 
+            {activityType === 'excel_exercise' && (
+              <button
+                type="button"
+                onClick={handleAddExcelExercise}
+                className="w-full py-4 border-2 border-dashed border-emerald-200 hover:border-emerald-400 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-700 rounded-3xl text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[50px] cursor-pointer"
+              >
+                <PlusCircle className="w-5 h-5" />
+                <span>+ Ajouter un défi (Excel)</span>
+              </button>
+            )}
+
             {activityType === 'mixed' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
                   type="button"
                   onClick={handleAddQcmQuestion}
                   className="py-4 border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 rounded-3xl text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[50px] cursor-pointer"
                 >
                   <HelpCircle className="w-5 h-5" />
-                  <span>+ Ajouter une question QCM</span>
+                  <span>+ Question QCM</span>
                 </button>
 
                 <button
@@ -1622,7 +1834,16 @@ export default function AdminTrainingEditor() {
                   className="py-4 border-2 border-dashed border-blue-200 hover:border-blue-400 bg-blue-50/50 hover:bg-blue-50 text-blue-700 rounded-3xl text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[50px] cursor-pointer"
                 >
                   <Code2 className="w-5 h-5" />
-                  <span>+ Ajouter un exercice R</span>
+                  <span>+ Exercice R</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAddExcelExercise}
+                  className="py-4 border-2 border-dashed border-emerald-200 hover:border-emerald-400 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-700 rounded-3xl text-sm font-bold flex items-center justify-center gap-2 transition-all min-h-[50px] cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-5 h-5" />
+                  <span>+ Défi Excel</span>
                 </button>
               </div>
             )}

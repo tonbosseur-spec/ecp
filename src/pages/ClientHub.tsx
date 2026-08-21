@@ -1824,29 +1824,33 @@ export default function ClientHub() {
                           className="bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-xs hover:shadow-lg hover:border-sky-200 transition-all flex flex-col justify-between group"
                         >
                           {/* Cover Image or Header */}
-                          {course.cover_image_url ? (
-                            <div className="h-40 w-full overflow-hidden relative">
-                              <img 
-                                src={course.cover_image_url} 
-                                alt={course.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                              <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-sky-600 text-white shadow-xs">
-                                Cours interactif
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="h-32 w-full bg-gradient-to-br from-sky-600 via-indigo-600 to-purple-700 p-5 flex flex-col justify-between relative overflow-hidden text-white">
-                              <Sparkles className="w-24 h-24 text-white opacity-10 absolute -right-4 -bottom-4 pointer-events-none" />
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-white/20 text-white backdrop-blur-sm w-fit border border-white/20">
-                                Cours interactif
-                              </span>
-                              <div className="text-xs font-bold text-sky-100">
-                                {modulesCount} chapitres • {lessonsCount} leçons
+                          {(() => {
+                            const coverImg = course.cover_image || course.cover_image_url || course.thumbnail_url || course.image_url;
+                            return coverImg ? (
+                              <div className="h-40 w-full overflow-hidden relative bg-slate-900">
+                                <img 
+                                  src={coverImg} 
+                                  alt={course.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-sky-600 text-white shadow-xs">
+                                  Cours interactif
+                                </span>
                               </div>
-                            </div>
-                          )}
+                            ) : (
+                              <div className="h-32 w-full bg-gradient-to-br from-sky-600 via-indigo-600 to-purple-700 p-5 flex flex-col justify-between relative overflow-hidden text-white">
+                                <Sparkles className="w-24 h-24 text-white opacity-10 absolute -right-4 -bottom-4 pointer-events-none" />
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-white/20 text-white backdrop-blur-sm w-fit border border-white/20">
+                                  Cours interactif
+                                </span>
+                                <div className="text-xs font-bold text-sky-100">
+                                  {modulesCount} chapitres • {lessonsCount} leçons
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           <div className="p-5 flex-grow flex flex-col justify-between">
                             <div>

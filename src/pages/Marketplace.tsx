@@ -488,6 +488,19 @@ export default function Marketplace() {
                 const isFree = !course.price_fcfa || course.price_fcfa === 0;
                 const formattedPrice = isFree ? "Gratuit" : `${course.price_fcfa.toLocaleString('fr-FR')} FCFA`;
                 const modulesCount = course.interactive_course_modules?.length || 0;
+                const coverImg = course.cover_image || course.cover_image_url || course.thumbnail_url || course.image_url;
+
+                // Clean markdown markup for snippet preview
+                const cleanSnippet = course.description 
+                  ? course.description
+                      .replace(/#+\s?/g, '')
+                      .replace(/(\*\*|__)(.*?)\1/g, '$2')
+                      .replace(/(\*|_)(.*?)\1/g, '$2')
+                      .replace(/`([^`]+)`/g, '$1')
+                      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+                      .replace(/^\s*[-*+]\s+/gm, '')
+                      .trim()
+                  : 'Apprenez à votre rythme grâce aux explications et exercices R pratiques avec correction automatique.';
 
                 return (
                   <motion.div
@@ -500,15 +513,17 @@ export default function Marketplace() {
                   >
                     <div>
                       <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-sky-600 via-indigo-600 to-purple-700">
-                        {course.cover_image_url ? (
+                        {coverImg ? (
                           <img 
-                            src={course.cover_image_url} 
+                            src={coverImg} 
                             alt={course.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            referrerPolicy="no-referrer"
                           />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Sparkles className="w-16 h-16 text-white/20" />
+                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                            <Sparkles className="w-12 h-12 text-white/40 mb-2" />
+                            <span className="text-white/60 text-xs font-semibold">Formation Interactive</span>
                           </div>
                         )}
                         
@@ -536,7 +551,7 @@ export default function Marketplace() {
                         </h3>
 
                         <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
-                          {course.description || 'Apprenez à votre rythme grâce aux explications et exercices R pratiques avec correction automatique.'}
+                          {cleanSnippet}
                         </p>
 
                         <div className="pt-2 flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-100">

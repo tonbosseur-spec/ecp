@@ -10,6 +10,7 @@ import {
   Check,
   AlertCircle,
   Code2,
+  Table,
   Lightbulb,
   Eye,
   EyeOff,
@@ -31,6 +32,10 @@ import { TrainingSession, TrainingExercise } from '../types';
 import REditorConsole, { REditorConsoleRef } from '../components/REditorConsole';
 import GeminiAssistant from '../components/GeminiAssistant';
 import { validateCode, resetREnvironment, RValidationResult } from '../lib/webrEngine';
+import { ClientExcelChallengeView } from '../components/excel/ClientExcelChallengeView';
+import { ExcelCellsMap } from '../lib/excel/excelTypes';
+import { ExcelChallengeConfig } from '../lib/excel/excelChallengeTypes';
+import { evaluateExcelChallenge, ExcelCorrectionResult } from '../lib/excel/excelCorrectionEngine';
 
 export default function ClientTrainingSession() {
   const { id } = useParams<{ id: string }>();
@@ -59,6 +64,11 @@ export default function ClientTrainingSession() {
   // Validation states for R exercises
   const [validatingR, setValidatingR] = useState<Record<string, boolean>>({});
   const [validationResults, setValidationResults] = useState<Record<string, RValidationResult>>({});
+
+  // Validation & Grid states for Excel exercises
+  const [excelStudentCells, setExcelStudentCells] = useState<Record<string, ExcelCellsMap>>({});
+  const [excelValidationResults, setExcelValidationResults] = useState<Record<string, ExcelCorrectionResult>>({});
+  const [validatingExcel, setValidatingExcel] = useState<Record<string, boolean>>({});
 
   // Ref to R editor for automatic focus
   const rEditorRef = useRef<REditorConsoleRef | null>(null);
@@ -191,6 +201,9 @@ export default function ClientTrainingSession() {
       setShowHints({});
       setValidationResults({});
       setValidatingR({});
+      setExcelValidationResults({});
+      setValidatingExcel({});
+      setExcelStudentCells({});
       setCurrentAttemptId(null);
 
       // 3. Fetch previous exercise attempts to identify already passed exercises
@@ -293,6 +306,9 @@ export default function ClientTrainingSession() {
     setCurrentAttemptId(null);
     setValidationResults({});
     setValidatingR({});
+    setExcelValidationResults({});
+    setValidatingExcel({});
+    setExcelStudentCells({});
     setTimeSpentSeconds(0);
     setCurrentIndex(0);
     setIsCompletedState(false);
@@ -508,6 +524,200 @@ export default function ClientTrainingSession() {
     }
   };
 
+  // Validate Excel Exercise locally & persist progress securely
+  const handleValidateExcelExercise = async (
+    exercise: TrainingExercise,
+    currentCells: ExcelCellsMap,
+    config: ExcelChallengeConfig
+  ) => {
+    try {
+      setValidatingExcel(prev => ({ ...prev, [exercise.id]: true }));
+
+      // 1. Run Excel local correction engine
+      const result = evaluateExcelChallenge(currentCells, config);
+
+      setExcelStudentCells(prev => ({
+        ...prev,
+        [exercise.id]: currentCells
+      }));
+
+      setExcelValidationResults(prev => ({
+        ...prev,
+        [exercise.id]: result
+      }));
+
+      const totalCrit = result.totalCriteria;
+      const passedCrit = result.passedCriteria;
+      const isCorrect = result.passed;
+      const computedScore = result.scorePercentage;
+
+      if (isCorrect) {
+        toast.success("🎉 Défi Excel validé avec succès ! (100%)");
+      } else if (totalCrit === 0) {
+        toast.error("Aucun critère de validation n'est configuré pour cet exercice.");
+      } else {
+        toast.error(`Certains critères ne sont pas encore satisfaits (${passedCrit}/${totalCrit} validés).`);
+      }
+
+      // 2. Persist progress into Supabase tables: training_attempts and training_exercise_attempts
+      let userId = currentUserId;
+      if (!userId) {
+        const { data: authData } = await supabase.auth.getUser();
+        userId = authData?.user?.id || null;
+      }
+
+      if (!userId) {
+        console.warn("Utilisateur non connecté : progression Excel validée uniquement localement.");
+        return;
+      }
+
+      if (!session) return;
+
+      setIsSavingProgress(prev => ({ ...prev, [exercise.id]: true }));
+
+      try {
+        let attemptId = currentAttemptId;
+
+        // Create or reuse training_attempt
+        if (!attemptId) {
+          const { data: newAttempt, error: createAttemptError } = await supabase
+            .from('training_attempts')
+            .insert({
+              training_session_id: session.id,
+              client_id: userId,
+              score_percentage: computedScore,
+              is_passed: isCorrect && exercises.length === 1,
+              time_spent_seconds: timeSpentSeconds || 0
+            })
+            .select('id')
+            .single();
+
+          if (createAttemptError) {
+            console.error("Erreur création tentative Excel:", createAttemptError);
+            toast.error("Erreur serveur Supabase : impossible d'initialiser la tentative.");
+            return;
+          }
+
+          if (newAttempt) {
+            attemptId = newAttempt.id;
+            setCurrentAttemptId(attemptId);
+          }
+        }
+
+        if (attemptId) {
+          const excelAnswerPayload = {
+            type: 'excel_formula',
+            passed_criteria: passedCrit,
+            total_criteria: totalCrit,
+            score_percentage: computedScore,
+            student_cells: currentCells
+          };
+
+          const excelSnapshotPayload = {
+            exercise_type: 'excel_formula',
+            title: exercise.title,
+            instructions: exercise.instructions,
+            hint: exercise.hint || null,
+            test_cases: exercise.test_cases || null,
+            order_index: exercise.order_index ?? 0,
+            passed_criteria: passedCrit,
+            total_criteria: totalCrit,
+            is_correct: isCorrect,
+            score: computedScore
+          };
+
+          // Save or update record in training_exercise_attempts
+          const { data: existingExRecord, error: checkError } = await supabase
+            .from('training_exercise_attempts')
+            .select('id')
+            .eq('attempt_id', attemptId)
+            .eq('exercise_id', exercise.id)
+            .maybeSingle();
+
+          if (checkError) {
+            console.warn("Erreur vérification training_exercise_attempts:", checkError);
+          }
+
+          if (existingExRecord?.id) {
+            const { error: updateError } = await supabase
+              .from('training_exercise_attempts')
+              .update({
+                answer_data: excelAnswerPayload,
+                snapshot_data: excelSnapshotPayload,
+                is_correct: isCorrect,
+                score: computedScore
+              })
+              .eq('id', existingExRecord.id);
+
+            if (updateError) {
+              console.error("Erreur mise à jour training_exercise_attempts:", updateError);
+              toast.error("Erreur de sauvegarde de l'exercice Excel : " + updateError.message);
+            }
+          } else {
+            const { error: insertError } = await supabase
+              .from('training_exercise_attempts')
+              .insert({
+                attempt_id: attemptId,
+                exercise_id: exercise.id,
+                answer_data: excelAnswerPayload,
+                snapshot_data: excelSnapshotPayload,
+                is_correct: isCorrect,
+                score: computedScore
+              });
+
+            if (insertError) {
+              console.error("Erreur insertion training_exercise_attempts:", insertError);
+              toast.error("Erreur de sauvegarde de l'exercice Excel : " + insertError.message);
+            }
+          }
+
+          // Recalculate and update overall training_attempt score
+          const { data: allExAttempts, error: fetchAllError } = await supabase
+            .from('training_exercise_attempts')
+            .select('exercise_id, score, is_correct')
+            .eq('attempt_id', attemptId);
+
+          if (!fetchAllError && allExAttempts) {
+            const totalSessionEx = exercises.length || 1;
+            const sumScores = allExAttempts.reduce((acc, curr) => acc + (Number(curr.score) || 0), 0);
+            const globalAvgScore = Math.round(sumScores / totalSessionEx);
+            const allExercisesPassed = exercises.length > 0 && 
+              allExAttempts.length === exercises.length && 
+              allExAttempts.every(e => e.is_correct);
+
+            await supabase
+              .from('training_attempts')
+              .update({
+                score_percentage: globalAvgScore,
+                is_passed: allExercisesPassed,
+                time_spent_seconds: timeSpentSeconds
+              })
+              .eq('id', attemptId);
+          }
+
+          // Update local previous history map
+          setPreviousExerciseHistory(prev => ({
+            ...prev,
+            [exercise.id]: {
+              bestScore: Math.max(prev[exercise.id]?.bestScore || 0, computedScore),
+              isPassed: (prev[exercise.id]?.isPassed || false) || isCorrect
+            }
+          }));
+        }
+      } catch (dbErr: any) {
+        console.error("Erreur synchronisation Supabase Excel:", dbErr);
+        toast.error("Erreur de synchronisation Supabase : " + (dbErr?.message || 'Erreur réseau'));
+      } finally {
+        setIsSavingProgress(prev => ({ ...prev, [exercise.id]: false }));
+      }
+    } catch (err: any) {
+      console.error("Erreur lors de la validation Excel :", err);
+      toast.error(err?.message || "Erreur lors de la validation Excel.");
+    } finally {
+      setValidatingExcel(prev => ({ ...prev, [exercise.id]: false }));
+    }
+  };
+
   // Final confirmation action with complete atomic QCM + R submission
   const handleConfirmFinish = async () => {
     if (isSubmitting) return;
@@ -536,6 +746,7 @@ export default function ClientTrainingSession() {
 
       const qcmExercises = exercises.filter(ex => ex.exercise_type === 'qcm');
       const rExercises = exercises.filter(ex => ex.exercise_type === 'r_code');
+      const excelExercises = exercises.filter(ex => ex.exercise_type === 'excel_formula');
 
       let attemptId: string | null = null;
       let qcmResultsFromRpc: any[] = [];
@@ -565,7 +776,7 @@ export default function ClientTrainingSession() {
         attemptId = rpcData.attempt_id;
         qcmResultsFromRpc = rpcData.results || [];
       } else {
-        // R-only session: create a new training_attempts record directly
+        // Non-QCM session (R / Excel): create a new training_attempts record directly
         const { data: newAttempt, error: attemptError } = await supabase
           .from('training_attempts')
           .insert({
@@ -580,7 +791,7 @@ export default function ClientTrainingSession() {
           .single();
 
         if (attemptError || !newAttempt) {
-          console.error("Erreur création tentative R:", attemptError);
+          console.error("Erreur création tentative R/Excel:", attemptError);
           throw new Error("Erreur d'initialisation de la tentative : " + (attemptError?.message || 'Erreur réseau'));
         }
 
@@ -645,7 +856,58 @@ export default function ClientTrainingSession() {
         }
       }
 
-      // 4. Calculate Unified Final Score across ALL exercises in the session
+      // 4. Process and record Excel exercises in training_exercise_attempts for attemptId
+      for (const ex of excelExercises) {
+        const config: ExcelChallengeConfig = (ex.test_cases && typeof ex.test_cases === 'object')
+          ? ex.test_cases
+          : { initial_data: {}, target_cells: [], criteria: [] };
+        const studentCells = excelStudentCells[ex.id] || config.initial_data || {};
+        const result = excelValidationResults[ex.id] || evaluateExcelChallenge(studentCells, config);
+
+        const totalCrit = result?.totalCriteria || (Array.isArray(config.criteria) ? config.criteria.length : 0);
+        const passedCrit = result?.passedCriteria || 0;
+        const isCorrect = Boolean(result?.passed && totalCrit > 0);
+        const excelScore = result?.scorePercentage || (isCorrect ? 100 : 0);
+
+        const excelAnswerPayload = {
+          type: 'excel_formula',
+          passed_criteria: passedCrit,
+          total_criteria: totalCrit,
+          score_percentage: excelScore,
+          student_cells: studentCells
+        };
+
+        const excelSnapshotPayload = {
+          exercise_type: 'excel_formula',
+          title: ex.title,
+          instructions: ex.instructions,
+          hint: ex.hint || null,
+          test_cases: ex.test_cases || null,
+          order_index: ex.order_index ?? 0,
+          passed_criteria: passedCrit,
+          total_criteria: totalCrit,
+          is_correct: isCorrect,
+          score: excelScore
+        };
+
+        const { error: excelInsertError } = await supabase
+          .from('training_exercise_attempts')
+          .insert({
+            attempt_id: attemptId,
+            exercise_id: ex.id,
+            answer_data: excelAnswerPayload,
+            snapshot_data: excelSnapshotPayload,
+            is_correct: isCorrect,
+            score: excelScore
+          });
+
+        if (excelInsertError) {
+          console.error("Erreur insertion exercice Excel dans la tentative:", excelInsertError);
+          throw new Error("Erreur d'enregistrement de l'exercice Excel (" + ex.title + ") : " + excelInsertError.message);
+        }
+      }
+
+      // 5. Calculate Unified Final Score across ALL exercises in the session (QCM + R + Excel)
       const exerciseScoresList: { exercise_id: string; score: number; is_correct: boolean }[] = [];
 
       exercises.forEach(ex => {
@@ -675,6 +937,21 @@ export default function ClientTrainingSession() {
           exerciseScoresList.push({
             exercise_id: ex.id,
             score: rScore,
+            is_correct: isCorrect
+          });
+        } else if (ex.exercise_type === 'excel_formula') {
+          const config: ExcelChallengeConfig = (ex.test_cases && typeof ex.test_cases === 'object')
+            ? ex.test_cases
+            : { initial_data: {}, target_cells: [], criteria: [] };
+          const studentCells = excelStudentCells[ex.id] || config.initial_data || {};
+          const result = excelValidationResults[ex.id] || evaluateExcelChallenge(studentCells, config);
+          const totalCrit = result?.totalCriteria || (Array.isArray(config.criteria) ? config.criteria.length : 0);
+          const isCorrect = Boolean(result?.passed && totalCrit > 0);
+          const excelScore = result?.scorePercentage || (isCorrect ? 100 : 0);
+
+          exerciseScoresList.push({
+            exercise_id: ex.id,
+            score: excelScore,
             is_correct: isCorrect
           });
         }
@@ -798,20 +1075,37 @@ export default function ClientTrainingSession() {
     if (validationResults[ex.id]?.success) return true;
     return (rCodes[ex.id] || '').trim().length > 0;
   };
-  const answeredCount = exercises.filter(ex => 
-    ex.exercise_type === 'r_code' ? isRAnswered(ex) : isQcmAnswered(ex)
-  ).length;
+  const isExcelAnswered = (ex: TrainingExercise) => {
+    if (excelValidationResults[ex.id]?.passed) return true;
+    const config: ExcelChallengeConfig = (ex.test_cases && typeof ex.test_cases === 'object')
+      ? ex.test_cases
+      : { initial_data: {}, target_cells: [], criteria: [] };
+    const cells = excelStudentCells[ex.id];
+    if (!cells) return false;
+    return (config.target_cells || []).some(tc => cells[tc]?.value !== undefined && cells[tc]?.value !== '');
+  };
+  const answeredCount = exercises.filter(ex => {
+    if (ex.exercise_type === 'r_code') return isRAnswered(ex);
+    if (ex.exercise_type === 'excel_formula') return isExcelAnswered(ex);
+    return isQcmAnswered(ex);
+  }).length;
 
   const validRExercisesCount = exercises.filter(ex => 
     ex.exercise_type === 'r_code' && (validationResults[ex.id]?.success || previousExerciseHistory[ex.id]?.isPassed)
   ).length;
 
+  const validExcelExercisesCount = exercises.filter(ex =>
+    ex.exercise_type === 'excel_formula' && (excelValidationResults[ex.id]?.passed || previousExerciseHistory[ex.id]?.isPassed)
+  ).length;
+
   if (isCompletedState) {
     const scorePct = finalScoreSummary?.scorePercentage ?? 0;
     const isPassed = finalScoreSummary?.isPassed ?? false;
-    const correctCount = finalScoreSummary?.correctCount ?? exercises.filter(ex => 
-      ex.exercise_type === 'r_code' ? (validationResults[ex.id]?.success || previousExerciseHistory[ex.id]?.isPassed) : false
-    ).length;
+    const correctCount = finalScoreSummary?.correctCount ?? exercises.filter(ex => {
+      if (ex.exercise_type === 'r_code') return (validationResults[ex.id]?.success || previousExerciseHistory[ex.id]?.isPassed);
+      if (ex.exercise_type === 'excel_formula') return (excelValidationResults[ex.id]?.passed || previousExerciseHistory[ex.id]?.isPassed);
+      return false;
+    }).length;
 
     return (
       <div className="min-h-screen bg-gray-50 font-sans py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
@@ -876,19 +1170,22 @@ export default function ClientTrainingSession() {
   }
 
   // =========================================================================
-  // STATE 4: ACTIVE EXERCISE READER (QCM OR R_CODE)
+  // STATE 4: ACTIVE EXERCISE READER (QCM, R_CODE OR EXCEL_FORMULA)
   // =========================================================================
   const currentExercise = exercises[currentIndex];
   const progressPercent = totalQuestions > 0 ? Math.round(((currentIndex + 1) / totalQuestions) * 100) : 0;
   const currentSelectedOption = currentExercise ? qcmAnswers[currentExercise.id] : undefined;
   const optionsList = (currentExercise?.options as string[]) || [];
   const isCurrentRExercise = currentExercise?.exercise_type === 'r_code';
+  const isCurrentExcelExercise = currentExercise?.exercise_type === 'excel_formula';
   const difficultyBadge = getDifficultyBadge(session.difficulty_level || 'intermediaire');
   const isHintOpen = currentExercise ? !!showHints[currentExercise.id] : false;
 
-  // Validation result for current exercise
+  // Validation result for current exercise (R or Excel)
   const currentValResult = currentExercise ? validationResults[currentExercise.id] : undefined;
+  const currentExcelValResult = currentExercise ? excelValidationResults[currentExercise.id] : undefined;
   const isValidatingCurrent = currentExercise ? !!validatingR[currentExercise.id] : false;
+  const isValidatingCurrentExcel = currentExercise ? !!validatingExcel[currentExercise.id] : false;
   const isSavingCurrent = currentExercise ? !!isSavingProgress[currentExercise.id] : false;
   const isAlreadyPassedPrior = currentExercise ? !!previousExerciseHistory[currentExercise.id]?.isPassed : false;
 
@@ -937,10 +1234,12 @@ export default function ClientTrainingSession() {
             <span className="text-gray-900 flex items-center gap-1.5">
               {isCurrentRExercise ? (
                 <Code2 className="w-4 h-4 text-indigo-600" />
+              ) : isCurrentExcelExercise ? (
+                <Table className="w-4 h-4 text-emerald-600" />
               ) : (
                 <Brain className="w-4 h-4 text-sky-600" />
               )}
-              {isCurrentRExercise ? 'Exercice R' : 'Question QCM'} {currentIndex + 1} / {totalQuestions}
+              {isCurrentRExercise ? 'Exercice R' : isCurrentExcelExercise ? 'Défi Excel' : 'Question QCM'} {currentIndex + 1} / {totalQuestions}
             </span>
             <span className="text-gray-500 font-medium text-xs">
               {answeredCount} sur {totalQuestions} complété{answeredCount > 1 ? 's' : ''}
@@ -959,20 +1258,27 @@ export default function ClientTrainingSession() {
           <div className="flex items-center gap-1.5 flex-wrap pt-1">
             {exercises.map((ex, idx) => {
               const isR = ex.exercise_type === 'r_code';
-              const isAnswered = isR ? isRAnswered(ex) : isQcmAnswered(ex);
+              const isExcel = ex.exercise_type === 'excel_formula';
+              const isAnswered = isR ? isRAnswered(ex) : isExcel ? isExcelAnswered(ex) : isQcmAnswered(ex);
               const isCurrent = idx === currentIndex;
               const isRValidated = isR && (validationResults[ex.id]?.success || previousExerciseHistory[ex.id]?.isPassed);
+              const isExcelValidated = isExcel && (excelValidationResults[ex.id]?.passed || previousExerciseHistory[ex.id]?.isPassed);
+              const isValidated = isRValidated || isExcelValidated;
 
               let btnClass = 'bg-gray-100 text-gray-600 hover:bg-gray-200';
               if (isCurrent) {
                 btnClass = isR 
                   ? 'bg-indigo-600 text-white font-extrabold shadow-sm ring-2 ring-indigo-200'
+                  : isExcel
+                  ? 'bg-emerald-600 text-white font-extrabold shadow-sm ring-2 ring-emerald-200'
                   : 'bg-sky-600 text-white font-extrabold shadow-sm ring-2 ring-sky-200';
-              } else if (isRValidated) {
+              } else if (isValidated) {
                 btnClass = 'bg-emerald-50 text-emerald-700 border border-emerald-300 font-extrabold';
               } else if (isAnswered) {
                 btnClass = isR
                   ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold'
+                  : isExcel
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-bold'
                   : 'bg-sky-50 text-sky-700 border border-sky-200/80 font-bold';
               }
 
@@ -981,9 +1287,9 @@ export default function ClientTrainingSession() {
                   key={ex.id}
                   onClick={() => setCurrentIndex(idx)}
                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl text-xs flex items-center justify-center transition-all duration-150 ${btnClass}`}
-                  title={`${isR ? 'Exercice R' : 'QCM'} ${idx + 1}`}
+                  title={`${isR ? 'Exercice R' : isExcel ? 'Défi Excel' : 'QCM'} ${idx + 1}`}
                 >
-                  {isRValidated ? '✓' : idx + 1}
+                  {isValidated ? '✓' : idx + 1}
                 </button>
               );
             })}
@@ -1310,9 +1616,64 @@ export default function ClientTrainingSession() {
         )}
 
         {/* ================================================================= */}
-        {/* CASE B : QCM EXERCISE */}
+        {/* CASE B : EXCEL_FORMULA EXERCISE */}
         {/* ================================================================= */}
-        {currentExercise && !isCurrentRExercise && (
+        {currentExercise && isCurrentExcelExercise && (
+          <div className="space-y-6">
+            <ClientExcelChallengeView
+              exercise={currentExercise}
+              isValidating={isValidatingCurrentExcel}
+              isSaving={isSavingCurrent}
+              validationResult={currentExcelValResult}
+              isAlreadyPassedPrior={isAlreadyPassedPrior}
+              difficultyBadge={difficultyBadge}
+              onValidate={(currentCells, config) => {
+                handleValidateExcelExercise(currentExercise, currentCells, config);
+              }}
+              onOpenInstructionsModal={() => setShowInstructionModal(true)}
+            />
+
+            {/* Navigation Buttons (Spacious for mobile touch) */}
+            <div className="flex items-center justify-between gap-3 pt-2">
+              {/* Previous Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                disabled={currentIndex === 0}
+                className="flex-1 min-h-[48px] sm:min-h-[52px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm text-gray-700 bg-white hover:bg-gray-100 border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-all active:scale-[0.98]"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Exercice précédent</span>
+              </button>
+
+              {/* Next or Finish Button */}
+              {currentIndex < totalQuestions - 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setCurrentIndex(prev => Math.min(totalQuestions - 1, prev + 1))}
+                  className="flex-1 min-h-[48px] sm:min-h-[52px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 transition-all active:scale-[0.98]"
+                >
+                  <span>Exercice suivant</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(true)}
+                  className="flex-1 min-h-[48px] sm:min-h-[52px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-black text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200 transition-all active:scale-[0.98]"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Terminer l'entraînement</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* CASE C : QCM EXERCISE */}
+        {/* ================================================================= */}
+        {currentExercise && !isCurrentRExercise && !isCurrentExcelExercise && (
           <div className="bg-white rounded-3xl p-5 sm:p-7 border border-gray-100 shadow-2xs space-y-6">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -1564,6 +1925,10 @@ export default function ClientTrainingSession() {
                   <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs">
                     <Code2 className="w-3.5 h-3.5 text-emerald-600" /> Code R
                   </span>
+                ) : isCurrentExcelExercise ? (
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs">
+                    <Table className="w-3.5 h-3.5 text-emerald-600" /> Défi Excel
+                  </span>
                 ) : (
                   <span className="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 shrink-0 shadow-2xs">
                     <Brain className="w-3.5 h-3.5 text-blue-600" /> Question QCM
@@ -1608,6 +1973,23 @@ export default function ClientTrainingSession() {
                   </div>
                   <div className="p-3.5 bg-gray-900 text-emerald-400 font-mono text-xs rounded-2xl border border-gray-800 overflow-x-auto whitespace-pre-wrap leading-relaxed shadow-2xs">
                     <code>{currentExercise.starter_code}</code>
+                  </div>
+                </div>
+              )}
+
+              {/* Target cells if Excel challenge */}
+              {isCurrentExcelExercise && currentExercise.test_cases?.target_cells?.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-extrabold text-emerald-800 uppercase tracking-wider">
+                    <Table className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Cellule(s) cible(s) à compléter :</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {currentExercise.test_cases.target_cells.map((tc: string) => (
+                      <span key={tc} className="px-3 py-1 bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono font-black text-xs rounded-xl shadow-2xs">
+                        {tc}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}

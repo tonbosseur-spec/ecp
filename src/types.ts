@@ -22,10 +22,12 @@ export interface Quiz {
   questions: QuizQuestion[];
 }
 
+import { ExcelChallengeConfig } from './lib/excel/excelChallengeTypes';
+
 // Training Center types
-export type TrainingActivityType = 'quiz_qcm' | 'r_exercise' | 'mixed';
+export type TrainingActivityType = 'quiz_qcm' | 'r_exercise' | 'excel_exercise' | 'mixed';
 export type TrainingDifficultyLevel = 'beginner' | 'intermediate' | 'advanced';
-export type TrainingExerciseType = 'qcm' | 'r_code';
+export type TrainingExerciseType = 'qcm' | 'r_code' | 'excel_formula';
 
 export interface TrainingSession {
   id: string;
@@ -57,6 +59,7 @@ export interface TrainingExercise {
   ai_assistance_enabled?: boolean;
   expected_output?: string | null;
   test_cases?: any;
+  excel_config?: ExcelChallengeConfig;
   created_at?: string;
   updated_at?: string;
   correct_option_index?: number;
@@ -84,9 +87,11 @@ export interface TrainingExerciseAttempt {
   attempt_id: string;
   exercise_id: string;
   answer_data: {
-    type: 'r_code' | 'qcm';
+    type: 'r_code' | 'qcm' | 'excel_formula';
     passed_tests?: number;
     total_tests?: number;
+    passed_criteria?: number;
+    total_criteria?: number;
     selected_option_index?: number;
     [key: string]: any;
   };

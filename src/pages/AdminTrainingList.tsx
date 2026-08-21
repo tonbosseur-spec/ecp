@@ -23,7 +23,8 @@ import {
   AlertCircle,
   Copy,
   ExternalLink,
-  BarChart3
+  BarChart3,
+  FileSpreadsheet
 } from 'lucide-react';
 import { TrainingSession } from '../types';
 
@@ -141,6 +142,8 @@ export default function AdminTrainingList() {
         return { label: 'Quiz QCM', color: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: HelpCircle };
       case 'r_exercise':
         return { label: 'Exercice R', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Code2 };
+      case 'excel_exercise':
+        return { label: 'Défi Excel', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: FileSpreadsheet };
       case 'mixed':
         return { label: 'Mixte', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Layers };
       default:
@@ -344,6 +347,7 @@ export default function AdminTrainingList() {
                 <option value="all">Tous les types d'activité</option>
                 <option value="quiz_qcm">Quiz QCM</option>
                 <option value="r_exercise">Exercice R</option>
+                <option value="excel_exercise">Défi Excel</option>
                 <option value="mixed">Mixte</option>
               </select>
             </div>

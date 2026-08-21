@@ -28,6 +28,7 @@ import ClientLogin from './pages/ClientLogin';
 import ClientHub from './pages/ClientHub';
 import ClientTrainingHub from './pages/ClientTrainingHub';
 import ClientRPlayground from './pages/ClientRPlayground';
+import ClientExcelLab from './pages/ClientExcelLab';
 import ClientTrainingSession from './pages/ClientTrainingSession';
 import ClientPaymentResult from './pages/ClientPaymentResult';
 import MobileLandingPage from './pages/MobileLandingPage';
@@ -277,6 +278,7 @@ export default function App() {
       <Route path="/client/hub" element={<PageTransition><ClientHub /></PageTransition>} />
       <Route path="/client/training" element={<PageTransition><ClientTrainingHub /></PageTransition>} />
       <Route path="/client/training/r" element={<PageTransition><ClientRPlayground /></PageTransition>} />
+      <Route path="/client/training/excel" element={<PageTransition><ClientExcelLab /></PageTransition>} />
       <Route path="/client/training/:id" element={<PageTransition><ClientTrainingSession /></PageTransition>} />
       <Route path="/client/payment/result" element={<PageTransition><ClientPaymentResult /></PageTransition>} />
       <Route path="/client/course/:courseId" element={<PageTransition><ClientCourseView /></PageTransition>} />

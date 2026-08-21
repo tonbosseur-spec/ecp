@@ -323,9 +323,9 @@ export default function ClientRPlayground() {
             {/* Left: App Title and Sub-Nav Tabs */}
             <div className="flex items-center gap-4">
               <Link 
-                to="/client/hub" 
+                to="/client/training" 
                 className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all sm:hidden"
-                title="Retour au Tableau de bord"
+                title="Retour à S'entraîner"
               >
                 <ChevronLeft className="w-5 h-5" />
               </Link>
@@ -341,39 +341,16 @@ export default function ClientRPlayground() {
                   </span>
                 </div>
               </div>
-
-              {/* Sub-Navigation Switcher: Exercices vs R Libre */}
-              <div className="hidden md:flex items-center gap-1.5 p-1 bg-gray-100 rounded-2xl ml-4">
-                <Link
-                  to="/client/training"
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-gray-600 hover:text-gray-900 transition-all flex items-center gap-1.5"
-                >
-                  <Brain className="w-3.5 h-3.5 text-sky-600" />
-                  <span>Exercices & Quiz</span>
-                </Link>
-                <div className="px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-white text-purple-700 shadow-2xs flex items-center gap-1.5">
-                  <Terminal className="w-3.5 h-3.5 text-purple-600" />
-                  <span>💻 R libre</span>
-                </div>
-              </div>
             </div>
 
             {/* Right Header Actions */}
             <div className="flex items-center gap-2">
               <Link
                 to="/client/training"
-                className="md:hidden inline-flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-bold"
-              >
-                <Brain className="w-3.5 h-3.5 text-sky-600" />
-                <span>Exercices</span>
-              </Link>
-
-              <Link
-                to="/client/hub"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
-                Tableau de bord
+                <span>S'entraîner</span>
               </Link>
             </div>
           </div>

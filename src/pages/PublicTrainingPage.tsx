@@ -34,6 +34,7 @@ import {
   Eye
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 
 interface TrainingExerciseSummary {
   id: string;
@@ -346,9 +347,9 @@ export default function PublicTrainingPage() {
 
           {/* Pedagogical Description */}
           {training.description && (
-            <p className="text-base sm:text-lg text-gray-300 leading-relaxed max-w-3xl mb-8 font-normal">
-              {training.description}
-            </p>
+            <div className="text-base sm:text-lg text-gray-200 leading-relaxed max-w-3xl mb-8 font-normal">
+              <MarkdownRenderer content={training.description} isDark={true} />
+            </div>
           )}
 
           {/* Associated Course Banner if present */}
@@ -433,6 +434,28 @@ export default function PublicTrainingPage() {
             </div>
           </div>
         </section>
+
+        {/* Description & Objectifs pédagogiques détaillés */}
+        {training.description && (
+          <section className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-4 relative overflow-hidden">
+            <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+              <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-gray-900 tracking-tight">
+                  Présentation & Objectifs pédagogiques
+                </h2>
+                <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">
+                  Détails complets de la session d'entraînement et compétences ciblées
+                </p>
+              </div>
+            </div>
+            <div className="pt-2 text-gray-700 leading-relaxed">
+              <MarkdownRenderer content={training.description} isDark={false} />
+            </div>
+          </section>
+        )}
 
         {/* Sommaire / Programme des exercices */}
         <section className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6 relative overflow-hidden">
