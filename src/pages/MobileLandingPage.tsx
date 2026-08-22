@@ -276,10 +276,9 @@ export default function MobileLandingPage({ session: propSession }: MobileLandin
 
   const handleVisitWebsite = () => {
     try {
-      sessionStorage.setItem('ecp_session_welcomed', 'true');
       sessionStorage.setItem('ecp_force_desktop_web', 'true');
     } catch (e) {}
-    navigate('/catalogue');
+    navigate('/');
   };
 
   const currentSlide = SLIDES[currentPage];

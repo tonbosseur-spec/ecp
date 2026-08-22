@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabaseClient';
 import { parseCourseQuizSettings } from '../lib/quizUtils';
 import { PromoCode, extractCoursePromoCodes, calculateDiscountedPrice } from '../lib/promoUtils';
 import { findReferralCode, recordReferralSale, ReferralCodeInfo } from '../lib/referralService';
-import { initiateFapshiPayment } from '../lib/paymentService';
 import { isUuid } from '../lib/slugUtils';
 import Footer from '../components/Footer';
 import { TrainerAvatar } from '../components/TrainerAvatar';
@@ -140,7 +139,7 @@ export default function PublicCoursePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [transactionId, setTransactionId] = useState('');
-  const [paymentMethodChoice, setPaymentMethodChoice] = useState<'fapshi' | 'manual'>('fapshi');
+  const [paymentMethodChoice, setPaymentMethodChoice] = useState<'manual'>('manual');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({
     show: false,
@@ -486,7 +485,7 @@ END:VCALENDAR`;
     }
   };
 
-  const submitRegistration = async (isFree: boolean = false, chosenMethod: 'fapshi' | 'manual' = paymentMethodChoice) => {
+  const submitRegistration = async (isFree: boolean = false) => {
     setSubmitting(true);
     setFormError(null);
 
@@ -513,7 +512,7 @@ END:VCALENDAR`;
         participant_name: name,
         participant_email: email,
         participant_phone: countryCode + phone.replace(/\s+/g, ''),
-        transaction_id: isFree ? 'GRATUIT' : (chosenMethod === 'fapshi' ? 'FAPSHI_EN_COURS' : transactionId),
+        transaction_id: isFree ? 'GRATUIT' : (transactionId || 'MANUEL_PENDING'),
         payment_status: isFree ? 'approved' : 'pending',
         payment_mode: isFree ? 'full' : paymentMode,
         promo_code: appliedPromo ? appliedPromo.code : null
@@ -556,28 +555,7 @@ END:VCALENDAR`;
           ? effectivePrice 
           : Math.floor(effectivePrice * 0.5);
 
-        // Si paiement automatique Fapshi (Orange / MTN MoMo)
-        if (chosenMethod === 'fapshi') {
-          const fapshiRes = await initiateFapshiPayment({
-            registrationId: registration.id,
-            courseId: id!,
-            amount: initialAmount,
-            courseTitle: course.title,
-            paymentType: paymentMode === 'full' ? 'full' : 'installment',
-            trancheNumber: 1
-          });
-
-          if (fapshiRes.success && fapshiRes.link) {
-            window.location.href = fapshiRes.link;
-            return;
-          } else {
-            setFormError(fapshiRes.message || "Erreur lors de l'initialisation du paiement Fapshi.");
-            setSubmitting(false);
-            return;
-          }
-        }
-
-        // Sinon paiement manuel
+        // Enregistrer le paiement manuel avec statut 'pending'
         await supabase.from('payments').insert([{
           registration_id: registration.id,
           user_id: clientId,
@@ -608,10 +586,10 @@ END:VCALENDAR`;
       const isPreRegistration = course.is_date_tbd || !course.date_time;
       const isEbook = course.product_type === 'ebook';
       const successMessage = isEbook
-        ? "Demande enregistrée avec succès !"
+        ? "Demande d'accès à l'E-book enregistrée ! Effectuez le paiement pour débloquer le téléchargement."
         : (isPreRegistration
-            ? "Pré-inscription validée ! Nous vous informerons dès que la date sera fixée."
-            : "Votre inscription a été enregistrée avec succès !");
+            ? "Pré-inscription enregistrée ! Effectuez votre paiement manuel pour valider votre place."
+            : "Inscription enregistrée avec succès ! Effectuez votre paiement manuel pour débloquer l'accès.");
 
       setToast({
         show: true,
@@ -1555,89 +1533,33 @@ END:VCALENDAR`;
               </button>
             </div>
 
-            {/* Onglets de sélection du mode de paiement */}
-            <div className="p-4 pb-0 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setPaymentMethodChoice('fapshi')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  paymentMethodChoice === 'fapshi'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                    : 'bg-slate-800/80 text-slate-400 hover:text-white'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>Paiement Direct (Auto)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethodChoice('manual')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  paymentMethodChoice === 'manual'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                    : 'bg-slate-800/80 text-slate-400 hover:text-white'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Transfert Manuel</span>
-              </button>
-            </div>
-            
-            <form onSubmit={(e) => { e.preventDefault(); submitRegistration(false, paymentMethodChoice); }} className="p-6 space-y-4">
-              {paymentMethodChoice === 'fapshi' ? (
-                <div className="space-y-4">
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Montant à régler :</span>
-                      <span className="font-extrabold text-emerald-400 text-sm">
-                        {(paymentMode === 'full' ? effectivePrice : Math.floor(effectivePrice * 0.5)).toLocaleString('fr-FR')} FCFA
-                      </span>
-                    </div>
-                    {paymentMode === 'installments' && (
-                      <p className="text-[11px] text-slate-400 italic">
-                        Option 2 tranches : 1ère tranche aujourd'hui, 2ème tranche dans 30 jours.
-                      </p>
-                    )}
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Opérateurs acceptés :</span>
-                      <span className="font-semibold text-slate-200">MTN MoMo & Orange Money</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-emerald-950/30 border border-emerald-500/20 rounded-xl text-xs text-emerald-300 flex items-start gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <p className="leading-relaxed">
-                      Vous serez redirigé vers la passerelle sécurisée Fapshi pour valider le débit sur votre numéro mobile. Votre accès sera débloqué instantanément.
-                    </p>
-                  </div>
+            <form onSubmit={(e) => { e.preventDefault(); submitRegistration(false); }} className="p-6 space-y-4">
+              <div className="space-y-3">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
+                  <p className="text-slate-300">
+                    Effectuez le transfert Mobile Money / Orange Money de <strong className="text-emerald-400">{(paymentMode === 'full' ? effectivePrice : Math.floor(effectivePrice * 0.5)).toLocaleString('fr-FR')} FCFA</strong> au numéro :
+                  </p>
+                  <p className="font-mono font-bold text-white text-sm bg-slate-900 p-2 rounded-lg border border-slate-800 text-center select-all">
+                    +237 650 989 019
+                  </p>
+                  <p className="text-[10px] text-slate-400 italic text-center">Titulaire : Pierre Valdeze Mbom Mbom</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
-                    <p className="text-slate-300">
-                      Effectuez le transfert Mobile Money de <strong className="text-emerald-400">{(paymentMode === 'full' ? effectivePrice : Math.floor(effectivePrice * 0.5)).toLocaleString('fr-FR')} FCFA</strong> au numéro :
-                    </p>
-                    <p className="font-mono font-bold text-white text-sm bg-slate-900 p-2 rounded-lg border border-slate-800 text-center">
-                      +237 650 989 019
-                    </p>
-                    <p className="text-[10px] text-slate-400 italic text-center">Titulaire : Pierre Valdeze Mbom Mbom</p>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">
-                      ID Transaction SMS *
-                    </label>
-                    <input 
-                      required 
-                      type="text" 
-                      value={transactionId}
-                      onChange={e => setTransactionId(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
-                      placeholder="Ex: AP2607.1340.C359"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    ID Transaction / Référence SMS *
+                  </label>
+                  <input 
+                    required 
+                    type="text" 
+                    value={transactionId}
+                    onChange={e => setTransactionId(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500"
+                    placeholder="Ex: AP2607.1340.C359 ou numéro expéditeur"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Saisissez l'ID de transaction reçu par SMS après transfert.</p>
                 </div>
-              )}
+              </div>
 
               {formError && (
                 <div className="p-3 bg-rose-950/40 border border-rose-500/30 rounded-xl text-xs text-rose-300 flex items-center gap-2">
@@ -1649,22 +1571,16 @@ END:VCALENDAR`;
               <div className="flex flex-col gap-2 pt-2">
                 <button 
                   type="submit" 
-                  disabled={submitting || (paymentMethodChoice === 'manual' && !transactionId)}
+                  disabled={submitting || !transactionId}
                   className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-50 text-slate-950 font-extrabold rounded-xl text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.99]"
                 >
                   {submitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{paymentMethodChoice === 'fapshi' ? 'Connexion à Fapshi...' : 'Validation...'}</span>
-                    </>
-                  ) : paymentMethodChoice === 'fapshi' ? (
-                    <>
-                      <CreditCard className="w-4 h-4" />
-                      <span>Payer par Mobile Money (Orange / MTN)</span>
-                      <ArrowRight className="w-4 h-4" />
+                      <span>Enregistrement de la demande...</span>
                     </>
                   ) : (
-                    <span>Confirmer le transfert manuel</span>
+                    <span>Valider ma demande d'inscription</span>
                   )}
                 </button>
                 <button 

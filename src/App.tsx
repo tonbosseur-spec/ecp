@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
 import { checkIsAdmin } from './lib/adminAuthService';
 import { 
@@ -71,66 +71,38 @@ import { Loader2 } from 'lucide-react';
 import { useNativeFeatures } from './hooks/useNativeFeatures';
 import { Capacitor } from '@capacitor/core';
 
-function isMobileEnvironment(): boolean {
-  if (typeof window === 'undefined') return false;
-  if (sessionStorage.getItem('ecp_force_desktop_web') === 'true') return false;
-  
-  const target = import.meta.env.VITE_APP_TARGET;
-  if (Capacitor.isNativePlatform() || target === 'client') return true;
-  
-  const isSmallScreen = window.innerWidth <= 768;
-  const isTouchMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent || navigator.vendor || (window as any).opera || ''
-  );
-  
-  return isSmallScreen || isTouchMobile;
-}
-
-function RootRedirector({ session }: { session: any }) {
+function RootRedirector() {
   const target = import.meta.env.VITE_APP_TARGET;
   
   if (target === 'admin') {
     return <Navigate to="/login" replace />;
   }
 
-  const isMobile = isMobileEnvironment();
-  
-  if (isMobile) {
-    const sessionWelcomed = typeof window !== 'undefined' && sessionStorage.getItem('ecp_session_welcomed') === 'true';
-    
-    // Vérifier si l'utilisateur était récemment actif (ex: simple passage sur une autre app il y a moins de 30 min)
-    let isRecentlyActive = false;
-    try {
-      const lastActive = localStorage.getItem('ecp_last_activity_time');
-      if (lastActive) {
-        const timeDiff = Date.now() - parseInt(lastActive, 10);
-        if (timeDiff < 30 * 60 * 1000) { // 30 minutes
-          isRecentlyActive = true;
-        }
-      }
-    } catch (e) {}
-
-    // Si l'utilisateur est déjà en session active ou revient d'une autre application :
-    if (sessionWelcomed || isRecentlyActive) {
-      if (session) {
-        return <Navigate to="/client/hub" replace />;
-      }
-      const lastPath = typeof window !== 'undefined' ? sessionStorage.getItem('ecp_last_active_path') : null;
-      if (lastPath && lastPath !== '/' && lastPath !== '/mobile-landing') {
-        return <Navigate to={lastPath} replace />;
-      }
-      return <Navigate to="/client/login" replace />;
-    }
-
-    // Premier lancement de la session (l'application ou le navigateur venait d'être fermé)
-    return <MobileLandingPage session={session} />;
-  }
-  
-  if (session) {
-    return <Navigate to="/client/hub" replace />;
-  }
-  
   return <LandingPage />;
+}
+
+function ClientProtectedRoute({ session, loading }: { session: any; loading: boolean }) {
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
+        <p className="text-sm font-medium text-gray-500">Vérification de la connexion...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <Navigate 
+        to={`/client/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} 
+        replace 
+      />
+    );
+  }
+
+  return <Outlet />;
 }
 
 export default function App() {
@@ -249,7 +221,7 @@ export default function App() {
 
   return (
     <Routes location={location}>
-      <Route path="/" element={<PageTransition><RootRedirector session={session} /></PageTransition>} />
+      <Route path="/" element={<PageTransition><RootRedirector /></PageTransition>} />
       <Route 
         path="/mobile-landing" 
         element={<PageTransition><MobileLandingPage session={session} /></PageTransition>} 
@@ -270,21 +242,28 @@ export default function App() {
       <Route path="/challenge/:courseId" element={<PageTransition><PublicQuizChallenge /></PageTransition>} />
       <Route path="/training/:slug" element={<PageTransition><PublicTrainingPage /></PageTransition>} />
       
+      {/* Public Client Auth Routes */}
       <Route path="/client/register" element={<PageTransition><ClientRegister /></PageTransition>} />
       <Route 
         path="/client/login" 
         element={!session ? <PageTransition><ClientLogin /></PageTransition> : <Navigate to="/client/hub" replace />} 
       />
-      <Route path="/client/hub" element={<PageTransition><ClientHub /></PageTransition>} />
-      <Route path="/client/training" element={<PageTransition><ClientTrainingHub /></PageTransition>} />
-      <Route path="/client/training/r" element={<PageTransition><ClientRPlayground /></PageTransition>} />
-      <Route path="/client/training/excel" element={<PageTransition><ClientExcelLab /></PageTransition>} />
-      <Route path="/client/training/:id" element={<PageTransition><ClientTrainingSession /></PageTransition>} />
-      <Route path="/client/payment/result" element={<PageTransition><ClientPaymentResult /></PageTransition>} />
-      <Route path="/client/course/:courseId" element={<PageTransition><ClientCourseView /></PageTransition>} />
-      <Route path="/client/course/:courseId/module/:moduleId" element={<PageTransition><ClientModuleView /></PageTransition>} />
-      <Route path="/client/interactive-course/:courseId" element={<PageTransition><ClientInteractiveCourseView /></PageTransition>} />
-      <Route path="/client/interactive-course/:courseId/lesson/:lessonId" element={<PageTransition><ClientInteractiveActivityPlayer /></PageTransition>} />
+
+      {/* Protected Client Hub & Learning Routes */}
+      <Route element={<ClientProtectedRoute session={session} loading={loading} />}>
+        <Route path="/client" element={<Navigate to="/client/hub" replace />} />
+        <Route path="/client/hub" element={<PageTransition><ClientHub /></PageTransition>} />
+        <Route path="/client/training" element={<PageTransition><ClientTrainingHub /></PageTransition>} />
+        <Route path="/client/training/r" element={<PageTransition><ClientRPlayground /></PageTransition>} />
+        <Route path="/client/training/excel" element={<PageTransition><ClientExcelLab /></PageTransition>} />
+        <Route path="/client/training/:id" element={<PageTransition><ClientTrainingSession /></PageTransition>} />
+        <Route path="/client/payment/result" element={<PageTransition><ClientPaymentResult /></PageTransition>} />
+        <Route path="/client/course/:courseId" element={<PageTransition><ClientCourseView /></PageTransition>} />
+        <Route path="/client/course/:courseId/module/:moduleId" element={<PageTransition><ClientModuleView /></PageTransition>} />
+        <Route path="/client/interactive-course/:courseId" element={<PageTransition><ClientInteractiveCourseView /></PageTransition>} />
+        <Route path="/client/interactive-course/:courseId/lesson/:lessonId" element={<PageTransition><ClientInteractiveActivityPlayer /></PageTransition>} />
+      </Route>
+
       <Route path="/catalogue" element={<PageTransition><Marketplace /></PageTransition>} />
       
       {/* Live Visioconference Module Routes + Compatibility Redirect */}

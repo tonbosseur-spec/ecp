@@ -5,8 +5,6 @@ import { createServer as createViteServer } from 'vite';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
-import fapshiInitiateHandler from './api/payments/initiate';
-import fapshiWebhookHandler from './api/payments/webhook';
 import publicStatsHandler from './api/public-stats';
 
 // Charger les variables d'environnement
@@ -240,18 +238,7 @@ Maximum 70 mots.`;
 });
 
 // ==========================================
-// 2. ROUTES PAIEMENT FAPSHI (Mobile Money / Orange Money)
-// ==========================================
-app.post('/api/payments/initiate', async (req, res) => {
-  await fapshiInitiateHandler(req as any, res as any);
-});
-
-app.post('/api/payments/webhook', async (req, res) => {
-  await fapshiWebhookHandler(req as any, res as any);
-});
-
-// ==========================================
-// 3. STATISTIQUES RÉELLES DE LA PLATEFORME
+// 2. STATISTIQUES RÉELLES DE LA PLATEFORME
 // ==========================================
 app.get('/api/public-stats', async (req, res) => {
   await publicStatsHandler(req as any, res as any);

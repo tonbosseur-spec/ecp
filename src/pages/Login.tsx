@@ -175,7 +175,7 @@ export default function Login() {
         </div>
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 text-center flex flex-col gap-2.5">
           <p className="text-xs text-gray-500">Accès restreint aux administrateurs autorisés.</p>
-          <div className="border-t border-gray-200/60 pt-3">
+          <div className="border-t border-gray-200/60 pt-3 flex flex-col gap-2">
             <Link 
               to="/client/login"
               className="inline-flex items-center justify-center gap-1.5 text-xs font-black text-blue-600 hover:text-blue-700 transition-colors"
@@ -183,6 +183,12 @@ export default function Login() {
               <GraduationCap className="w-4 h-4" />
               Retourner à l'Espace Apprenant (Client)
               <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+            <Link 
+              to="/"
+              className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Visiter notre site web
             </Link>
           </div>
         </div>

@@ -48,7 +48,6 @@ import SplashScreen from '../components/SplashScreen';
 import { dailyTips } from '../data/tips';
 import { getClientReferralCode, getParrainReferralSales, ReferralCodeInfo, ReferralSale } from '../lib/referralService';
 import { loadFromCache, saveToCache } from '../lib/offlineSync';
-import { initiateFapshiPayment } from '../lib/paymentService';
 
 const stripHtml = (html: string) => {
   if (!html) return '';
@@ -111,40 +110,7 @@ export default function ClientHub() {
   const [loadingContent, setLoadingContent] = useState(false);
   const [togglingProgressId, setTogglingProgressId] = useState<string | null>(null);
   const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
-  const [processingPaymentKey, setProcessingPaymentKey] = useState<string | null>(null);
-  const [fapshiError, setFapshiError] = useState<string | null>(null);
-
-  const handlePayWithFapshi = async (options: {
-    registrationId?: string;
-    courseId?: string;
-    amount: number;
-    courseTitle?: string;
-    paymentType?: 'full' | 'installment';
-    trancheNumber?: number;
-    keyId: string;
-  }) => {
-    setProcessingPaymentKey(options.keyId);
-    setFapshiError(null);
-    try {
-      const res = await initiateFapshiPayment({
-        registrationId: options.registrationId,
-        courseId: options.courseId,
-        amount: options.amount,
-        courseTitle: options.courseTitle,
-        paymentType: options.paymentType,
-        trancheNumber: options.trancheNumber
-      });
-      if (res.success && res.link) {
-        window.location.href = res.link;
-      } else {
-        setFapshiError(res.message || 'Impossible d\'initialiser le paiement Mobile Money.');
-        setProcessingPaymentKey(null);
-      }
-    } catch (err: any) {
-      setFapshiError('Erreur de connexion au service de paiement.');
-      setProcessingPaymentKey(null);
-    }
-  };
+  const [manualPaymentInfoModal, setManualPaymentInfoModal] = useState<{ open: boolean, courseTitle?: string, amount?: number } | null>(null);
 
   useEffect(() => {
     // Handle online/offline events
@@ -232,7 +198,7 @@ export default function ClientHub() {
         } else {
           // Fallback to user metadata
           const fallbackProfile = {
-            first_name: session.user.user_metadata?.first_name || 'Client',
+            first_name: session.user.user_metadata?.first_name || session.user.email?.split('@')[0] || '',
             last_name: session.user.user_metadata?.last_name || ''
           };
           setProfile(fallbackProfile);
@@ -536,7 +502,7 @@ export default function ClientHub() {
     );
   }
 
-  const firstName = profile?.first_name || 'Client';
+  const firstName = profile?.first_name || 'Apprenant';
 
   // Calendar data computation
   const MONTHS_FR = [
@@ -698,10 +664,10 @@ export default function ClientHub() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
-                  Bonjour{profile?.first_name ? `, ${profile.first_name}` : ''}
+                  Tableau de bord
                 </h2>
                 <p className="text-xs sm:text-sm text-gray-500 mt-0.5 font-medium">
-                  Ravi de vous revoir. Voici votre tableau de bord.
+                  Ravi de vous revoir. Voici un aperçu de vos activités.
                 </p>
               </div>
             </div>
@@ -1155,38 +1121,16 @@ export default function ClientHub() {
                           {payment.status === 'paid' ? 'Payé' : 'À régler'}
                         </span>
                         {payment.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handlePayWithFapshi({
-                                registrationId: payment.registration_id,
-                                courseId: payment.course_id,
-                                amount: payment.amount,
-                                courseTitle: payment.registrations?.courses?.title,
-                                paymentType: payment.payment_type,
-                                trancheNumber: payment.tranche_number,
-                                keyId: `pay-${payment.id}`
-                              })}
-                              disabled={processingPaymentKey === `pay-${payment.id}`}
-                              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
-                              title="Payer directement par Mobile Money ou Orange Money"
-                            >
-                              {processingPaymentKey === `pay-${payment.id}` ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <CreditCard className="w-3.5 h-3.5" />
-                              )}
-                              <span>Payer en ligne</span>
-                            </button>
-                            <a 
-                              href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour ! Je suis ${profile?.first_name || ''} ${profile?.last_name || ''} (${profile?.email || ''}). Je souhaite régler la tranche ${payment.tranche_number} (${payment.amount.toLocaleString('fr-FR')} FCFA) pour la formation "${payment.registrations?.courses?.title || 'Formation'}". Merci de m'indiquer la marche à suivre.`)}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="p-1.5 bg-[#25D366] text-white rounded-lg hover:opacity-90 transition-all"
-                              title="Régler via WhatsApp"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                            </a>
-                          </>
+                          <a 
+                            href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour ! Je suis ${profile?.first_name || ''} ${profile?.last_name || ''} (${profile?.email || ''}). Je souhaite régler la tranche ${payment.tranche_number} (${payment.amount.toLocaleString('fr-FR')} FCFA) pour la formation "${payment.registrations?.courses?.title || 'Formation'}". Merci de m'indiquer la marche à suivre.`)}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                            title="Régler via WhatsApp"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>Envoyer preuve / Contacter l'Admin</span>
+                          </a>
                         )}
                       </div>
                     </div>
@@ -1747,27 +1691,18 @@ export default function ClientHub() {
                       ) : (
                         <div className="flex flex-col gap-2">
                           <div className="text-center py-3 px-4 bg-amber-50 text-amber-800 text-xs rounded-xl font-medium border border-amber-100">
-                            🔒 Les ressources seront débloquées automatiquement dès réception de votre paiement.
+                            🔒 Les ressources seront débloquées par l'administration dès confirmation de votre paiement manuel.
                           </div>
                           
-                          <button
-                            onClick={() => handlePayWithFapshi({
-                              registrationId: reg.id,
-                              courseId: course.id,
-                              amount: course.price || 1000,
-                              courseTitle: course.title,
-                              keyId: `reg-${reg.id}`
-                            })}
-                            disabled={processingPaymentKey === `reg-${reg.id}`}
-                            className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-bold transition-all text-xs shadow-md active:scale-[0.99] cursor-pointer"
+                          <a
+                            href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour M. Pierre,\n\nJe viens d'effectuer un transfert Mobile Money pour la formation "${course.title}".\n\nMon nom : ${profile?.first_name || ''} ${profile?.last_name || ''}\nMon email : ${profile?.email || ''}\nID de transaction / Référence : `)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all text-xs shadow-md active:scale-[0.99] cursor-pointer"
                           >
-                            {processingPaymentKey === `reg-${reg.id}` ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <CreditCard className="w-4 h-4" />
-                            )}
-                            <span>Régler par Mobile Money (Orange / MTN)</span>
-                          </button>
+                            <MessageCircle className="w-4 h-4" />
+                            <span>Envoyer la preuve de paiement (WhatsApp)</span>
+                          </a>
 
                           <button
                             onClick={() => {
@@ -1778,7 +1713,7 @@ export default function ClientHub() {
                             className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-medium transition-colors text-sm shadow-sm"
                           >
                             <MessageCircle className="w-4 h-4" />
-                            Contacter l'administrateur
+                            Envoyer un message à l'administration
                           </button>
                         </div>
                       )}

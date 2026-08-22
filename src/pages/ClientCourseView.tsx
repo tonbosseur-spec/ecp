@@ -41,6 +41,7 @@ export default function ClientCourseView() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [quizModuleIds, setQuizModuleIds] = useState<string[]>([]);
+  const [accessDeniedReason, setAccessDeniedReason] = useState<string | null>(null);
 
   const checkAuthAndFetchData = async (isManualRefresh = false) => {
     try {
@@ -59,6 +60,36 @@ export default function ClientCourseView() {
 
       if (session) {
         setUserId(session.user.id);
+
+        // Check if admin/trainer or approved student
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        const isAdminOrTrainer = profile && ['admin', 'trainer', 'superadmin'].includes(profile.role);
+
+        if (!isAdminOrTrainer) {
+          const { data: regData } = await supabase
+            .from('registrations')
+            .select('payment_status')
+            .eq('client_id', session.user.id)
+            .eq('course_id', courseId)
+            .maybeSingle();
+
+          if (!regData) {
+            setAccessDeniedReason("Vous n'êtes pas encore inscrit(e) à cette formation.");
+          } else if (regData.payment_status !== 'approved') {
+            setAccessDeniedReason("L'accès à cette formation est verrouillé tant que votre paiement n'a pas été validé par l'administration.");
+          } else {
+            setAccessDeniedReason(null);
+          }
+        } else {
+          setAccessDeniedReason(null);
+        }
+      } else {
+        setAccessDeniedReason("Vous devez être connecté(e) pour accéder à cette formation.");
       }
 
       // Try online fetch first
@@ -281,6 +312,34 @@ export default function ClientCourseView() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3">
         <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
         <span className="text-sm text-gray-500 font-medium">Chargement de votre espace de formation...</span>
+      </div>
+    );
+  }
+
+  if (accessDeniedReason) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
+        <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4 text-amber-600 shadow-sm">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-extrabold text-gray-900 mb-2">Accès Restreint</h2>
+        <p className="text-gray-600 mb-6 max-w-md text-sm leading-relaxed">{accessDeniedReason}</p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => navigate('/client/hub')}
+            className="px-5 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors text-xs sm:text-sm shadow-sm"
+          >
+            Retourner à mon tableau de bord
+          </button>
+          <a
+            href={`https://wa.me/237698389030?text=${encodeURIComponent(`Bonjour, je souhaite débloquer mon accès à la formation "${course?.title || ''}".`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors text-xs sm:text-sm shadow-sm"
+          >
+            Contacter le support (WhatsApp)
+          </a>
+        </div>
       </div>
     );
   }

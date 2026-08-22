@@ -186,6 +186,9 @@ export default function Dashboard() {
           <div className="absolute -bottom-10 -left-10 w-72 h-72 lg:w-[300px] lg:h-[300px] bg-purple-500/10 lg:bg-purple-500/15 rounded-full blur-2xl pointer-events-none"></div>
           <div className="hidden lg:block absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent pointer-events-none"></div>
           
+          {/* Decorative Watermark Icon in Background */}
+          <BarChart3 className="absolute -bottom-8 -right-8 w-56 h-56 sm:w-72 sm:h-72 lg:w-80 lg:h-80 opacity-[0.06] text-indigo-200 transform -rotate-12 pointer-events-none" />
+
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 lg:gap-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-2 max-w-full">
@@ -202,7 +205,7 @@ export default function Dashboard() {
                 )}
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-3xl xl:text-4xl font-extrabold lg:font-black tracking-tight text-white mb-2">
-                Bonjour Pierre Valdeze
+                Tableau de bord administrateur
               </h1>
               <p className="text-xs sm:text-sm text-indigo-200/80 font-medium max-w-md">
                 Gérez votre école, vos formations, vos clients et vos ventes depuis ce portail unifié.
