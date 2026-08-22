@@ -18,11 +18,16 @@ function getCellDisplayPrimitive(cells: ExcelCellsMap, address: string): { raw: 
   }
 
   const trimmed = val.trim();
-  // Handle French decimal commas e.g. "120,5" -> "120.5"
-  const normalizedNumStr = trimmed.replace(',', '.');
-  const parsed = Number(normalizedNumStr);
+  
+  // Handle French decimal commas e.g. "120,5" -> "120.5" and clean currency/spaces
+  const cleanNumStr = trimmed
+    .replace(/\s+/g, '')
+    .replace(',', '.')
+    .replace(/[^0-9.-]/g, '');
 
-  if (!isNaN(parsed) && trimmed !== '') {
+  const parsed = Number(cleanNumStr);
+
+  if (!isNaN(parsed) && cleanNumStr !== '' && cleanNumStr !== '-' && cleanNumStr !== '.') {
     return { raw: trimmed, num: parsed, isNumeric: true };
   }
 
@@ -108,10 +113,12 @@ export function parseRangeToChartData(sourceRange: string, cells: ExcelCellsMap)
   let hasHeaderRow = false;
 
   if (totalRows > 1 && totalCols > 1) {
-    // Look at cell (minCol + 1, minRow)
+    const topCatCell = getCellDisplayPrimitive(cells, coordToAddress({ col: minCol, row: minRow }));
+    const secondCatCell = getCellDisplayPrimitive(cells, coordToAddress({ col: minCol, row: minRow + 1 }));
     const topSeriesCell = getCellDisplayPrimitive(cells, coordToAddress({ col: minCol + 1, row: minRow }));
-    // If the top cell of the second column is non-numeric (e.g. "Ventes", "2025" as string header), row minRow is a header row
-    if (!topSeriesCell.isNumeric) {
+    
+    // Header row if top series cell is non-numeric OR top-left cell is text while second row cell is also text
+    if (!topSeriesCell.isNumeric || (!topCatCell.isNumeric && !secondCatCell.isNumeric)) {
       hasHeaderRow = true;
     }
   } else if (totalRows > 1 && totalCols === 1) {

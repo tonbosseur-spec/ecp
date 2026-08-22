@@ -199,7 +199,7 @@ export const ExcelGrid: React.FC<ExcelGridProps> = ({
     }
   };
 
-  // Gesture tracking ref for discriminating TAP vs DRAG
+  // Gesture tracking ref for discriminating TAP vs DRAG vs SCROLL on touch
   const gestureRef = useRef<{
     startX: number;
     startY: number;
@@ -209,9 +209,19 @@ export const ExcelGrid: React.FC<ExcelGridProps> = ({
     hasMoved: boolean;
   } | null>(null);
 
+  const touchHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearTouchHoldTimer = () => {
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
+    }
+  };
+
   // Drag handle handlers (for filling)
   const handleDragHandleStart = (e: React.SyntheticEvent) => {
     e.stopPropagation();
+    clearTouchHoldTimer();
     setIsDraggingFill(true);
     fillSourceRangeRef.current = { ...selectionRange };
     dragStartCoordRef.current = selectionRange.start;
@@ -219,6 +229,8 @@ export const ExcelGrid: React.FC<ExcelGridProps> = ({
   
   // Drag selection & tap handlers (for selecting cell / inserting reference)
   const handleCellPointerDown = (coord: CellCoordinate, e: React.SyntheticEvent) => {
+    clearTouchHoldTimer();
+
     const nativeEv = (e.nativeEvent || e) as PointerEvent | MouseEvent | TouchEvent;
     const isTouch =
       ('pointerType' in nativeEv && (nativeEv as PointerEvent).pointerType === 'touch') ||
@@ -241,7 +253,7 @@ export const ExcelGrid: React.FC<ExcelGridProps> = ({
     const isShift = 'shiftKey' in nativeEv ? (nativeEv as MouseEvent).shiftKey : false;
 
     // IF formula editing or inline cell editing:
-    // Call preventDefault on pointerdown so formula bar input retains focus (prevents mobile virtual keyboard hide/show flicker)
+    // Call preventDefault on pointerdown so formula bar input retains focus
     if (isEditing || isFormulaEditing) {
       if ('preventDefault' in e && typeof e.preventDefault === 'function') {
         e.preventDefault();
@@ -262,6 +274,25 @@ export const ExcelGrid: React.FC<ExcelGridProps> = ({
       setIsDraggingSelection(true);
       dragStartCoordRef.current = coord;
       onSelectCell(coord, isShift, e as unknown as React.MouseEvent);
+    } else if (pointerType === 'touch' && !isEditing && !isFormulaEditing) {
+      // For touch:
+      // If touch starts on the active cell or inside active selection, enable range drag immediately
+      const isTouchOnActiveOrRange = isCoordInRange(coord, selectionRange) || 
+        (coord.col === activeCoord.col && coord.row === activeCoord.row);
+
+      if (isTouchOnActiveOrRange) {
+        setIsDraggingSelection(true);
+        dragStartCoordRef.current = selectionRange.start;
+      } else {
+        // Otherwise, set a short 150ms timer for long-press selection drag
+        touchHoldTimerRef.current = setTimeout(() => {
+          if (gestureRef.current && !gestureRef.current.hasMoved) {
+            onSelectCell(coord, false);
+            setIsDraggingSelection(true);
+            dragStartCoordRef.current = coord;
+          }
+        }, 150);
+      }
     }
   };
 
@@ -309,9 +340,13 @@ export const ExcelGrid: React.FC<ExcelGridProps> = ({
 
         if (dist > 8) {
           gestureRef.current.hasMoved = true;
+          // If not currently range-dragging, clear hold timer to allow smooth native scroll
+          if (!isDraggingSelection) {
+            clearTouchHoldTimer();
+          }
         }
 
-        // For desktop mouse drag range selection:
+        // For drag range selection (mouse or touch active selection):
         if (isDraggingSelection) {
           if (e.cancelable) e.preventDefault();
           const targetCoord = getCoordFromClientXY(clientX, clientY);
@@ -326,6 +361,8 @@ export const ExcelGrid: React.FC<ExcelGridProps> = ({
     };
 
     const handlePointerUp = (e: MouseEvent | TouchEvent | PointerEvent) => {
+      clearTouchHoldTimer();
+
       if (gestureRef.current) {
         const { pointerType, coord, isShift, hasMoved } = gestureRef.current;
 

@@ -79,6 +79,14 @@ export default function ClientExcelLab() {
   const handleDeleteChart = useCallback((id: string) => {
     setCharts((prev) => prev.filter((c) => c.id !== id));
   }, []);
+
+  const handleToggleChartLabels = useCallback((id: string) => {
+    setCharts((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, showLabels: c.showLabels === undefined ? false : !c.showLabels } : c
+      )
+    );
+  }, []);
   
   // Formula bar ref for imperative insertions
   const formulaBarRef = useRef<ExcelFormulaBarRef>(null);
@@ -560,6 +568,7 @@ export default function ClientExcelLab() {
                   config={chart}
                   cells={cells}
                   onDelete={handleDeleteChart}
+                  onToggleLabels={handleToggleChartLabels}
                 />
               ))}
             </div>

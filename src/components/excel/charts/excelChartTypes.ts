@@ -5,6 +5,7 @@ export interface ExcelChartConfig {
   type: ExcelChartType;
   sourceRange: string;
   title?: string;
+  showLabels?: boolean;
 }
 
 export interface ExcelChartSeries {

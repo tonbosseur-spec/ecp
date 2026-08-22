@@ -21,12 +21,14 @@ export const ExcelChartDialog: React.FC<ExcelChartDialogProps> = ({
 }) => {
   const [chartType, setChartType] = useState<ExcelChartType>('column');
   const [title, setTitle] = useState('');
+  const [showLabels, setShowLabels] = useState(true);
   const [rangeInput, setRangeInput] = useState(selectedRangeAddress);
 
   useEffect(() => {
     if (isOpen) {
       setRangeInput(selectedRangeAddress);
       setTitle('');
+      setShowLabels(true);
     }
   }, [isOpen, selectedRangeAddress]);
 
@@ -44,6 +46,7 @@ export const ExcelChartDialog: React.FC<ExcelChartDialogProps> = ({
       type: chartType,
       sourceRange: rangeInput.trim().toUpperCase(),
       title: title.trim() || undefined,
+      showLabels,
     });
     onClose();
   };
@@ -164,6 +167,27 @@ export const ExcelChartDialog: React.FC<ExcelChartDialogProps> = ({
               placeholder="ex: Ventes mensuelles"
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:bg-white"
             />
+          </div>
+
+          {/* Show Labels Toggle */}
+          <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-slate-800">Afficher les étiquettes</span>
+              <span className="text-[11px] text-slate-500">Affiche les valeurs directes sur le graphique</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLabels(!showLabels)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                showLabels ? 'bg-emerald-600' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  showLabels ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           {/* Buttons */}
